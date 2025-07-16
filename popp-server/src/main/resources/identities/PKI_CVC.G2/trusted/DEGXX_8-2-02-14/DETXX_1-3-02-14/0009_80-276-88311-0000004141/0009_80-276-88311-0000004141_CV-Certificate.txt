@@ -1,0 +1,58 @@
+CVC-Content '7f2181da7f4e81935f290170420844455458581302147f494b06062b24030503018641042283eaa491d888bb7c54ba5756adf677864898f8056b65aa513d2aded883af8f06171e820292686c0b489de908a45f0dc96c5014fd13ff192045629bf9b3f4e35f200c0009802768831100000041417f4c1306082a8214004c0481185307000000000000005f25060105000101065f24060200000101065f37404254dd4b1bde235e22205f47ef2d99643ade2fe3c5be0216319b3980e670245567a006a9e947e7390de345344f292ed34eabcf7760a250775968b5d560a19ab4'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445545858130214
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 042283eaa491d888bb7c54ba5756adf677864898f8056b65aa513d2aded883af8f06171e820292686c0b489de908a45f0dc96c5014fd13ff192045629bf9b3f4e3
+|    |    5f20 0c 000980276883110000004141
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000000
+|    |    5f25 06 010500010106
+|    |    5f24 06 020000010106
+|    5f37 40 4254dd4b1bde235e22205f47ef2d99643ade2fe3c5be0216319b3980e670245567a006a9e947e7390de345344f292ed34eabcf7760a250775968b5d560a19ab4
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445545858130214
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 042283eaa491d888bb7c54ba5756adf677864898f8056b65aa513d2aded883af8f06171e820292686c0b489de908a45f0dc96c5014fd13ff192045629bf9b3f4e3
+Certificate Holder Reference      CHR = 000980276883110000004141
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000000
+Certificate Effective  Date       CED = 010500010106
+Certificate Expiration Date       CXD = 020000010106
+Signature as provided by CA       sig = 4254dd4b1bde235e22205f47ef2d99643ade2fe3c5be0216319b3980e670245567a006a9e947e7390de345344f292ed34eabcf7760a250775968b5d560a19ab4
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276883110000004141
+       Discretionary data  = 0009
+       ICCSN               = 80276883110000004141
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000004141
+Certification Authority Reference CAR = 4445545858130214
+       CA-Identifier       = DETXX
+       service indicator   = 1
+       discretionary data  = 3
+       algorithm reference = 02
+       generation year     = 14
+Certificate Effective  Date       CED = 010500010106     => 16. Januar 2015
+Certificate Expiration Date       CXD = 020000010106     => 16. Januar 2020
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 042283eaa491d888bb7c54ba5756adf677864898f8056b65aa513d2aded883af8f06171e820292686c0b489de908a45f0dc96c5014fd13ff192045629bf9b3f4e3
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('2283eaa491d888bb7c54ba5756adf677864898f8056b65aa513d2aded883af8f', '06171e820292686c0b489de908a45f0dc96c5014fd13ff192045629bf9b3f4e3')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000000
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+Signature is valid     sig = 'R || S' = 4254dd4b1bde235e22205f47ef2d99643ade2fe3c5be0216319b3980e670245567a006a9e947e7390de345344f292ed34eabcf7760a250775968b5d560a19ab4
+       R = '4254dd4b1bde235e22205f47ef2d99643ade2fe3c5be0216319b3980e6702455'
+       S = '67a006a9e947e7390de345344f292ed34eabcf7760a250775968b5d560a19ab4'

@@ -1,0 +1,77 @@
+CVC-Content '7f2181da7f4e81935f290170420844455458581502147f494b06062b240305030186410442601b0e7c5cd19ffdaba5885ae1bdeb5870ab7b277b433cfbf6e1b050ac603d26df5b59613d2d2318ebb7dc2fe35086de81a53f24b08efb8ca494d39d8189715f200c0006802768831100000155017f4c1306082a8214004c0481185307005d20daa883005f25060105000703005f24060200000703005f374096032f197e2ece7ff4b6641b5acc74dc2535ebf20596cce72ce898f295ac9a307fee6f2dbe673211183ef460d78d8611bd0c217651bdd934e38c839d8a1be74a'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445545858150214
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 0442601b0e7c5cd19ffdaba5885ae1bdeb5870ab7b277b433cfbf6e1b050ac603d26df5b59613d2d2318ebb7dc2fe35086de81a53f24b08efb8ca494d39d818971
+|    |    5f20 0c 000680276883110000015501
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 005d20daa88300
+|    |    5f25 06 010500070300
+|    |    5f24 06 020000070300
+|    5f37 40 96032f197e2ece7ff4b6641b5acc74dc2535ebf20596cce72ce898f295ac9a307fee6f2dbe673211183ef460d78d8611bd0c217651bdd934e38c839d8a1be74a
+--------------------------------------------------------------------------------
+WARNING: The CV-Certificate may not be fully in conformance to [gemSpec_PKI].
+         Still a Smart Card might accept this CV-Certificate. Good Luck!
+    1. bit b36 is set, but RFU
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445545858150214
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 0442601b0e7c5cd19ffdaba5885ae1bdeb5870ab7b277b433cfbf6e1b050ac603d26df5b59613d2d2318ebb7dc2fe35086de81a53f24b08efb8ca494d39d818971
+Certificate Holder Reference      CHR = 000680276883110000015501
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 005d20daa88300
+Certificate Effective  Date       CED = 010500070300
+Certificate Expiration Date       CXD = 020000070300
+Signature as provided by CA       sig = 96032f197e2ece7ff4b6641b5acc74dc2535ebf20596cce72ce898f295ac9a307fee6f2dbe673211183ef460d78d8611bd0c217651bdd934e38c839d8a1be74a
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000680276883110000015501
+       Discretionary data  = 0006
+       ICCSN               = 80276883110000015501
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000015501
+Certification Authority Reference CAR = 4445545858150214
+       CA-Identifier       = DETXX
+       service indicator   = 1
+       discretionary data  = 5
+       algorithm reference = 02
+       generation year     = 14
+Certificate Effective  Date       CED = 010500070300     => 30. Juli 2015
+Certificate Expiration Date       CXD = 020000070300     => 30. Juli 2020
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 0442601b0e7c5cd19ffdaba5885ae1bdeb5870ab7b277b433cfbf6e1b050ac603d26df5b59613d2d2318ebb7dc2fe35086de81a53f24b08efb8ca494d39d818971
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('42601b0e7c5cd19ffdaba5885ae1bdeb5870ab7b277b433cfbf6e1b050ac603d', '26df5b59613d2d2318ebb7dc2fe35086de81a53f24b08efb8ca494d39d818971')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 005d20daa88300
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+       b09 => eGK: Verwendung der ESIGN-AUTN Funktionalität ohne PIN
+       b11 => eGK: Verwendung der ESIGN-ENCV Funktionalität ohne PIN
+       b12 => eGK: Verwendung der ESIGN-AUT Funktionalität
+       b13 => eGK: Verwendung der ESIGN-ENC Funktionalität
+       b15 => eGK: Notfalldatensatz schreiben, löschen (hier 'erase', nicht 'delete')
+       b18 => eGK: Notfalldatensatz lesen ohne PIN
+       b24 => eGK: Einwilligungen und Verweise im DF.HCA verbergen und sichtbar machen
+       b25 => eGK: Einwilligungen im DF.HCA lesen und löschen (hier 'erase', nicht 'delete')
+       b27 => eGK: Einwilligungen im DF.HCA schreiben
+       b28 => eGK: Verweise im DF.HCA lesen und schreiben
+       b30 => eGK: Geschützte Versichertendaten lesen ohne PIN
+       b32 => eGK: Loggingdaten schreiben ohne PIN
+       b34 => eGK: Prüfungsnachweis lesen und schreiben
+       b36 => RFU
+       b40 => eGK: Gesundheitsdatendienste lesen, schreiben und löschen (hier 'erase')
+       b46 => eGK: AMTS-Datensatz lesen
+       b47 => eGK: AMTS-Datensatz schreiben, löschen (hier „erase“, nicht „delete“)
+Signature is valid     sig = 'R || S' = 96032f197e2ece7ff4b6641b5acc74dc2535ebf20596cce72ce898f295ac9a307fee6f2dbe673211183ef460d78d8611bd0c217651bdd934e38c839d8a1be74a
+       R = '96032f197e2ece7ff4b6641b5acc74dc2535ebf20596cce72ce898f295ac9a30'
+       S = '7fee6f2dbe673211183ef460d78d8611bd0c217651bdd934e38c839d8a1be74a'

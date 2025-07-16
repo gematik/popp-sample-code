@@ -1,0 +1,58 @@
+CVC-Content '7f2181da7f4e81935f290170420844454758581202237f494b06062b240305030186410403f54df417a6fd3e504cc7291d3a90f12087b50e859870701512ca2f2269cfeea3c635950ea0e98048b7641a85d651de942620df3072173ac563e34ae8d52aa75f200c0009802768831100001076377f4c1306082a8214004c0481185307000000000000005f25060204010002045f24060209010002035f37402cf76ac0fe205f37074e53ffc2f6e529384ba678523cb8e8058714036d11592c77ff529bdf17b77a1f99137c64dec1baa79a455ac0c9abad23e48b59374ea234'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445475858120223
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 0403f54df417a6fd3e504cc7291d3a90f12087b50e859870701512ca2f2269cfeea3c635950ea0e98048b7641a85d651de942620df3072173ac563e34ae8d52aa7
+|    |    5f20 0c 000980276883110000107637
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000000
+|    |    5f25 06 020401000204
+|    |    5f24 06 020901000203
+|    5f37 40 2cf76ac0fe205f37074e53ffc2f6e529384ba678523cb8e8058714036d11592c77ff529bdf17b77a1f99137c64dec1baa79a455ac0c9abad23e48b59374ea234
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445475858120223
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 0403f54df417a6fd3e504cc7291d3a90f12087b50e859870701512ca2f2269cfeea3c635950ea0e98048b7641a85d651de942620df3072173ac563e34ae8d52aa7
+Certificate Holder Reference      CHR = 000980276883110000107637
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000000
+Certificate Effective  Date       CED = 020401000204
+Certificate Expiration Date       CXD = 020901000203
+Signature as provided by CA       sig = 2cf76ac0fe205f37074e53ffc2f6e529384ba678523cb8e8058714036d11592c77ff529bdf17b77a1f99137c64dec1baa79a455ac0c9abad23e48b59374ea234
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276883110000107637
+       Discretionary data  = 0009
+       ICCSN               = 80276883110000107637
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000107637
+Certification Authority Reference CAR = 4445475858120223
+       CA-Identifier       = DEGXX
+       service indicator   = 1
+       discretionary data  = 2
+       algorithm reference = 02
+       generation year     = 23
+Certificate Effective  Date       CED = 020401000204     => 24. Oktober 2024
+Certificate Expiration Date       CXD = 020901000203     => 23. Oktober 2029
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 0403f54df417a6fd3e504cc7291d3a90f12087b50e859870701512ca2f2269cfeea3c635950ea0e98048b7641a85d651de942620df3072173ac563e34ae8d52aa7
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('03f54df417a6fd3e504cc7291d3a90f12087b50e859870701512ca2f2269cfee', 'a3c635950ea0e98048b7641a85d651de942620df3072173ac563e34ae8d52aa7')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000000
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+Signature is valid     sig = 'R || S' = 2cf76ac0fe205f37074e53ffc2f6e529384ba678523cb8e8058714036d11592c77ff529bdf17b77a1f99137c64dec1baa79a455ac0c9abad23e48b59374ea234
+       R = '2cf76ac0fe205f37074e53ffc2f6e529384ba678523cb8e8058714036d11592c'
+       S = '77ff529bdf17b77a1f99137c64dec1baa79a455ac0c9abad23e48b59374ea234'

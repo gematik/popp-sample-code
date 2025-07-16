@@ -1,0 +1,9 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v8="http://ws.gematik.de/conn/CardService/v8.2">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <v8:StopCardSession>
+            <v8:SessionId>?</v8:SessionId>
+        </v8:StopCardSession>
+    </soapenv:Body>
+</soapenv:Envelope>
+

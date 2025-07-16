@@ -1,0 +1,111 @@
+CVC-Content '7f2181d87f4e81915f290170420844455a47578402207f494d06082a8648ce3d04030286410400c6ebb5b22db0b11bbc632e173b94f42d81e90d8a1b0d6d73bda389740651649a694ade782bd577b8bec6dffad37e14503599896bf4e7a739a34d9d8d783a3e5f200844455a47578402207f4c1306082a8214004c0481185307ffffffffffffff5f25060200000501035f24060300000501025f37407a2f28238295dfdb70c3f999d31f2de733b7df3e83cd3f69b662ec17e5a6df9a53a2cfe7fc9b8aa08f25c21ac63783154ba82199043284ab66774fdf975322ca'
+CVC.DER:
+7f21 81d8
+|    7f4e 8191
+|    |    5f29 01 70
+|    |    42 08 44455a4757840220
+|    |    7f49 4d
+|    |    |    06 08 2a8648ce3d040302
+|    |    |    86 41 0400c6ebb5b22db0b11bbc632e173b94f42d81e90d8a1b0d6d73bda389740651649a694ade782bd577b8bec6dffad37e14503599896bf4e7a739a34d9d8d783a3e
+|    |    5f20 08 44455a4757840220
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 ffffffffffffff
+|    |    5f25 06 020000050103
+|    |    5f24 06 030000050102
+|    5f37 40 7a2f28238295dfdb70c3f999d31f2de733b7df3e83cd3f69b662ec17e5a6df9a53a2cfe7fc9b8aa08f25c21ac63783154ba82199043284ab66774fdf975322ca
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 44455a4757840220
+Usage of enclosed public key      OID = 2a8648ce3d040302
+Public point as octet string      P   = 0400c6ebb5b22db0b11bbc632e173b94f42d81e90d8a1b0d6d73bda389740651649a694ade782bd577b8bec6dffad37e14503599896bf4e7a739a34d9d8d783a3e
+Certificate Holder Reference      CHR = 44455a4757840220
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = ffffffffffffff
+Certificate Effective  Date       CED = 020000050103
+Certificate Expiration Date       CXD = 030000050102
+Signature as provided by CA       sig = 7a2f28238295dfdb70c3f999d31f2de733b7df3e83cd3f69b662ec17e5a6df9a53a2cfe7fc9b8aa08f25c21ac63783154ba82199043284ab66774fdf975322ca
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 44455a4757840220
+       CA-Identifier       = DEZGW
+       service indicator   = 8
+       discretionary data  = 4
+       algorithm reference = 02
+       generation year     = 20
+Certification Authority Reference CAR = 44455a4757840220
+       CA-Identifier       = DEZGW
+       service indicator   = 8
+       discretionary data  = 4
+       algorithm reference = 02
+       generation year     = 20
+Certificate Effective  Date       CED = 020000050103     => 13. Mai 2020
+Certificate Expiration Date       CXD = 030000050102     => 12. Mai 2030
+Usage of enclosed public key      OID = 2a8648ce3d040302 = {1 2 840 10045 4 3 2} =  ecdsa-with-SHA256
+Public point as octet string      P   = 0400c6ebb5b22db0b11bbc632e173b94f42d81e90d8a1b0d6d73bda389740651649a694ade782bd577b8bec6dffad37e14503599896bf4e7a739a34d9d8d783a3e
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('00c6ebb5b22db0b11bbc632e173b94f42d81e90d8a1b0d6d73bda38974065164', '9a694ade782bd577b8bec6dffad37e14503599896bf4e7a739a34d9d8d783a3e')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = ffffffffffffff
+       b0b1:  Link-Zertifikat einer Root-CA
+       b02 => RFU
+       b03 => RFU
+       b04 => RFU
+       b05 => RFU
+       b06 => RFU
+       b07 => RFU
+       b08 => eGK: Verwendung der ESIGN-AUTN Funktionalität mit PIN.CH
+       b09 => eGK: Verwendung der ESIGN-AUTN Funktionalität ohne PIN
+       b10 => eGK: Verwendung der ESIGN-ENCV Funktionalität mit PIN.CH
+       b11 => eGK: Verwendung der ESIGN-ENCV Funktionalität ohne PIN
+       b12 => eGK: Verwendung der ESIGN-AUT Funktionalität
+       b13 => eGK: Verwendung der ESIGN-ENC Funktionalität
+       b14 => eGK: Notfalldatensatz verbergen und sichtbar machen
+       b15 => eGK: Notfalldatensatz schreiben, löschen (hier 'erase', nicht 'delete')
+       b16 => RFU
+       b17 => eGK: Notfalldatensatz lesen mit MRPIN.NFD
+       b18 => eGK: Notfalldatensatz lesen ohne PIN
+       b19 => eGK: Persönliche Erklärungen (DPE) verbergen und sichtbar machen
+       b20 => eGK: DPE schreiben, löschen (hier 'erase', nicht 'delete')
+       b21 => RFU
+       b22 => eGK: DPE lesen mit MRPIN.DPE_Read
+       b23 => eGK: DPE lesen ohne PIN
+       b24 => eGK: Einwilligungen und Verweise im DF.HCA verbergen und sichtbar machen
+       b25 => eGK: Einwilligungen im DF.HCA lesen und löschen (hier 'erase', nicht 'delete')
+       b26 => RFU
+       b27 => eGK: Einwilligungen im DF.HCA schreiben
+       b28 => eGK: Verweise im DF.HCA lesen und schreiben
+       b29 => eGK: Geschützte Versichertendaten lesen mit PIN.CH
+       b30 => eGK: Geschützte Versichertendaten lesen ohne PIN
+       b31 => eGK: Loggingdaten schreiben mit PIN.CH
+       b32 => eGK: Loggingdaten schreiben ohne PIN
+       b33 => eGK: Zugriff in den AdV-Umgebungen
+       b34 => eGK: Prüfungsnachweis lesen und schreiben
+       b35 => RFU
+       b36 => RFU
+       b37 => RFU
+       b38 => RFU
+       b39 => eGK: Gesundheitsdatendienste verbergen und sichtbar machen
+       b40 => eGK: Gesundheitsdatendienste lesen, schreiben und löschen (hier 'erase')
+       b41 => eGK: Organspendedatensatz lesen mit MRPIN.OSE
+       b42 => eGK: Organspendedatensatz lesen ohne PIN
+       b43 => eGK: Organspendedatensatz schreiben, löschen (hier 'erase', nicht 'delete')
+       b44 => eGK: Organspendedatensatz verbergen und sichtbar machen
+       b45 => eGK: AMTS-Datensatz verbergen und sichtbar machen
+       b46 => eGK: AMTS-Datensatz lesen
+       b47 => eGK: AMTS-Datensatz schreiben, löschen (hier „erase“, nicht „delete“)
+       b48 => RFU
+       b49 => RFU
+       b50 => RFU
+       b51 => Auslöser Komfortsignatur
+       b52 => Sichere Signaturerstellungseinheit (SSEE)
+       b53 => Remote PIN Empfänger
+       b54 => Remote PIN Sender
+       b55 => SAK für Stapel- oder Komfortsignatur
+Signature is valid     sig = 'R || S' = 7a2f28238295dfdb70c3f999d31f2de733b7df3e83cd3f69b662ec17e5a6df9a53a2cfe7fc9b8aa08f25c21ac63783154ba82199043284ab66774fdf975322ca
+       R = '7a2f28238295dfdb70c3f999d31f2de733b7df3e83cd3f69b662ec17e5a6df9a'
+       S = '53a2cfe7fc9b8aa08f25c21ac63783154ba82199043284ab66774fdf975322ca'

@@ -1,0 +1,47 @@
+scenario-names:
+    auth-g2: "AUTH_G2"
+step-names:
+    read-sub-ca-cv-certificate: "read-sub-ca-cv-certificate"
+    read-end-entity-cv-certificate: "read-end-entity-cv-certificate"
+    select-df-esign: "select-df-esign"
+    select-private-key: "select-private-key"
+    read-x509: "read-x509"
+    internal-authentication: "internal-authentication"
+
+contact-less-scenarios:
+  scenarios:
+    - name: ${scenario-names.auth-g2}
+      stepDefinitions:
+        - description: "Read Sub-CA CV-certificate"
+          name: ${step-names.read-sub-ca-cv-certificate}
+          commandApdu: "00 b0 8700    00"
+          expectedStatusWord:
+            - "9000"
+            - "6281"
+        - description: "Read end-entity CV-certificate"
+          name: ${step-names.read-end-entity-cv-certificate}
+          commandApdu: "00 b0 8600    00"
+          expectedStatusWord:
+            - "9000"
+            - "6281"
+        - description: "Select DF.ESIGN"
+          name: ${step-names.select-df-esign}
+          commandApdu: "00 a4 040c 0a a000000167455349474e"
+          expectedStatusWord:
+            - "9000"
+        - description: "Read end-entity CV-certificate"
+          name: ${step-names.select-private-key}
+          commandApdu: "00 22 41A4   06  840109 800100"
+          expectedStatusWord:
+            - "9000"
+        - description: "Read X509"
+          name: ${step-names.read-x509}
+          commandApdu: "00 b0 8400 00 0000"
+          expectedStatusWord:
+            - "9000"
+            - "6281"
+        - description: "Internal Authentication"
+          name: ${step-names.internal-authentication}
+          commandApdu: "00 88 0000 18 nonce  00"
+          expectedStatusWord:
+            - "9000"

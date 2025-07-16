@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.3</version>
+  </parent>
+
+  <groupId>de.gematik.refpopp</groupId>
+  <artifactId>popp-example-impl-global</artifactId>
+  <version>1.0.2</version>
+  <packaging>pom</packaging>
+  <name>popp-sample-code</name>
+  <description>PoPP - example implementation</description>
+  <url>https://github.com/gematik/popp-sample-code</url>
+
+
+  <organization>
+    <name>gematik GmbH</name>
+    <url>http://www.gematik.de</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>Apache License 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>gematik</name>
+      <email>software-development@gematik.de</email>
+      <url>https://gematik.github.io/</url>
+      <organization>gematik GmbH</organization>
+      <organizationUrl>https://www.gematik.de/</organizationUrl>
+    </developer>
+  </developers>
+
+  <modules>
+    <module>popp-commons</module>
+    <module>popp-server</module>
+    <module>popp-client</module>
+    <module>popp-coverage-report</module>
+  </modules>
+
+
+  <distributionManagement>
+    <repository>
+      <id>releases</id>
+      <url>${releaseDeploymentRepository}</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshots</id>
+      <url>${snapshotDeploymentRepository}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <properties>
+    <!-- docker.registry.gematik will be set in Jenkinsfile -->
+    <docker.registry.gematik>local</docker.registry.gematik>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <sonar.coverage.jacoco.xmlReportPaths>
+      ${project.basedir}/popp-coverage-report/target/site/jacoco/jacoco.xml
+    </sonar.coverage.jacoco.xmlReportPaths>
+    <sonar.dependencyCheck.htmlReportPath>${project.basedir}/target/dependency-check-report.html
+    </sonar.dependencyCheck.htmlReportPath>
+    <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+    <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+    <sonar.language>java</sonar.language>
+
+    <sonar.cpd.exclusions>
+    </sonar.cpd.exclusions>
+
+    <version.assertj>3.27.3</version.assertj>
+    <version.bouncycastle.bcpkix>1.80</version.bouncycastle.bcpkix>
+    <version.docker-maven-plugin>0.46.0</version.docker-maven-plugin>
+    <version.jacoco-maven-plugin>0.8.13</version.jacoco-maven-plugin>
+    <version.jjwt>0.12.6</version.jjwt>
+    <version.lombok>1.18.38</version.lombok>
+    <version.maven>3.8.6</version.maven>
+    <version.maven-clean-plugin>3.5.0</version.maven-clean-plugin>
+    <version.maven-compiler-plugin>3.14.0</version.maven-compiler-plugin>
+    <version.maven-enforcer-plugin>3.6.0</version.maven-enforcer-plugin>
+    <version.maven-failsafe-plugin>3.5.3</version.maven-failsafe-plugin>
+    <version.maven-gpg-plugin>3.2.7</version.maven-gpg-plugin>
+    <version.maven-javadoc-plugin>3.11.2</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.9.0</version.maven-project-info-reports-plugin>
+    <!-- only needed for mvn site to avoid stack traces flooding the console -->
+    <version.maven-resources-plugin>3.3.1</version.maven-resources-plugin>
+    <version.maven-site-plugin>3.21.0</version.maven-site-plugin>
+    <!-- settings for upload to sonar server -->
+    <version.maven-source-plugin>3.3.1</version.maven-source-plugin>
+    <version.maven-surefire-plugin>3.5.3</version.maven-surefire-plugin>
+    <version.central-publishing-maven-plugin>0.8.0</version.central-publishing-maven-plugin>
+    <version.sonar-maven-plugin>5.1.0.4751</version.sonar-maven-plugin>
+    <version.spotless-maven-plugin>2.44.5</version.spotless-maven-plugin>
+    <version.spotless.google-java-format>1.27.0</version.spotless.google-java-format>
+    <version.spring-boot-maven-plugin>3.3.2</version.spring-boot-maven-plugin>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>popp-commons</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>popp-server</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>popp-client</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>${version.json}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.konghq</groupId>
+        <artifactId>unirest-objectmapper-jackson</artifactId>
+        <version>${version.unirest.objectmapper.jackson}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${version.lombok}</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/jakarta.ws.rs/jakarta.ws.rs-api -->
+      <dependency>
+        <groupId>jakarta.ws.rs</groupId>
+        <artifactId>jakarta.ws.rs-api</artifactId>
+        <version>${version.jakarta.ws.rs-api}</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/jakarta.validation/jakarta.validation-api -->
+      <dependency>
+        <groupId>jakarta.validation</groupId>
+        <artifactId>jakarta.validation-api</artifactId>
+        <version>3.1.1</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/jakarta.persistence/jakarta.persistence-api -->
+      <dependency>
+        <groupId>jakarta.persistence</groupId>
+        <artifactId>jakarta.persistence-api</artifactId>
+        <version>3.2.0</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/jakarta.annotation/jakarta.annotation-api -->
+      <dependency>
+        <groupId>jakarta.annotation</groupId>
+        <artifactId>jakarta.annotation-api</artifactId>
+        <version>3.0.0</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.19.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jacoco</groupId>
+        <artifactId>org.jacoco.agent</artifactId>
+        <classifier>runtime</classifier>
+        <version>0.8.13</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${version.maven-resources-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${version.maven-compiler-plugin}</version>
+          <configuration>
+            <encoding>${project.build.sourceEncoding}</encoding>
+            <source>${java.version}</source>
+            <target>${java.version}</target>
+            <debug>true</debug>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${version.maven-enforcer-plugin}</version>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <message>Maven version should be ${version.maven} at least.</message>
+                  <version>${version.maven}</version>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <message>Java version should be ${java.version}.</message>
+                  <version>${java.version}</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Phase clean -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>${version.maven-clean-plugin}</version>
+        <configuration>
+          <filesets>
+            <!-- delete logfiles -->
+            <fileset>
+              <directory>logs</directory>
+              <includes>
+                <include>**/*</include>
+              </includes>
+              <followSymlinks>false</followSymlinks>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+      <!-- remove only needed for mvn site runs -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>${version.maven-site-plugin}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>${version.maven-project-info-reports-plugin}</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${version.maven-surefire-plugin}</version>
+        <configuration>
+          <argLine>${surefireArgLine} -Xshare:off -XX:+EnableDynamicAgentLoading
+            -Dfile.encoding=UTF-8
+            -Djacoco-agent.destfile=${project.basedir}/../popp-coverage-report/target/jacoco.exec
+          </argLine>
+          <skipTests>${skip.unittests}</skipTests>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${version.jacoco-maven-plugin}</version>
+        <executions>
+          <execution>
+            <id>default-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <propertyName>surefireArgLine</propertyName>
+              <append>true</append>
+              <destFile>${project.basedir}/target/jacoco.exec</destFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>${version.maven-failsafe-plugin}</version>
+        <executions>
+          <execution>
+            <id>integration-test</id>
+            <goals>
+              <goal>integration-test</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>verify</id>
+            <goals>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*IT.java</include>
+          </includes>
+          <skip>${skip.inttests}</skip>
+        </configuration>
+      </plugin>
+
+      <!-- to upload jacoco results to sonar server via mvn sonar:sonar-->
+      <plugin>
+        <groupId>org.sonarsource.scanner.maven</groupId>
+        <artifactId>sonar-maven-plugin</artifactId>
+        <version>${version.sonar-maven-plugin}</version>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${version.spotless-maven-plugin}</version>
+        <configuration>
+          <formats>
+            <!-- you can define as many formats as you want, each is independent -->
+            <format>
+              <!-- define the files to apply to -->
+              <includes>
+                <include>**/*.yml</include>
+              </includes>
+              <excludes>
+                <exclude>**/target/**/*</exclude>
+              </excludes>
+              <!-- define the steps to apply to those files -->
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+              <indent>
+                <spaces>true</spaces>
+                <spacesPerTab>2</spacesPerTab>
+              </indent>
+            </format>
+          </formats>
+
+          <java>
+            <toggleOffOn/>
+            <googleJavaFormat>
+              <version>${version.spotless.google-java-format}</version>
+              <style>GOOGLE</style>
+              <reflowLongStrings>true</reflowLongStrings>
+            </googleJavaFormat>
+          </java>
+          <groovy>
+            <includes>
+              <include>**/*.Jenkinsfile</include>
+            </includes>
+            <importOrder/>
+          </groovy>
+          <markdown>
+            <includes>
+              <include>**/*.md</include>
+            </includes>
+            <excludes>
+              <exclude>**/target/**/*</exclude>
+            </excludes>
+          </markdown>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>external</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>${version.maven-gpg-plugin}</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <phase>verify</phase>
+                <configuration>
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>${version.central-publishing-maven-plugin}</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

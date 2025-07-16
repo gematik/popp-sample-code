@@ -1,0 +1,58 @@
+CVC-Content '7f2181da7f4e81935f290170420844454154581602217f494b06062b2403050301864104217e2427114cde7706cdb055f9365f773507952fff380627acb2cdb478062a8e126e885022e6f4789eb8f38061913d1a929ebcfb7f3c557f7b9f4d46aaefbb4a5f200c0009802768811999999683697f4c1306082a8214004c0481185307000000000000005f25060203000402005f24060208000402005f37408aec87e6f7df3055dbaabc19b4dea824768acc46d9314bf13dd508396ba5f2fc871c384e44af5d82e052d2f0117eedca63d9a5793f3266d41d2e5bb5d12bf5e3'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445415458160221
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 04217e2427114cde7706cdb055f9365f773507952fff380627acb2cdb478062a8e126e885022e6f4789eb8f38061913d1a929ebcfb7f3c557f7b9f4d46aaefbb4a
+|    |    5f20 0c 000980276881199999968369
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000000
+|    |    5f25 06 020300040200
+|    |    5f24 06 020800040200
+|    5f37 40 8aec87e6f7df3055dbaabc19b4dea824768acc46d9314bf13dd508396ba5f2fc871c384e44af5d82e052d2f0117eedca63d9a5793f3266d41d2e5bb5d12bf5e3
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445415458160221
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 04217e2427114cde7706cdb055f9365f773507952fff380627acb2cdb478062a8e126e885022e6f4789eb8f38061913d1a929ebcfb7f3c557f7b9f4d46aaefbb4a
+Certificate Holder Reference      CHR = 000980276881199999968369
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000000
+Certificate Effective  Date       CED = 020300040200
+Certificate Expiration Date       CXD = 020800040200
+Signature as provided by CA       sig = 8aec87e6f7df3055dbaabc19b4dea824768acc46d9314bf13dd508396ba5f2fc871c384e44af5d82e052d2f0117eedca63d9a5793f3266d41d2e5bb5d12bf5e3
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276881199999968369
+       Discretionary data  = 0009
+       ICCSN               = 80276881199999968369
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88119
+         Serial Number     = 9999968369
+Certification Authority Reference CAR = 4445415458160221
+       CA-Identifier       = DEATX
+       service indicator   = 1
+       discretionary data  = 6
+       algorithm reference = 02
+       generation year     = 21
+Certificate Effective  Date       CED = 020300040200     => 20. April 2023
+Certificate Expiration Date       CXD = 020800040200     => 20. April 2028
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 04217e2427114cde7706cdb055f9365f773507952fff380627acb2cdb478062a8e126e885022e6f4789eb8f38061913d1a929ebcfb7f3c557f7b9f4d46aaefbb4a
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('217e2427114cde7706cdb055f9365f773507952fff380627acb2cdb478062a8e', '126e885022e6f4789eb8f38061913d1a929ebcfb7f3c557f7b9f4d46aaefbb4a')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000000
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+Signature is valid     sig = 'R || S' = 8aec87e6f7df3055dbaabc19b4dea824768acc46d9314bf13dd508396ba5f2fc871c384e44af5d82e052d2f0117eedca63d9a5793f3266d41d2e5bb5d12bf5e3
+       R = '8aec87e6f7df3055dbaabc19b4dea824768acc46d9314bf13dd508396ba5f2fc'
+       S = '871c384e44af5d82e052d2f0117eedca63d9a5793f3266d41d2e5bb5d12bf5e3'
