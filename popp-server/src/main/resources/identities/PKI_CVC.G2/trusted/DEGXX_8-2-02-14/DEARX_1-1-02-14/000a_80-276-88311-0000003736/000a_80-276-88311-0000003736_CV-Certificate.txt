@@ -1,0 +1,59 @@
+CVC-Content '7f2181da7f4e81935f290170420844454152581102147f494b06062b24030503018641044e45670e99c3326359338d0d6bf444d6a039d8ea8d209767dc48d8d68555bb41018ae0dfe74fae7654a567338fe73b8182b9d6fe74a6a996d9e8f3947fbb90765f200c000a802768831100000037367f4c1306082a8214004c0481185307000000000000025f25060104010201005f24060109010200075f37404526353f16f62411c17e78bee1d40ebf30e4c720905a3bf62ca03d80530e41a253d04d40cd1961c2819c518d3ff58ede876e33b5714334078aca05e8254cc005'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445415258110214
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 044e45670e99c3326359338d0d6bf444d6a039d8ea8d209767dc48d8d68555bb41018ae0dfe74fae7654a567338fe73b8182b9d6fe74a6a996d9e8f3947fbb9076
+|    |    5f20 0c 000a80276883110000003736
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000002
+|    |    5f25 06 010401020100
+|    |    5f24 06 010901020007
+|    5f37 40 4526353f16f62411c17e78bee1d40ebf30e4c720905a3bf62ca03d80530e41a253d04d40cd1961c2819c518d3ff58ede876e33b5714334078aca05e8254cc005
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445415258110214
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 044e45670e99c3326359338d0d6bf444d6a039d8ea8d209767dc48d8d68555bb41018ae0dfe74fae7654a567338fe73b8182b9d6fe74a6a996d9e8f3947fbb9076
+Certificate Holder Reference      CHR = 000a80276883110000003736
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000002
+Certificate Effective  Date       CED = 010401020100
+Certificate Expiration Date       CXD = 010901020007
+Signature as provided by CA       sig = 4526353f16f62411c17e78bee1d40ebf30e4c720905a3bf62ca03d80530e41a253d04d40cd1961c2819c518d3ff58ede876e33b5714334078aca05e8254cc005
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000a80276883110000003736
+       Discretionary data  = 000a
+       ICCSN               = 80276883110000003736
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000003736
+Certification Authority Reference CAR = 4445415258110214
+       CA-Identifier       = DEARX
+       service indicator   = 1
+       discretionary data  = 1
+       algorithm reference = 02
+       generation year     = 14
+Certificate Effective  Date       CED = 010401020100     => 10. Dezember 2014
+Certificate Expiration Date       CXD = 010901020007     => 07. Dezember 2019
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 044e45670e99c3326359338d0d6bf444d6a039d8ea8d209767dc48d8d68555bb41018ae0dfe74fae7654a567338fe73b8182b9d6fe74a6a996d9e8f3947fbb9076
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('4e45670e99c3326359338d0d6bf444d6a039d8ea8d209767dc48d8d68555bb41', '018ae0dfe74fae7654a567338fe73b8182b9d6fe74a6a996d9e8f3947fbb9076')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000002
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+       b54 => Remote PIN Sender
+Signature is valid     sig = 'R || S' = 4526353f16f62411c17e78bee1d40ebf30e4c720905a3bf62ca03d80530e41a253d04d40cd1961c2819c518d3ff58ede876e33b5714334078aca05e8254cc005
+       R = '4526353f16f62411c17e78bee1d40ebf30e4c720905a3bf62ca03d80530e41a2'
+       S = '53d04d40cd1961c2819c518d3ff58ede876e33b5714334078aca05e8254cc005'

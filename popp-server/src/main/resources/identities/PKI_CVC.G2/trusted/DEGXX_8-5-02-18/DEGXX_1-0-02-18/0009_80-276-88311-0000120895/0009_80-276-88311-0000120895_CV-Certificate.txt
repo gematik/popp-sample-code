@@ -1,0 +1,60 @@
+CVC-Content '7f2181da7f4e81935f290170420844454758581002187f494b06062b2403050301864104214d07e2daaabafe7f8d8db920c9e71dfe0b45b56b1bdcd01dd86b7ad0a45e1e36a54dfcf22dfb94dd3ae2ed31078f3407ad91a76baebd92bf5de791704ab5005f200c0009802768831100001208957f4c1306082a8214004c04811853070000000000000c5f25060200000102095f24060204010201015f37407d6098a731298470474165100e96e3b753ca4fb86b9846422bf7251ee58ac6691ca93613475b9e230da4fa75c30d8bc135d7c38af2abc5a76e26d74b863af4ec'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445475858100218
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 04214d07e2daaabafe7f8d8db920c9e71dfe0b45b56b1bdcd01dd86b7ad0a45e1e36a54dfcf22dfb94dd3ae2ed31078f3407ad91a76baebd92bf5de791704ab500
+|    |    5f20 0c 000980276883110000120895
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 0000000000000c
+|    |    5f25 06 020000010209
+|    |    5f24 06 020401020101
+|    5f37 40 7d6098a731298470474165100e96e3b753ca4fb86b9846422bf7251ee58ac6691ca93613475b9e230da4fa75c30d8bc135d7c38af2abc5a76e26d74b863af4ec
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445475858100218
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 04214d07e2daaabafe7f8d8db920c9e71dfe0b45b56b1bdcd01dd86b7ad0a45e1e36a54dfcf22dfb94dd3ae2ed31078f3407ad91a76baebd92bf5de791704ab500
+Certificate Holder Reference      CHR = 000980276883110000120895
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 0000000000000c
+Certificate Effective  Date       CED = 020000010209
+Certificate Expiration Date       CXD = 020401020101
+Signature as provided by CA       sig = 7d6098a731298470474165100e96e3b753ca4fb86b9846422bf7251ee58ac6691ca93613475b9e230da4fa75c30d8bc135d7c38af2abc5a76e26d74b863af4ec
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276883110000120895
+       Discretionary data  = 0009
+       ICCSN               = 80276883110000120895
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000120895
+Certification Authority Reference CAR = 4445475858100218
+       CA-Identifier       = DEGXX
+       service indicator   = 1
+       discretionary data  = 0
+       algorithm reference = 02
+       generation year     = 18
+Certificate Effective  Date       CED = 020000010209     => 29. Januar 2020
+Certificate Expiration Date       CXD = 020401020101     => 11. Dezember 2024
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 04214d07e2daaabafe7f8d8db920c9e71dfe0b45b56b1bdcd01dd86b7ad0a45e1e36a54dfcf22dfb94dd3ae2ed31078f3407ad91a76baebd92bf5de791704ab500
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('214d07e2daaabafe7f8d8db920c9e71dfe0b45b56b1bdcd01dd86b7ad0a45e1e', '36a54dfcf22dfb94dd3ae2ed31078f3407ad91a76baebd92bf5de791704ab500')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 0000000000000c
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+       b52 => Sichere Signaturerstellungseinheit (SSEE)
+       b53 => Remote PIN Empfänger
+Signature is valid     sig = 'R || S' = 7d6098a731298470474165100e96e3b753ca4fb86b9846422bf7251ee58ac6691ca93613475b9e230da4fa75c30d8bc135d7c38af2abc5a76e26d74b863af4ec
+       R = '7d6098a731298470474165100e96e3b753ca4fb86b9846422bf7251ee58ac669'
+       S = '1ca93613475b9e230da4fa75c30d8bc135d7c38af2abc5a76e26d74b863af4ec'

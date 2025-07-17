@@ -1,0 +1,1 @@
+Domain parameter OID = brainpoolP256r1, P = (xp, yp) = ('5c46b8e32576ca2e1a20d23301f9a43ef0c45614a156b446b4318b3aaa1cb46a', '4b194933fb9217489ab258ab260e0034d7904e715533f2dc5c8b75ea7030bc26')

@@ -1,0 +1,16 @@
+
+certificates:
+  root: "certificates/root/GEM.EGK-CA51_TEST-ONLY.der"
+  cvc-end-entity: "certificates/cvc/80276001011699902101-cvc-flag0.crt"
+  cvc-certificate: "certificates/cvc/DEGXX120223.crt"
+  connector-keystore: "classpath:certificates/signer/popp-Server-nist-komp61.jks"
+  connector-keystore-password: "gematik"
+  popp-keystore: "classpath:certificates/signer/popp-token-Server-nist-komp61.jks"
+  popp-keystore-password: "gematik"
+  hash-import-keystore: "classpath:certificates/TEST_EE_2025-05_de.gematik.TKK.eContentSigner.p12"
+  hash-import-keystore-password: "01234567"
+  ocsp-response: "certificates/ocsp/resp.der"
+  cvc-popp-service-private-key: "identities/PoPP26-Server/80276001011699902101-cvc-flag0/80276001011699902101-cvc-flag0.prv"
+  identities-location: ${IDENTITIES_LOCATION:classpath:identities}
+cert-hash-import:
+  location: ${CERT_HASH_IMPORT_LOCATION:}

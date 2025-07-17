@@ -1,0 +1,10 @@
+ <jxb:bindings
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
+ xmlns:jxb="https://jakarta.ee/xml/ns/jaxb"
+ version="3.0">
+ <jxb:bindings schemaLocation="../src/main/resources/api-telematik-OPB4/conn/ServiceDirectory.xsd">
+        <jxb:bindings node="//xs:element[@name='Abstract']">
+            <jxb:factoryMethod  name="AAbstract"/>
+        </jxb:bindings>
+ </jxb:bindings>
+ </jxb:bindings>

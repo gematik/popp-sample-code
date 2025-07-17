@@ -1,0 +1,29 @@
+spring:
+  profiles:
+    default: dev
+    active: dev
+
+server:
+  port: 8081
+  tomcat:
+    max-http-form-post-size: 2147483648 # 2GB
+
+popp-server:
+  url: default-url
+popp-client:
+  secure:
+    key-store: mykeystore.p12
+    store-password: popp-store
+
+
+connector:
+  end-point-url: "http://ti-konnektor/cardservice"
+  event-service-endpoint: http://localhost:80/eventservice
+#  terminal-configuration:
+#    context:
+#      clientSystemId: "Client-System"
+#      workplaceId: "Arbeitsplatz_01"
+#      principalId: "Client007"
+
+card-reader:
+  name:

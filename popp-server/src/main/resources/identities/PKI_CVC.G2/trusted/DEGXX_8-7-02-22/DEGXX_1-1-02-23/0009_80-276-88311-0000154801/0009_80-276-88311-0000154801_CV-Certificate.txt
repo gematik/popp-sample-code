@@ -1,0 +1,58 @@
+CVC-Content '7f2181da7f4e81935f290170420844454758581102237f494b06062b24030503018641047c5fdcb4f91daa017bd8f58091ae8ac11df8c02361c1b66f7b164f4eab52f620161150da2df9fc8cf027ef676a7bdaec16dadc194429dd710cc0cbeca0bbfe435f200c0009802768831100001548017f4c1306082a8214004c0481185307000000000000005f25060203010100025f24060208010100015f374021c9b7a9d85f1e3e466120f0bacb2f71601bff8b9ae94d35d24cadc4c5d5c7d44071a9b8a0d5890c527c069351013c4ba14bae7c4b534d7cc0eb709820ca2d98'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445475858110223
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 047c5fdcb4f91daa017bd8f58091ae8ac11df8c02361c1b66f7b164f4eab52f620161150da2df9fc8cf027ef676a7bdaec16dadc194429dd710cc0cbeca0bbfe43
+|    |    5f20 0c 000980276883110000154801
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000000
+|    |    5f25 06 020301010002
+|    |    5f24 06 020801010001
+|    5f37 40 21c9b7a9d85f1e3e466120f0bacb2f71601bff8b9ae94d35d24cadc4c5d5c7d44071a9b8a0d5890c527c069351013c4ba14bae7c4b534d7cc0eb709820ca2d98
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445475858110223
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 047c5fdcb4f91daa017bd8f58091ae8ac11df8c02361c1b66f7b164f4eab52f620161150da2df9fc8cf027ef676a7bdaec16dadc194429dd710cc0cbeca0bbfe43
+Certificate Holder Reference      CHR = 000980276883110000154801
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000000
+Certificate Effective  Date       CED = 020301010002
+Certificate Expiration Date       CXD = 020801010001
+Signature as provided by CA       sig = 21c9b7a9d85f1e3e466120f0bacb2f71601bff8b9ae94d35d24cadc4c5d5c7d44071a9b8a0d5890c527c069351013c4ba14bae7c4b534d7cc0eb709820ca2d98
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276883110000154801
+       Discretionary data  = 0009
+       ICCSN               = 80276883110000154801
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000154801
+Certification Authority Reference CAR = 4445475858110223
+       CA-Identifier       = DEGXX
+       service indicator   = 1
+       discretionary data  = 1
+       algorithm reference = 02
+       generation year     = 23
+Certificate Effective  Date       CED = 020301010002     => 02. November 2023
+Certificate Expiration Date       CXD = 020801010001     => 01. November 2028
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 047c5fdcb4f91daa017bd8f58091ae8ac11df8c02361c1b66f7b164f4eab52f620161150da2df9fc8cf027ef676a7bdaec16dadc194429dd710cc0cbeca0bbfe43
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('7c5fdcb4f91daa017bd8f58091ae8ac11df8c02361c1b66f7b164f4eab52f620', '161150da2df9fc8cf027ef676a7bdaec16dadc194429dd710cc0cbeca0bbfe43')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000000
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+Signature is valid     sig = 'R || S' = 21c9b7a9d85f1e3e466120f0bacb2f71601bff8b9ae94d35d24cadc4c5d5c7d44071a9b8a0d5890c527c069351013c4ba14bae7c4b534d7cc0eb709820ca2d98
+       R = '21c9b7a9d85f1e3e466120f0bacb2f71601bff8b9ae94d35d24cadc4c5d5c7d4'
+       S = '4071a9b8a0d5890c527c069351013c4ba14bae7c4b534d7cc0eb709820ca2d98'

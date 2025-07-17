@@ -1,0 +1,58 @@
+CVC-Content '7f2181da7f4e81935f290170420844454758581102237f494b06062b24030503018641041a9c4f4798e2b050dca14c3b0e8682cd7828a874e2da580155f522d3bbf55b6571684f61cbf386d76a3a4fd87a98a0fc7517415b3375d2e6fe19198d071efeee5f200c0009802768831100001548007f4c1306082a8214004c0481185307000000000000005f25060203010100025f24060208010100015f37400ced3827bda37d322d863a74f12b7ce988e8418816fdf460cf542d9f1314c25f22040c636b0e9f367e2b51b98552488f785c37ec4f25bd4037dc5981124ac51a'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445475858110223
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 041a9c4f4798e2b050dca14c3b0e8682cd7828a874e2da580155f522d3bbf55b6571684f61cbf386d76a3a4fd87a98a0fc7517415b3375d2e6fe19198d071efeee
+|    |    5f20 0c 000980276883110000154800
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000000
+|    |    5f25 06 020301010002
+|    |    5f24 06 020801010001
+|    5f37 40 0ced3827bda37d322d863a74f12b7ce988e8418816fdf460cf542d9f1314c25f22040c636b0e9f367e2b51b98552488f785c37ec4f25bd4037dc5981124ac51a
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445475858110223
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 041a9c4f4798e2b050dca14c3b0e8682cd7828a874e2da580155f522d3bbf55b6571684f61cbf386d76a3a4fd87a98a0fc7517415b3375d2e6fe19198d071efeee
+Certificate Holder Reference      CHR = 000980276883110000154800
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000000
+Certificate Effective  Date       CED = 020301010002
+Certificate Expiration Date       CXD = 020801010001
+Signature as provided by CA       sig = 0ced3827bda37d322d863a74f12b7ce988e8418816fdf460cf542d9f1314c25f22040c636b0e9f367e2b51b98552488f785c37ec4f25bd4037dc5981124ac51a
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000980276883110000154800
+       Discretionary data  = 0009
+       ICCSN               = 80276883110000154800
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000154800
+Certification Authority Reference CAR = 4445475858110223
+       CA-Identifier       = DEGXX
+       service indicator   = 1
+       discretionary data  = 1
+       algorithm reference = 02
+       generation year     = 23
+Certificate Effective  Date       CED = 020301010002     => 02. November 2023
+Certificate Expiration Date       CXD = 020801010001     => 01. November 2028
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 041a9c4f4798e2b050dca14c3b0e8682cd7828a874e2da580155f522d3bbf55b6571684f61cbf386d76a3a4fd87a98a0fc7517415b3375d2e6fe19198d071efeee
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('1a9c4f4798e2b050dca14c3b0e8682cd7828a874e2da580155f522d3bbf55b65', '71684f61cbf386d76a3a4fd87a98a0fc7517415b3375d2e6fe19198d071efeee')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000000
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+Signature is valid     sig = 'R || S' = 0ced3827bda37d322d863a74f12b7ce988e8418816fdf460cf542d9f1314c25f22040c636b0e9f367e2b51b98552488f785c37ec4f25bd4037dc5981124ac51a
+       R = '0ced3827bda37d322d863a74f12b7ce988e8418816fdf460cf542d9f1314c25f'
+       S = '22040c636b0e9f367e2b51b98552488f785c37ec4f25bd4037dc5981124ac51a'

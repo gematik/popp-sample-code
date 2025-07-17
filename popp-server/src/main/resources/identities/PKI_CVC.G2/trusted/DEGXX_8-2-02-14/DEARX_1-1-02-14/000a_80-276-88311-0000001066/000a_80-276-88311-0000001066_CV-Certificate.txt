@@ -1,0 +1,59 @@
+CVC-Content '7f2181da7f4e81935f290170420844454152581102147f494b06062b24030503018641045027244bc77617fbf9e4fa137b57cf41d31c09bfdf2ebf2221535040190db5eb496a3377a2f35af2ea007f82080a1f40ecfb751dd2ba331c5702ccf52616a24c5f200c000a802768831100000010667f4c1306082a8214004c0481185307000000000000025f25060104010002095f24060109010002065f374083cc5486b9fe987a0bbe353beb8e272e2333e161a0fa24e9847ed7874be81f0c549f30b986b073a7ac90a661e230f0dc82a79a4af5b930bfff00c7039ed04b0c'
+CVC.DER:
+7f21 81da
+|    7f4e 8193
+|    |    5f29 01 70
+|    |    42 08 4445415258110214
+|    |    7f49 4b
+|    |    |    06 06 2b2403050301
+|    |    |    86 41 045027244bc77617fbf9e4fa137b57cf41d31c09bfdf2ebf2221535040190db5eb496a3377a2f35af2ea007f82080a1f40ecfb751dd2ba331c5702ccf52616a24c
+|    |    5f20 0c 000a80276883110000001066
+|    |    7f4c 13
+|    |    |    06 08 2a8214004c048118
+|    |    |    53 07 00000000000002
+|    |    5f25 06 010401000209
+|    |    5f24 06 010901000206
+|    5f37 40 83cc5486b9fe987a0bbe353beb8e272e2333e161a0fa24e9847ed7874be81f0c549f30b986b073a7ac90a661e230f0dc82a79a4af5b930bfff00c7039ed04b0c
+--------------------------------------------------------------------------------
+CV-Certificate seems to be in conformance to [gemSpec_PKI]
+--------------------------------------------------------------------------------
+Certificate content as is:
+Certificate Profile Indicator     CPI = 70
+Certification Authority Reference CAR = 4445415258110214
+Usage of enclosed public key      OID = 2b2403050301
+Public point as octet string      P   = 045027244bc77617fbf9e4fa137b57cf41d31c09bfdf2ebf2221535040190db5eb496a3377a2f35af2ea007f82080a1f40ecfb751dd2ba331c5702ccf52616a24c
+Certificate Holder Reference      CHR = 000a80276883110000001066
+Interpretation of Flag-List       OID = 2a8214004c048118
+List of access rights,      Flag-List = 00000000000002
+Certificate Effective  Date       CED = 010401000209
+Certificate Expiration Date       CXD = 010901000206
+Signature as provided by CA       sig = 83cc5486b9fe987a0bbe353beb8e272e2333e161a0fa24e9847ed7874be81f0c549f30b986b073a7ac90a661e230f0dc82a79a4af5b930bfff00c7039ed04b0c
+--------------------------------------------------------------------------------
+Explanation of certificate content:
+Certificate Profile Indicator     CPI = 70 => self descriptive Card Verifiable Certificate
+Certificate Holder Reference      CHR = 000a80276883110000001066
+       Discretionary data  = 000a
+       ICCSN               = 80276883110000001066
+         Major Industry ID = 80
+         Country Code      = 276
+         Issuer Identifier = 88311
+         Serial Number     = 0000001066
+Certification Authority Reference CAR = 4445415258110214
+       CA-Identifier       = DEARX
+       service indicator   = 1
+       discretionary data  = 1
+       algorithm reference = 02
+       generation year     = 14
+Certificate Effective  Date       CED = 010401000209     => 29. Oktober 2014
+Certificate Expiration Date       CXD = 010901000206     => 26. Oktober 2019
+Usage of enclosed public key      OID = 2b2403050301     = {1 3 36 3 5 3 1} =  authS_gemSpec-COS-G2_ecc-with-sha256
+Public point as octet string      P   = 045027244bc77617fbf9e4fa137b57cf41d31c09bfdf2ebf2221535040190db5eb496a3377a2f35af2ea007f82080a1f40ecfb751dd2ba331c5702ccf52616a24c
+       Domain parameter of public key = brainpoolP256r1
+       P = (xp, yp) = ('5027244bc77617fbf9e4fa137b57cf41d31c09bfdf2ebf2221535040190db5eb', '496a3377a2f35af2ea007f82080a1f40ecfb751dd2ba331c5702ccf52616a24c')
+Interpretation of Flag-List       OID = 2a8214004c048118 = {1 2 276 0 76 4 152} = cvc_FlagList_TI
+List of access rights,      Flag-List = 00000000000002
+       b0b1:  Endnutzer Zertifikat für Authentisierungszwecke
+       b54 => Remote PIN Sender
+Signature is valid     sig = 'R || S' = 83cc5486b9fe987a0bbe353beb8e272e2333e161a0fa24e9847ed7874be81f0c549f30b986b073a7ac90a661e230f0dc82a79a4af5b930bfff00c7039ed04b0c
+       R = '83cc5486b9fe987a0bbe353beb8e272e2333e161a0fa24e9847ed7874be81f0c'
+       S = '549f30b986b073a7ac90a661e230f0dc82a79a4af5b930bfff00c7039ed04b0c'
