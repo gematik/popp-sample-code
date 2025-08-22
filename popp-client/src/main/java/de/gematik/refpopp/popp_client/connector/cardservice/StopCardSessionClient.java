@@ -22,8 +22,8 @@ package de.gematik.refpopp.popp_client.connector.cardservice;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.StopCardSession;
-import de.gematik.ws.conn.cardservice.v8.StopCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v8_2.StopCardSession;
+import de.gematik.ws.conn.cardservice.v8_2.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.Optional;
 import javax.net.ssl.SSLContext;

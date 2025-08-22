@@ -143,7 +143,10 @@ public class ConnectorConfiguration {
   @Bean
   public Jaxb2Marshaller eventServiceMarshaller() {
     final Jaxb2Marshaller marshaller = new Jaxb2Marshaller();
-    marshaller.setContextPath("de.gematik.ws.conn.eventservice.v7");
+    marshaller.setContextPaths(
+        "de.gematik.ws.conn.eventservice.v7", 
+        "de.gematik.ws.conn.cardservice.v8_2"
+        );
     return marshaller;
   }
 }

@@ -330,8 +330,9 @@
         <artifactId>jaxb2-maven-plugin</artifactId>
         <version>3.3.0</version>
         <executions>
+          <!-- Generate the classes concerning ServiceDirectory.xsd -->
           <execution>
-            <id>xjc</id>
+            <id>xjc-ServiceDirectory</id>
             <goals>
               <goal>xjc</goal>
             </goals>
@@ -343,9 +344,25 @@
               </sources>
               <xjbSources>${project.basedir}/jaxws/serviceDirectory.xjb</xjbSources>
               <outputDirectory>${project.basedir}/target/generated-sources</outputDirectory>
-              <!--         <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>-->
               <clearOutputDir>false</clearOutputDir>
               <packageName>de.gematik.ws.conn.servicedirectory</packageName>
+            </configuration>
+          </execution>
+          <!-- Generate the classes concerning CardService_v8_2_1.xsd -->
+          <execution>
+            <id>xjc-CardService_v8_2_1</id>
+            <goals>
+              <goal>xjc</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>
+                  ${project.basedir}/src/main/resources/api-telematik-OPB4/conn/CardService_v8_2_1.xsd
+                </source>
+              </sources>
+              <xjbSources>${project.basedir}/jaxws/cardServiceV8_2.xjb</xjbSources>
+              <outputDirectory>${project.basedir}/target/generated-sources</outputDirectory>
+              <clearOutputDir>false</clearOutputDir>
             </configuration>
           </execution>
         </executions>
@@ -367,7 +384,6 @@
               </wsdlDirectory>
               <wsdlFiles>
                 <wsdlFile>conn/EventService.wsdl</wsdlFile>
-                <wsdlFile>conn/CardService_v8_2_1.wsdl</wsdlFile>
               </wsdlFiles>
               <keep>true</keep>
               <sourceDestDir>${project.build.directory}/generated-sources</sourceDestDir>

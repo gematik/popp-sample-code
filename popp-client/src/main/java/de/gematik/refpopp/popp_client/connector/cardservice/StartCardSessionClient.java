@@ -22,8 +22,8 @@ package de.gematik.refpopp.popp_client.connector.cardservice;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.StartCardSession;
-import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v8_2.StartCardSession;
+import de.gematik.ws.conn.cardservice.v8_2.StartCardSessionResponse;
 import java.util.Optional;
 import javax.net.ssl.SSLContext;
 import org.springframework.beans.factory.annotation.Value;

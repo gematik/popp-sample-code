@@ -22,8 +22,8 @@ package de.gematik.refpopp.popp_client.connector.cardservice;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.SecureSendAPDU;
-import de.gematik.ws.conn.cardservice.v8.SecureSendAPDUResponse;
+import de.gematik.ws.conn.cardservice.v8_2.SecureSendAPDU;
+import de.gematik.ws.conn.cardservice.v8_2.SecureSendAPDUResponse;
 import java.util.List;
 import java.util.Optional;
 import javax.net.ssl.SSLContext;

@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
-import de.gematik.ws.conn.cardservice.v8.StopCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v8_2.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

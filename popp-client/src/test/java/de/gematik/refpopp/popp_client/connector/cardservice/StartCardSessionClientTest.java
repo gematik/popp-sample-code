@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
-import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v8_2.StartCardSessionResponse;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
