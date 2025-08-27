@@ -52,7 +52,7 @@ public class SecureSendAPDUClient extends SoapClient {
     final var soapResponse =
         sendRequest(
             secureSendAPDU,
-            serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
+            serviceEndpointProvider.getCardServiceFullEndpoint(),
             SecureSendAPDUResponse.class);
     return soapResponse.getSignedScenarioResponse().getResponseApduList().getResponseApdu();
   }

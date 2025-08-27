@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v8.SecureSendAPDUResponse;
 import java.util.List;
@@ -59,9 +58,7 @@ class SecureSendAPDUClientTest {
   @Test
   void performSecureSendAPDUReturnsAPDUs() {
     // given
-    final var serviceEndpointMock = mock(ServiceEndpoint.class);
-    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(serviceEndpointMock);
-    when(serviceEndpointMock.getEndpoint()).thenReturn("service.endpoint");
+    when(serviceEndpointProviderMock.getCardServiceFullEndpoint()).thenReturn("service.endpoint");
 
     final SecureSendAPDUResponse responseMock =
         mock(SecureSendAPDUResponse.class, RETURNS_DEEP_STUBS);
