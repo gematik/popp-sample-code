@@ -20,10 +20,12 @@
 
 package de.gematik.refpopp.popp_client.connector.cardservice;
 
+import de.gematik.refpopp.popp_client.connector.eventservice.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
 import de.gematik.ws.conn.cardservice.v8.StartCardSession;
 import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
+import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 import java.util.Optional;
 import javax.net.ssl.SSLContext;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,10 +35,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class StartCardSessionClient extends SoapClient {
 
+  private final Context context;
   private final ServiceEndpointProvider serviceEndpointProvider;
 
   public StartCardSessionClient(
       final Jaxb2Marshaller cardServiceMarshaller,
+      final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Value("${connector.soap-services.start-card-session}")
           final String soapActionStartCardSession,
@@ -44,11 +48,13 @@ public class StartCardSessionClient extends SoapClient {
       final Optional<SSLContext> sslContext) {
     super(
         cardServiceMarshaller, soapActionStartCardSession, hostnameValidationIsEnabled, sslContext);
+    this.context = context;
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 
   public String performStartCardSession(final String handle) {
     final var startCardSession = new StartCardSession();
+    startCardSession.setContext(getContextType());
     startCardSession.setCardHandle(handle);
     final var soapResponse =
         sendRequest(
@@ -56,5 +62,14 @@ public class StartCardSessionClient extends SoapClient {
             serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
             StartCardSessionResponse.class);
     return soapResponse.getSessionId();
+  }
+
+  private ContextType getContextType() {
+    final var contextType = new ContextType();
+    contextType.setClientSystemId(context.getClientSystemId());
+    contextType.setMandantId(context.getMandantId());
+    contextType.setWorkplaceId(context.getWorkplaceId());
+
+    return contextType;
   }
 }
