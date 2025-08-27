@@ -44,12 +44,13 @@ class GetCardsClientTest {
 
   private GetCardsClient sut;
   private ServiceEndpointProvider serviceEndpointProviderMock;
+  private Context contextMock;
 
   @BeforeEach
   void setUp() {
     serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
     final Jaxb2Marshaller eventServiceMarshallerMock = mock(Jaxb2Marshaller.class);
-    final Context contextMock = mock(Context.class);
+    contextMock = mock(Context.class);
     sut =
         new GetCardsClient(
             eventServiceMarshallerMock,
@@ -81,5 +82,8 @@ class GetCardsClientTest {
     assertThat(actualResponse).isNotNull();
     assertThat(actualResponse.getCardHandles()).containsExactly(expectedCardHandles.getFirst());
     verify(serviceEndpointProviderMock).getEventServiceFullEndpoint();
+    verify(contextMock).getClientSystemId();
+    verify(contextMock).getMandantId();
+    verify(contextMock).getWorkplaceId();
   }
 }
