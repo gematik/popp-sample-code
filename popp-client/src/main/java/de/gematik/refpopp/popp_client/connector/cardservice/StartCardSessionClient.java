@@ -53,7 +53,7 @@ public class StartCardSessionClient extends SoapClient {
     final var soapResponse =
         sendRequest(
             startCardSession,
-            serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
+            serviceEndpointProvider.getCardServiceFullEndpoint(),
             StartCardSessionResponse.class);
     return soapResponse.getSessionId();
   }

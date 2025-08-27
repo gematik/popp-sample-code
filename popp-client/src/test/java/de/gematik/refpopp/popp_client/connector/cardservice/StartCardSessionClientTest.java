@@ -60,9 +60,7 @@ class StartCardSessionClientTest {
     // given
     final String expectedSessionId = "sessionId";
     final String handle = "handle";
-    final var serviceEndpointMock = mock(ServiceEndpoint.class);
-    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(serviceEndpointMock);
-    when(serviceEndpointMock.getEndpoint()).thenReturn("service.endpoint");
+    when(serviceEndpointProviderMock.getCardServiceFullEndpoint()).thenReturn("service.endpoint");
     final var soapResponseMock = mock(StartCardSessionResponse.class);
     when(soapResponseMock.getSessionId()).thenReturn(expectedSessionId);
     final StartCardSessionClient spySut = spy(sut);
