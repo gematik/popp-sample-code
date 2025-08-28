@@ -167,8 +167,17 @@ public class SessionAccessor {
     storeSessionData(sessionId, SessionStorageKey.CVC, cvc);
   }
 
+  public void storeCvcCA(final String sessionId, final byte[] cvc) {
+    storeSessionData(sessionId, SessionStorageKey.CVC_CA, cvc);
+  }
+
   public byte[] getCvc(final String sessionId) {
     return getSessionDataOrThrow(sessionId, SessionStorageKey.CVC, byte[].class, "No CVC found");
+  }
+
+  public byte[] getCvcCA(final String sessionId) {
+    return getSessionDataOrThrow(
+        sessionId, SessionStorageKey.CVC_CA, byte[].class, "No CVC CA found");
   }
 
   public void storeAut(final String sessionId, final byte[] data) {

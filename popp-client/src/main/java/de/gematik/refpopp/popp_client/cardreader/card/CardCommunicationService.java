@@ -28,6 +28,7 @@ import de.gematik.openhealth.smartcard.command.CardCommandApdu;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
+import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -38,6 +39,7 @@ import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -51,8 +53,10 @@ public class CardCommunicationService {
   private static final HexFormat HEX_FORMAT = HexFormat.of();
   private CardChannel cardChannel;
   private TrustedChannelScope trustedChannel;
+  private final ApplicationEventPublisher eventPublisher;
 
-  public CardCommunicationService() {
+  public CardCommunicationService(ApplicationEventPublisher eventPublisher) {
+    this.eventPublisher = eventPublisher;
     log.debug("| Entering CardService()");
     log.debug("| Exiting CardService()");
   }
@@ -73,6 +77,8 @@ public class CardCommunicationService {
     if (isContactless()) {
       log.info("| Detected contactless reader - Initialize PACE");
       initializePACE();
+      eventPublisher.publishEvent(new PaceInitializationCompleteEvent());
+
     } else {
       log.info("| Detected contact-based reader - No PACE necessary");
     }

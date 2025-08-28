@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -38,6 +39,7 @@ import de.gematik.openhealth.smartcard.card.TrustedChannelScope;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
+import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import java.util.HexFormat;
 import java.util.List;
 import javax.smartcardio.Card;
@@ -50,6 +52,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.context.ApplicationEventPublisher;
 
 class CardCommunicationServiceTest {
 
@@ -66,7 +69,8 @@ class CardCommunicationServiceTest {
   @BeforeEach
   void setUp() {
     closeable = MockitoAnnotations.openMocks(this);
-    cardCommunicationService = new CardCommunicationService();
+    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
+    cardCommunicationService = new CardCommunicationService(eventPublisherMock);
     cardCommunicationService.setCardChannel(cardChannelMock);
   }
 
@@ -76,9 +80,13 @@ class CardCommunicationServiceTest {
   }
 
   @Test
-  void handleCardConnectionEventSetsInsertedCard() {
+  void handleCardConnectionEventSetsInsertedCard() throws CardException {
     // given
     final var event = new CardConnectedEvent(cardChannelMock, "message");
+
+    when(cardChannelMock.getCard()).thenReturn(cardMock);
+    when(cardChannelMock.transmit(any(CommandAPDU.class))).thenReturn(responseAPDUMock);
+    when(responseAPDUMock.getSW()).thenReturn(0x9000);
 
     // when
     cardCommunicationService.handleCardConnectionEvent(event);
@@ -189,7 +197,8 @@ class CardCommunicationServiceTest {
   @Test
   void handleCardConnectionEventContactless() throws CardException {
     // given
-
+    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
+    cardCommunicationService = new CardCommunicationService(eventPublisherMock);
     cardCommunicationService.setCardChannel(cardChannelMock);
 
     // for testing isContactless():
@@ -220,6 +229,7 @@ class CardCommunicationServiceTest {
 
       // then
       assertThat(cardCommunicationService.getTrustedChannel().isPresent()).isTrue();
+      verify(eventPublisherMock).publishEvent(any(PaceInitializationCompleteEvent.class));
     }
   }
 }

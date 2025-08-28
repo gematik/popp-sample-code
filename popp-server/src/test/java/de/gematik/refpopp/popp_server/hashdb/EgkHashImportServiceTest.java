@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import de.gematik.refpopp.popp_server.model.EgkEntry;
 import de.gematik.refpopp.popp_server.model.EgkEntryState;
+import de.gematik.refpopp.popp_server.model.ImportReportEntry;
 import de.gematik.refpopp.popp_server.repository.CertHashRepository;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
 import java.net.URISyntaxException;
@@ -42,15 +43,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.BERSequence;
-import org.bouncycastle.asn1.BERSet;
-import org.bouncycastle.asn1.DERBitString;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERUTCTime;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +51,9 @@ class EgkHashImportServiceTest {
   private EgkTransferEntryParser egkTransferEntryParserMock;
   private EgkEntryProcessor egkEntryProcessorMock;
   private BatchFlusherFactory batchFlusherFactoryMock;
+
+  private ImportReportProcessor importReportProcessorMock;
+
   private static final String SESSION_ID = "sessionId";
   private EgkHashImportService sut;
 
@@ -69,13 +64,19 @@ class EgkHashImportServiceTest {
     egkTransferEntryParserMock = mock(EgkTransferEntryParser.class);
     egkEntryProcessorMock = mock(EgkEntryProcessor.class);
     batchFlusherFactoryMock = mock(BatchFlusherFactory.class);
+    importReportProcessorMock = mock(ImportReportProcessor.class);
+
+    ImportReportEntry reportMock = mock(ImportReportEntry.class);
+    when(importReportProcessorMock.createReport(anyString())).thenReturn(reportMock);
+
     sut =
         new EgkHashImportService(
             cmsSignatureVerifierMock,
             certHashRepositoryMock,
             egkTransferEntryParserMock,
             egkEntryProcessorMock,
-            batchFlusherFactoryMock);
+            batchFlusherFactoryMock,
+            importReportProcessorMock);
   }
 
   @Test
@@ -169,17 +170,69 @@ class EgkHashImportServiceTest {
         .hasMessageContaining("Signature verification failed");
   }
 
-  private static @NotNull ASN1Sequence getAsn1Encodables() {
-    final var time = new DERUTCTime("210101000000Z");
-    final var cvc = new DEROctetString(new byte[] {});
-    final var aut = new DERBitString(new byte[] {4, 5});
-    final var entryVec = new ASN1EncodableVector();
-    entryVec.add(time);
-    entryVec.add(cvc);
-    entryVec.add(aut);
-    final ASN1Set entrySet = new BERSet(entryVec);
-    final var contentVec = new ASN1EncodableVector();
-    contentVec.add(entrySet);
-    return new BERSequence(contentVec);
+  @Test
+  void importDataCorrectlyCategorizesDifferentEntryStates() throws URISyntaxException {
+    // given
+    final URL resource = getClass().getClassLoader().getResource("import/no_1.simulation");
+    assertNotNull(resource, "Import file not found!");
+    final Path path = Paths.get(resource.toURI());
+
+    EgkTransferEntry transferEntry1 =
+        EgkTransferEntry.builder()
+            .autHash(new byte[] {1, 2, 3})
+            .cvcHash(new byte[] {1, 2, 3})
+            .notAfter(LocalDateTime.now())
+            .communicationMode(CommunicationMode.CONTACT)
+            .build();
+
+    EgkTransferEntry transferEntry2 =
+        EgkTransferEntry.builder()
+            .autHash(new byte[] {4, 5, 6})
+            .cvcHash(new byte[] {4, 5, 6})
+            .notAfter(LocalDateTime.now())
+            .communicationMode(CommunicationMode.CONTACT)
+            .build();
+
+    when(egkTransferEntryParserMock.parseAll(any(), anyString()))
+        .thenReturn(List.of(transferEntry1, transferEntry2));
+
+    EgkEntry importedEntry =
+        new EgkEntry(
+            new byte[] {1, 2, 3},
+            new byte[] {1, 2, 3},
+            EgkEntryState.IMPORTED,
+            LocalDateTime.now());
+
+    EgkEntry blockedEntry =
+        new EgkEntry(
+            new byte[] {4, 5, 6}, new byte[] {4, 5, 6}, EgkEntryState.BLOCKED, LocalDateTime.now());
+
+    EgkEntry skippedEntry =
+        new EgkEntry(
+            new byte[] {7, 8, 9}, new byte[] {7, 8, 9}, EgkEntryState.AD_HOC, LocalDateTime.now());
+
+    when(egkEntryProcessorMock.process(eq(transferEntry1), anyString()))
+        .thenReturn(List.of(importedEntry, skippedEntry));
+
+    when(egkEntryProcessorMock.process(eq(transferEntry2), anyString()))
+        .thenReturn(List.of(blockedEntry));
+
+    when(cmsSignatureVerifierMock.isSignatureValid(any(), anyString())).thenReturn(true);
+    when(batchFlusherFactoryMock.<EgkEntry>create(anyInt(), any()))
+        .thenReturn(mock(BatchFlusher.class));
+
+    // when
+    sut.importData(path, SESSION_ID);
+
+    // then
+    verify(importReportProcessorMock).createReport(SESSION_ID);
+    verify(importReportProcessorMock)
+        .finalizeReport(
+            any(ImportReportEntry.class),
+            eq(1L), // 1 imported entry
+            eq(1L), // 1 blocked entry
+            eq(1L), // 1 skipped (AD_HOC) entry
+            eq(3L) // 3 total entries
+            );
   }
 }

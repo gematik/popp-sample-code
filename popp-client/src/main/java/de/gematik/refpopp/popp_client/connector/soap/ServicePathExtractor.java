@@ -38,12 +38,15 @@ public class ServicePathExtractor {
   private static final String EVENT_SERVICE_NAME = "EventService";
   private static final String CARD_SERVICE_NAME = "CardService";
   @Getter private final String connectorUrl;
+  private final boolean isSecureConnectionEnabled;
   private final ConnectorServicesFactory connectorServicesFactory;
 
   public ServicePathExtractor(
       @Value("${connector.end-point-url}") final String connectorUrl,
+      @Value("${connector.secure.enable}") final boolean isSecureConnectionEnabled,
       final ConnectorServicesFactory connectorServicesFactory) {
     this.connectorUrl = connectorUrl;
+    this.isSecureConnectionEnabled = isSecureConnectionEnabled;
     this.connectorServicesFactory = connectorServicesFactory;
   }
 
@@ -78,7 +81,7 @@ public class ServicePathExtractor {
   }
 
   private String getLocation(final VersionType versionType) {
-    if (versionType.getEndpointTLS() != null) {
+    if (isSecureConnectionEnabled && versionType.getEndpointTLS() != null) {
       return versionType.getEndpointTLS().getLocation();
     }
 

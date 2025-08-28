@@ -102,7 +102,7 @@ class AuthG2ScenarioResultProcessorTest {
     final var publicKeyMock = mock(EcPublicKeyImpl.class);
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
-    when(cvcProcessorMock.createAndValidateCvc(
+    when(cvcProcessorMock.createAndValidateCvcCa(
             sessionId, scenarioResult, "readSubCaCvCertificateStepName"))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
@@ -191,7 +191,7 @@ class AuthG2ScenarioResultProcessorTest {
     final var publicKeyMock = mock(EcPublicKeyImpl.class);
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(false);
-    when(cvcProcessorMock.createAndValidateCvc(
+    when(cvcProcessorMock.createAndValidateCvcCa(
             sessionId, scenarioResult, "readSubCaCvCertificateStepName"))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(

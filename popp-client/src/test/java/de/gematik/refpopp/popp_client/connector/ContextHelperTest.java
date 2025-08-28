@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.connector.eventservice;
+package de.gematik.refpopp.popp_client.connector;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

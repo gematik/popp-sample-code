@@ -7,12 +7,12 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-commons</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
   <name>popp-commons</name>
   <description>popp-commons</description>
 

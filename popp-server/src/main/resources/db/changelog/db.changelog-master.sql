@@ -30,3 +30,32 @@ INSERT INTO egk_entries (cvc_hash, aut_hash, state, not_after) VALUES
                                                                   (decode('637668617368303038', 'hex'), decode('61757468617368303038', 'hex'), 'ad hoc',   '2024-07-07 12:00:00'),
                                                                   (decode('637668617368303039', 'hex'), decode('61757468617368303039', 'hex'), 'blocked',  '2025-03-25 09:30:00'),
                                                                   (decode('637668617368303130', 'hex'), decode('61757468617368303130', 'hex'), 'imported', '2025-04-10 10:15:00');
+
+-- ChangeSet for creating the table for storing the CVC import reports
+-- changeSet poppserver:5
+
+CREATE TABLE import_report_entries (
+                                       id SERIAL PRIMARY KEY,
+                                       session_id VARCHAR(255) NOT NULL,
+                                       start_time TIMESTAMP NOT NULL,
+                                       end_time TIMESTAMP,
+                                       imported_count BIGINT NOT NULL DEFAULT 0,
+                                       blocked_count BIGINT NOT NULL DEFAULT 0,
+                                       skipped_count BIGINT NOT NULL DEFAULT 0,
+                                       total_processed_count BIGINT NOT NULL DEFAULT 0
+);
+
+-- ChangeSet for creating the index for fast lookup on session_id
+-- changeSet poppserver:6
+CREATE INDEX idx_import_report_entries_session_id ON import_report_entries (session_id);
+
+-- ChangeSet for inserting a test record into import_report_entries
+-- changeSet poppserver:7
+INSERT INTO import_report_entries (session_id, start_time, end_time, imported_count, blocked_count, skipped_count, total_processed_count) VALUES
+                                                                                                  ('test-session-001',
+                                                                                                   '2024-01-01 10:00:00',
+                                                                                                   '2024-01-01 11:00:00',
+                                                                                                   5,
+                                                                                                   2,
+                                                                                                   3,
+                                                                                                   10);

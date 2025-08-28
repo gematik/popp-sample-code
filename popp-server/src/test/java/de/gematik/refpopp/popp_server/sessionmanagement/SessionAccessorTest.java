@@ -347,6 +347,31 @@ class SessionAccessorTest {
   }
 
   @Test
+  void storeCvcCA_storesCvcCAInSession() {
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+
+    sut.storeCvcCA(sessionId, cvc);
+
+    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.CVC_CA, cvc);
+  }
+
+  @Test
+  void getCvcCA_returnsStoredCvcCA() {
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+    when(sessionContainerMock.retrieveSessionData(
+            sessionId, SessionStorageKey.CVC_CA, byte[].class))
+        .thenReturn(Optional.of(cvc));
+
+    final var result = sut.getCvcCA(sessionId);
+
+    assertThat(result).isEqualTo(cvc);
+    verify(sessionContainerMock)
+        .retrieveSessionData(sessionId, SessionStorageKey.CVC_CA, byte[].class);
+  }
+
+  @Test
   void storeAut() {
     // given
     final var sessionId = "sessionId";

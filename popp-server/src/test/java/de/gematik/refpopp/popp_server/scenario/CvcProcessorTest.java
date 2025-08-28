@@ -81,6 +81,29 @@ class CvcProcessorTest {
     verify(sessionAccessorMock).storeCvc(sessionId, "data".getBytes());
   }
 
+  @Test
+  void createAndValidateCvcCaSuccess() {
+    // given
+    final var sessionId = "sessionId";
+    final var scenarioResultStep = new ScenarioResultStep("step1", "9000", "data".getBytes());
+    final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
+    final var stepName = "step1";
+    final var cvcMock = mock(Cvc.class);
+    when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
+    final var certDateMoc = mock(CertificateDate.class);
+    when(cvcMock.getCxd()).thenReturn(certDateMoc);
+    when(certDateMoc.getDate()).thenReturn(LocalDate.now().plusYears(1));
+    when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_VALID);
+
+    // when
+    final var cvc = sut.createAndValidateCvcCa(sessionId, scenarioResult, stepName);
+
+    // then
+    assertThat(cvc).isNotNull();
+    verify(cvcFactoryMock).create("data".getBytes());
+    verify(sessionAccessorMock).storeCvcCA(sessionId, "data".getBytes());
+  }
+
   @ParameterizedTest
   @CsvSource({"true, 'End-Entity CVC is expired'", "false, 'SubCA CVC is expired'"})
   void createAndValidateCvcFailedWithExpiredDate(

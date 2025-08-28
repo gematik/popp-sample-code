@@ -22,6 +22,8 @@ package de.gematik.refpopp.popp_server.hashdb;
 
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import de.gematik.refpopp.popp_server.model.EgkEntry;
+import de.gematik.refpopp.popp_server.model.EgkEntryState;
+import de.gematik.refpopp.popp_server.model.ImportReportEntry;
 import de.gematik.refpopp.popp_server.repository.CertHashRepository;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +35,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -48,18 +51,30 @@ public class EgkHashImportService {
   private final EgkTransferEntryParser egkTransferEntryParser;
   private final EgkEntryProcessor egkEntryProcessor;
   private final BatchFlusherFactory batchFlusherFactory;
+  private final ImportReportProcessor importReportProcessor;
 
   public EgkHashImportService(
       final CmsSignatureVerifier cmsSignatureVerifier,
       final CertHashRepository certHashRepository,
       final EgkTransferEntryParser egkTransferEntryParser,
       final EgkEntryProcessor egkEntryProcessor,
-      final BatchFlusherFactory batchFlusherFactory) {
+      final BatchFlusherFactory batchFlusherFactory,
+      final ImportReportProcessor importReportProcessor) {
     this.cmsSignatureVerifier = cmsSignatureVerifier;
     this.certHashRepository = certHashRepository;
     this.egkTransferEntryParser = egkTransferEntryParser;
     this.egkEntryProcessor = egkEntryProcessor;
     this.batchFlusherFactory = batchFlusherFactory;
+    this.importReportProcessor = importReportProcessor;
+    log.info(
+        "| EgkHashImportService initialized with {} consumer threads and {} batch size",
+        NUM_CONSUMER_THREADS,
+        BATCH_SIZE);
+    log.info("| ImportReportProcessor initialized");
+    log.info("| CmsSignatureVerifier initialized");
+    log.info("| CertHashRepository initialized");
+    log.info("| EgkTransferEntryParser initialized");
+    log.info("| EgkEntryProcessor initialized");
   }
 
   /**
@@ -83,12 +98,19 @@ public class EgkHashImportService {
    * @param sessionId The session ID for logging purposes.
    */
   public void importData(final Path path, final String sessionId) {
+    ImportReportEntry report = importReportProcessor.createReport(sessionId);
+    AtomicLong importedCount = new AtomicLong(0);
+    AtomicLong blockedCount = new AtomicLong(0);
+    AtomicLong skippedCount = new AtomicLong(0);
+    AtomicLong totalProcessedCount = new AtomicLong(0);
+
     if (verifySignature(path, sessionId)) {
       final BlockingQueue<Optional<EgkTransferEntry>> queue =
           new ArrayBlockingQueue<>(NUM_CONSUMER_THREADS * 2);
       final ExecutorService exec = Executors.newFixedThreadPool(NUM_CONSUMER_THREADS);
       try {
-        startConsumers(sessionId, exec, queue);
+        startConsumers(
+            sessionId, exec, queue, importedCount, blockedCount, skippedCount, totalProcessedCount);
         enqueueParsedEntries(path, sessionId, queue);
       } catch (final InterruptedException e) {
         log.error("| sessionId {}: Interrupted while processing queue", sessionId, e);
@@ -99,6 +121,13 @@ public class EgkHashImportService {
     } else {
       log.warn("| sessionId {}: Signature invalid", sessionId);
     }
+
+    importReportProcessor.finalizeReport(
+        report,
+        importedCount.get(),
+        blockedCount.get(),
+        skippedCount.get(),
+        totalProcessedCount.get());
   }
 
   private boolean verifySignature(final Path path, final String sessionId) {
@@ -155,14 +184,31 @@ public class EgkHashImportService {
   private void startConsumers(
       final String sessionId,
       final ExecutorService exec,
-      final BlockingQueue<Optional<EgkTransferEntry>> queue) {
+      final BlockingQueue<Optional<EgkTransferEntry>> queue,
+      final AtomicLong importedCount,
+      final AtomicLong blockedCount,
+      final AtomicLong skippedCount,
+      final AtomicLong totalProcessedCount) {
     for (int i = 0; i < NUM_CONSUMER_THREADS; i++) {
-      exec.submit(() -> buildConsumerTask(sessionId, queue));
+      exec.submit(
+          () ->
+              buildConsumerTask(
+                  sessionId,
+                  queue,
+                  importedCount,
+                  blockedCount,
+                  skippedCount,
+                  totalProcessedCount));
     }
   }
 
   private void buildConsumerTask(
-      final String sessionId, final BlockingQueue<Optional<EgkTransferEntry>> queue) {
+      final String sessionId,
+      final BlockingQueue<Optional<EgkTransferEntry>> queue,
+      final AtomicLong importedCount,
+      final AtomicLong blockedCount,
+      final AtomicLong skippedCount,
+      final AtomicLong totalProcessedCount) {
     log.info("| consumer thread started: {}", Thread.currentThread().getName());
     final var flusher =
         batchFlusherFactory.<EgkEntry>create(BATCH_SIZE, certHashRepository::saveAll);
@@ -172,8 +218,28 @@ public class EgkHashImportService {
         if (optionalEntry.isEmpty()) {
           break;
         }
+
         final EgkTransferEntry entry = optionalEntry.get();
-        flusher.addAll(egkEntryProcessor.process(entry, sessionId));
+
+        try {
+          var processedEntries = egkEntryProcessor.process(entry, sessionId);
+          totalProcessedCount.addAndGet(processedEntries.size());
+
+          for (EgkEntry processedEntry : processedEntries) {
+            if (processedEntry.getState() == EgkEntryState.IMPORTED) {
+              importedCount.incrementAndGet();
+            } else if (processedEntry.getState() == EgkEntryState.BLOCKED) {
+              blockedCount.incrementAndGet();
+            } else {
+              skippedCount.incrementAndGet();
+            }
+          }
+
+          flusher.addAll(processedEntries);
+        } catch (Exception e) {
+          blockedCount.incrementAndGet();
+          log.debug("| sessionId {}: Error processing entry: {}", sessionId, e.getMessage());
+        }
       }
       flusher.flushRemaining();
     } catch (final InterruptedException ie) {

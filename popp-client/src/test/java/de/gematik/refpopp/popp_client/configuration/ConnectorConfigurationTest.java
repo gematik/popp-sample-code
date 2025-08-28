@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mockStatic;
 import de.gematik.ws.conn.servicedirectory.ConnectorServices;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +41,7 @@ class ConnectorConfigurationTest {
 
   @Test
   void testRestTemplate() {
-    assertThat(sut.restTemplate(Optional.empty(), false)).isNotNull();
+    assertThat(sut.restTemplate(null)).isNotNull();
   }
 
   @Test
@@ -62,10 +61,5 @@ class ConnectorConfigurationTest {
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("Failed to create JAXBContext");
     }
-  }
-
-  @Test
-  void testEventServiceMarshaller() {
-    assertThat(sut.eventServiceMarshaller()).isNotNull();
   }
 }

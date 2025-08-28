@@ -42,6 +42,7 @@ public class SessionContainer {
     COMMUNICATION_MODE,
     NONCE,
     CVC,
+    CVC_CA,
     AUT,
     DEFAULT
   }

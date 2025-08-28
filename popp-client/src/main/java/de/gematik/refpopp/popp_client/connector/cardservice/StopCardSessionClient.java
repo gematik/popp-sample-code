@@ -22,11 +22,12 @@ package de.gematik.refpopp.popp_client.connector.cardservice;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.StopCardSession;
-import de.gematik.ws.conn.cardservice.v8.StopCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v821.StopCardSession;
+import de.gematik.ws.conn.cardservice.v821.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
@@ -40,10 +41,8 @@ public class StopCardSessionClient extends SoapClient {
       final Jaxb2Marshaller cardServiceMarshaller,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Value("${connector.soap-services.stop-card-session}") final String soapActionStopCardSession,
-      @Value("${connector.secure.hostname-validation}") boolean hostnameValidationIsEnabled,
-      final Optional<SSLContext> sslContext) {
-    super(
-        cardServiceMarshaller, soapActionStopCardSession, hostnameValidationIsEnabled, sslContext);
+      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
+    super(cardServiceMarshaller, soapActionStopCardSession, httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 
@@ -53,7 +52,7 @@ public class StopCardSessionClient extends SoapClient {
     final var soapResponse =
         sendRequest(
             stopCardSession,
-            serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
+            serviceEndpointProvider.getCardServiceFullEndpoint(),
             StopCardSessionResponse.class);
     return soapResponse.getStatus();
   }

@@ -53,6 +53,11 @@ public class ConnectorServicesFactory {
         restTemplate.getForEntity(connectorSdsUrl, String.class);
     if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
       throw new IllegalStateException("Failed to load connector.sds from " + connectorSdsUrl);
+    } else {
+      log.info(
+          "Successfully downloaded connector.sds from '{}', Status: {}",
+          connectorSdsUrl,
+          responseEntity.getStatusCode());
     }
 
     final String bodyString = responseEntity.getBody();

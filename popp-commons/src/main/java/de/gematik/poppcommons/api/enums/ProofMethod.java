@@ -25,13 +25,12 @@ import lombok.Getter;
 @Getter
 public enum ProofMethod {
   HEALTHID("healthid"),
-  EHC_PRACTITIONER_TRUSTEDCHANNEL_READ_X509("ehc-practitioner-trustedchannel-read-x509"),
-  EHC_PRACTITIONER_CVC_AUTHENTICATED_DATABASE_HASH(
-      "ehc-practitioner-cvc-authenticated-database-hash"),
+  EHC_PRACTITIONER_TRUSTEDCHANNEL("ehc-practitioner-trustedchannel"),
+  EHC_PRACTITIONER_CVC_AUTHENTICATED("ehc-practitioner-cvc-authenticated"),
   EHC_PRACTITIONER_USER_X509("ehc-practitioner-user-x509"),
   EHC_PRACTITIONER_OWNER_X509("ehc-practitioner-owner-x509"),
-  EHC_PROVIDER_TRUSTEDCHANNEL_READ_X509("ehc-provider-trustedchannel-read-x509"),
-  EHC_PROVIDER_CVC_AUTHENTICATED_DATABASE_HASH("ehc-provider-cvc-authenticated-database-hash"),
+  EHC_PROVIDER_TRUSTEDCHANNEL("ehc-provider-trustedchannel"),
+  EHC_PROVIDER_CVC_AUTHENTICATED("ehc-provider-cvc-authenticated"),
   EHC_PROVIDER_USER_X509("ehc-provider-user-x509"),
   EHC_PROVIDER_OWNER_X509("ehc-provider-owner-x509");
 

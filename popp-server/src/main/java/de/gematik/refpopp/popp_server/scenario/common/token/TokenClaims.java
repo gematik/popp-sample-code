@@ -48,6 +48,15 @@ class TokenClaims {
   @Value("${jwt-token.popp.version:1.0.0}")
   private String version;
 
+  @Value("${jwt-token.popp.actor-id:telematik-id}")
+  private String actorId;
+
+  @Value("${jwt-token.popp.actor-profession-oid:1.2.276.0.76.4.50}")
+  private String actorProfessionOid;
+
+  @Value("${jwt-token.popp.authorization-details:details}")
+  private String authorizationDetails;
+
   private final SessionContainer sessionContainer;
 
   TokenClaims(final SessionContainer sessionContainer) {
@@ -63,9 +72,9 @@ class TokenClaims {
     claims.put(EnumTokenClaimsKey.PATIENT_PROOF_TIME.getKeyValue(), getPatientProofTime(sessionId));
     claims.put(EnumTokenClaimsKey.PATIENT_ID.getKeyValue(), x509Data.getSubject().kvNr());
     claims.put(EnumTokenClaimsKey.INSURER_ID.getKeyValue(), x509Data.getSubject().ikNr());
-    claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), "telematik-id");
-    claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), "1.2.276.0.76.4.50");
-    claims.put(EnumTokenClaimsKey.AUTHORIZATION_DETAILS.getKeyValue(), "details");
+    claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), actorId);
+    claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), actorProfessionOid);
+    claims.put(EnumTokenClaimsKey.AUTHORIZATION_DETAILS.getKeyValue(), authorizationDetails);
     return claims;
   }
 
@@ -93,10 +102,10 @@ class TokenClaims {
                         new ScenarioException(
                             sessionId, "No card connection type found", "errorCode"));
     if (cardConnectionType == CONTACT_STANDARD || cardConnectionType == CONTACT_CONNECTOR) {
-      return ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL_READ_X509.toString();
+      return ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL.toString();
     } else if (cardConnectionType == CONTACTLESS_STANDARD
         || cardConnectionType == CONTACTLESS_CONNECTOR) {
-      return ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED_DATABASE_HASH.toString();
+      return ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED.toString();
     }
 
     return "unknown";

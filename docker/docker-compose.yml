@@ -3,7 +3,7 @@ services:
     build:
       context: ../popp-server
       dockerfile: docker/Dockerfile
-    image: local/popp/popp-server:1.0.2
+    image: local/popp/popp-server:1.0.3
     container_name: popp-server
     ports:
       - "8443:8443"

@@ -24,12 +24,10 @@ import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
 
   private final CvcProcessor cvcProcessor;
@@ -71,7 +69,7 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
     final var endEntityCvc =
         cvcProcessor.createAndValidateCvc(
             sessionId, scenarioResult, readEndEntityCvCertificateStepName);
-    cvcProcessor.createAndValidateCvc(sessionId, scenarioResult, readSubCaCvCertificateStepName);
+    cvcProcessor.createAndValidateCvcCa(sessionId, scenarioResult, readSubCaCvCertificateStepName);
     final var cvcList = cvcChainBuilder.build(sessionId, scenarioResult, endEntityCvc);
     final var customStates = customApduStepDefinitionFactory.create(cvcList);
     sessionAccessor.storeAdditionalSteps(sessionId, customStates);

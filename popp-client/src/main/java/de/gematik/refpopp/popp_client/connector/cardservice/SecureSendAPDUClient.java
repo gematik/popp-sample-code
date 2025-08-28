@@ -22,11 +22,12 @@ package de.gematik.refpopp.popp_client.connector.cardservice;
 
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.SecureSendAPDU;
-import de.gematik.ws.conn.cardservice.v8.SecureSendAPDUResponse;
+import de.gematik.ws.conn.cardservice.v821.SecureSendAPDU;
+import de.gematik.ws.conn.cardservice.v821.SecureSendAPDUResponse;
 import java.util.List;
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
@@ -40,9 +41,8 @@ public class SecureSendAPDUClient extends SoapClient {
       final Jaxb2Marshaller cardServiceMarshaller,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Value("${connector.soap-services.secure-send-apdu}") final String soapActionSecureSendAPDU,
-      @Value("${connector.secure.hostname-validation}") boolean hostnameValidationIsEnabled,
-      final Optional<SSLContext> sslContext) {
-    super(cardServiceMarshaller, soapActionSecureSendAPDU, hostnameValidationIsEnabled, sslContext);
+      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
+    super(cardServiceMarshaller, soapActionSecureSendAPDU, httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 
@@ -52,7 +52,7 @@ public class SecureSendAPDUClient extends SoapClient {
     final var soapResponse =
         sendRequest(
             secureSendAPDU,
-            serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
+            serviceEndpointProvider.getCardServiceFullEndpoint(),
             SecureSendAPDUResponse.class);
     return soapResponse.getSignedScenarioResponse().getResponseApduList().getResponseApdu();
   }

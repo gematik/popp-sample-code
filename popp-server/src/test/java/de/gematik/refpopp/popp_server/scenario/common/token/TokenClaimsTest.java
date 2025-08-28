@@ -83,6 +83,9 @@ class TokenClaimsTest {
 
     ReflectionTestUtils.setField(sut, "version", version);
     ReflectionTestUtils.setField(sut, "issuer", issuer);
+    ReflectionTestUtils.setField(sut, "actorId", actorId);
+    ReflectionTestUtils.setField(sut, "actorProfessionOid", actorProfessionOid);
+    ReflectionTestUtils.setField(sut, "authorizationDetails", authorizationDetails);
 
     when(sessionContainer.retrieveSessionData(
             sessionId,
@@ -110,8 +113,7 @@ class TokenClaimsTest {
         .containsEntry(ISSUER.getKeyValue(), issuer)
         .containsEntry(PATIENT_PROOF_TIME.getKeyValue(), patientProofTime)
         .containsEntry(
-            PROOF_METHOD.getKeyValue(),
-            ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL_READ_X509.getValue())
+            PROOF_METHOD.getKeyValue(), ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL.getValue())
         .containsEntry(PATIENT_ID.getKeyValue(), subject.kvNr())
         .containsEntry(INSURER_ID.getKeyValue(), subject.ikNr())
         .containsEntry(ACTOR_ID.getKeyValue(), actorId)
@@ -162,8 +164,7 @@ class TokenClaimsTest {
         .containsEntry(ISSUER.getKeyValue(), issuer)
         .containsEntry(PATIENT_PROOF_TIME.getKeyValue(), patientProofTime)
         .containsEntry(
-            PROOF_METHOD.getKeyValue(),
-            ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED_DATABASE_HASH.getValue())
+            PROOF_METHOD.getKeyValue(), ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED.getValue())
         .containsEntry(PATIENT_ID.getKeyValue(), subject.kvNr())
         .containsEntry(INSURER_ID.getKeyValue(), subject.ikNr())
         .containsEntry(ACTOR_ID.getKeyValue(), actorId)

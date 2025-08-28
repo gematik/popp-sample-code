@@ -23,7 +23,6 @@ package de.gematik.refpopp.popp_server.file.temp;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -34,17 +33,15 @@ public final class EgkImportTempFileService {
 
   public Path createFile(final String path) throws IOException {
     final Path tmp;
-    final var perms = PosixFilePermissions.fromString("rw-------");
-    final var attr = PosixFilePermissions.asFileAttribute(perms);
 
     if (StringUtils.hasText(path)) {
       final var baseDir = Path.of(path).toAbsolutePath().normalize();
       if (!Files.isDirectory(baseDir) || !Files.isWritable(baseDir)) {
         throw new IOException("Path is not a directory or not writable: " + baseDir);
       }
-      tmp = Files.createTempFile(baseDir, "egk-", ".dat", attr);
+      tmp = Files.createTempFile(baseDir, "egk-", ".dat");
     } else {
-      tmp = Files.createTempFile("egk-", ".dat", attr);
+      throw new IOException("Path must not be empty or blank.");
     }
     log.info("Temporary file created: {}", tmp);
     return tmp;

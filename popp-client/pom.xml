@@ -7,12 +7,12 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-client</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
   <packaging>jar</packaging>
 
   <name>popp-client</name>
@@ -20,7 +20,7 @@
   <description>Example implementation POPP-Client</description>
 
   <properties>
-    <sonar.coverage.exclusions>**/de/gematik/refpopp/popp_client/configuration/**/*</sonar.coverage.exclusions>
+    <sonar.coverage.exclusions>**/de/gematik/refpopp/popp_client/configuration/**/*, **/*Configuration.java</sonar.coverage.exclusions>
   </properties>
 
   <dependencies>
@@ -357,7 +357,7 @@
         <version>4.0.3</version>
         <executions>
           <execution>
-            <id>general</id>
+            <id>event-service</id>
             <goals>
               <goal>wsimport</goal>
             </goals>
@@ -367,12 +367,33 @@
               </wsdlDirectory>
               <wsdlFiles>
                 <wsdlFile>conn/EventService.wsdl</wsdlFile>
-                <wsdlFile>conn/CardService_v8_2_1.wsdl</wsdlFile>
+                  <wsdlFile>conn/CardService_v8_1_2.wsdl</wsdlFile>
               </wsdlFiles>
               <keep>true</keep>
               <sourceDestDir>${project.build.directory}/generated-sources</sourceDestDir>
             </configuration>
           </execution>
+              <execution>
+                  <id>card-service-v821</id>
+                  <goals>
+                      <goal>wsimport</goal>
+                  </goals>
+                  <configuration>
+                      <wsdlDirectory>
+                          src/main/resources/api-telematik-OPB4
+                      </wsdlDirectory>
+                      <wsdlFiles>
+                          <wsdlFile>conn/CardService_v8_2_1.wsdl</wsdlFile>
+                      </wsdlFiles>
+
+                      <bindingFiles>
+                          <bindingFile>cardservice_v8_2_1.xjb</bindingFile>
+                      </bindingFiles>
+                      <extension>true</extension>
+                      <keep>true</keep>
+                      <sourceDestDir>${project.build.directory}/generated-sources</sourceDestDir>
+                  </configuration>
+              </execution>
           <execution>
             <id>signatureservice74</id>
             <goals>

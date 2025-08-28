@@ -57,12 +57,11 @@ public class SecureWebSocketClient extends WebSocketClient {
   @PostConstruct
   public void init() throws Exception {
     log.debug("| Initializing SecureWebSocketClient");
-    // TLS configuration
+    // Use SunJSSE as a provider to have a different Instance of SSLContext than for the Konnektor
     final var sslContext = SSLContext.getInstance("TLS", "SunJSSE");
     final var trustManagerFactory =
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 
-    // Load the TrustStore containing the server's certificate
     final var trustStore = KeyStore.getInstance("PKCS12");
     try (final InputStream keyStoreStream =
         getClass().getClassLoader().getResourceAsStream(keyStore)) {
@@ -71,7 +70,6 @@ public class SecureWebSocketClient extends WebSocketClient {
     trustManagerFactory.init(trustStore);
     sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
 
-    // Set the SSL context
     this.setSocketFactory(sslContext.getSocketFactory());
 
     log.debug("| Finished initializing SecureWebSocketClient");

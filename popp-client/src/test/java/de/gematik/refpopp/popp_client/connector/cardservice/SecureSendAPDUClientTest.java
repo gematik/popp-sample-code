@@ -29,11 +29,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
-import de.gematik.ws.conn.cardservice.v8.SecureSendAPDUResponse;
+import de.gematik.ws.conn.cardservice.v821.SecureSendAPDUResponse;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -52,16 +50,13 @@ class SecureSendAPDUClientTest {
             jaxb2MarshallerMock,
             serviceEndpointProviderMock,
             "http://tempuri.org/SecureSendAPDU",
-            false,
-            Optional.empty());
+            null);
   }
 
   @Test
   void performSecureSendAPDUReturnsAPDUs() {
     // given
-    final var serviceEndpointMock = mock(ServiceEndpoint.class);
-    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(serviceEndpointMock);
-    when(serviceEndpointMock.getEndpoint()).thenReturn("service.endpoint");
+    when(serviceEndpointProviderMock.getCardServiceFullEndpoint()).thenReturn("service.endpoint");
 
     final SecureSendAPDUResponse responseMock =
         mock(SecureSendAPDUResponse.class, RETURNS_DEEP_STUBS);

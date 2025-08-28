@@ -84,6 +84,18 @@ The PoPP-Client supports TLS connections using [ECC](https://gemspec.gematik.de/
   ```
   openssl s_client -showcerts -connect <Konnektor_IP>:<PORT>
   ```
+  
+  Depending on the Konnektor type, you might add a curves parameter to the command, e.g.:
+
+  ```
+  openssl s_client -showcerts -connect <Konnektor_IP>:<PORT> -curves brainpoolP256r1
+  ```
+
+  or a cipher parameter, e.g.:
+
+  ```
+  openssl s_client -showcerts -connect <Konnektor_IP>:<PORT> -cipher ECDHE-ECDSA-AES128-GCM-SHA256
+  ```
 
 * Import the Konnektor certificate including the whole trust chain into your truststore (e.g., truststore.p12):
 
@@ -103,11 +115,13 @@ Configure your Konnektor address and context:
 connector:
   end-point-url: <ip address and port of event-service endpoint of Konnektor>
   terminal-configuration:
+  log-ws: <if SOAP messages should be logged>
   secure:
     enable: <If TLS should be used>
     hostname-validation: <The Hostname of the Konnektor should be validated>
     keystore: <Keystore with the client certificate>
     keystore-password: <Password of the keystore>
+    trust-all: <If all certificates should be trusted, only for testing purposes>
     truststore: <Truststore with the Konnektor certificate and its trust chain>
     truststore-password: <Password of the truststore>
   context:
@@ -126,11 +140,13 @@ Example:
 connector:
   end-point-url: "http://127.0.0.1"
   terminal-configuration:
+  log-ws: true
   secure:
     enable: false
     hostname-validation: true
     keystore: keystore.p12
     keystore-password: changeit
+    trust-all: false
     truststore: truststore.p12
     truststore-password: changeit
   context:

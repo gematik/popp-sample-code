@@ -28,11 +28,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
-import de.gematik.ws.conn.cardservice.v8.StopCardSessionResponse;
+import de.gematik.ws.conn.cardservice.v821.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -51,17 +49,14 @@ class StopCardSessionClientTest {
             jaxb2MarshallerMock,
             serviceEndpointProviderMock,
             "http://tempuri.org/SecureSendAPDU",
-            false,
-            Optional.empty());
+            null);
   }
 
   @Test
   void performStopCardSessionReturnsStatus() {
     // given
     final String expectedSessionId = "sessionId";
-    final var serviceEndpointMock = mock(ServiceEndpoint.class);
-    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(serviceEndpointMock);
-    when(serviceEndpointMock.getEndpoint()).thenReturn("service.endpoint");
+    when(serviceEndpointProviderMock.getCardServiceFullEndpoint()).thenReturn("service.endpoint");
     final var soapResponseMock = mock(StopCardSessionResponse.class);
     final Status status = new Status();
     status.setResult("OK");

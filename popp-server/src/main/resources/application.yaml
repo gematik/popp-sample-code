@@ -38,8 +38,8 @@ server:
     enabled-protocols: TLSv1.2
 jwt-token:
   popp:
-    issuer: "https://popp.example.com"
-    version: "1.0.0"
-    typ: "vnd.telematik.popp+jwt"
+    actor-id: "telematik-id"
+    actor-profession-oid: "1.2.276.0.76.4.50"
+    authorization-details: "details"
   connector:
     typ: "JWT"

@@ -82,7 +82,7 @@ class ReadCvcScenarioResultProcessorTest {
     verify(cvcProcessorMock)
         .createAndValidateCvc(sessionId, scenarioResult, "readEndEntityCvCertificateStepName");
     verify(cvcProcessorMock)
-        .createAndValidateCvc(sessionId, scenarioResult, "readSubCaCvCertificateStepName");
+        .createAndValidateCvcCa(sessionId, scenarioResult, "readSubCaCvCertificateStepName");
     verify(cvcChainBuilderMock).build(sessionId, scenarioResult, endEntityCvc);
     verify(customApduStepDefinitionFactoryMock).create(any());
     verify(sessionAccessorMock).storeAdditionalSteps(eq(sessionId), any());

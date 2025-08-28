@@ -91,10 +91,10 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
     final var endEntityCvc =
         cvcProcessor.createAndValidateCvc(
             sessionId, scenarioResult, readEndEntityCvCertificateStepName);
-    cvcProcessor.createAndValidateCvc(sessionId, scenarioResult, readSubCaCvCertificateStepName);
+    cvcProcessor.createAndValidateCvcCa(sessionId, scenarioResult, readSubCaCvCertificateStepName);
     verifySignatureOfNonce(sessionId, scenarioResult, endEntityCvc);
-    checkCertificatePair(sessionId);
     final var x509Data = extractDataFromX509(sessionId, scenarioResult);
+    checkCertificatePair(sessionId);
     final var poppToken = tokenCreator.createPoppToken(x509Data, sessionId);
     sessionAccessor.storeJwtToken(sessionId, poppToken);
     log.info("| {} Generated PoPP-Token for the client: {}", sessionId, poppToken);

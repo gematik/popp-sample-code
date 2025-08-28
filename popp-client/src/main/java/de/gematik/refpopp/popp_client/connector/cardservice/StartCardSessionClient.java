@@ -20,12 +20,15 @@
 
 package de.gematik.refpopp.popp_client.connector.cardservice;
 
+import de.gematik.refpopp.popp_client.connector.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
-import de.gematik.ws.conn.cardservice.v8.StartCardSession;
-import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
+import de.gematik.ws.conn.cardservice.v821.StartCardSession;
+import de.gematik.ws.conn.cardservice.v821.StartCardSessionResponse;
+import de.gematik.ws.conn.connectorcontext.v2.ContextType;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
@@ -33,28 +36,41 @@ import org.springframework.stereotype.Component;
 @Component
 public class StartCardSessionClient extends SoapClient {
 
+  private final Context context;
   private final ServiceEndpointProvider serviceEndpointProvider;
 
   public StartCardSessionClient(
       final Jaxb2Marshaller cardServiceMarshaller,
+      final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Value("${connector.soap-services.start-card-session}")
           final String soapActionStartCardSession,
-      @Value("${connector.secure.hostname-validation}") boolean hostnameValidationIsEnabled,
-      final Optional<SSLContext> sslContext) {
-    super(
-        cardServiceMarshaller, soapActionStartCardSession, hostnameValidationIsEnabled, sslContext);
+      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
+    super(cardServiceMarshaller, soapActionStartCardSession, httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
+    this.context = context;
   }
 
   public String performStartCardSession(final String handle) {
-    final var startCardSession = new StartCardSession();
-    startCardSession.setCardHandle(handle);
+    final StartCardSession startCardSession = createSoapRequest(handle);
     final var soapResponse =
         sendRequest(
             startCardSession,
-            serviceEndpointProvider.getCardServiceEndpoint().getEndpoint(),
+            serviceEndpointProvider.getCardServiceFullEndpoint(),
             StartCardSessionResponse.class);
     return soapResponse.getSessionId();
+  }
+
+  private StartCardSession createSoapRequest(String handle) {
+    final var startCardSession = new StartCardSession();
+    startCardSession.setCardHandle(handle);
+
+    final ContextType contextType = new ContextType();
+    contextType.setClientSystemId(context.getClientSystemId());
+    contextType.setMandantId(context.getMandantId());
+    contextType.setWorkplaceId(context.getWorkplaceId());
+    startCardSession.setContext(contextType);
+
+    return startCardSession;
   }
 }

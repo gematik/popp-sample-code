@@ -20,16 +20,7 @@
 
 package de.gematik.refpopp.popp_client.connector.soap;
 
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
-import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
+import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.ws.client.core.WebServiceTemplate;
 import org.springframework.ws.client.core.support.WebServiceGatewaySupport;
@@ -41,19 +32,14 @@ public class SoapClient extends WebServiceGatewaySupport {
 
   private final String soapAction;
   private boolean mtomEnabled;
-  private boolean hostnameValidationIsEnabled;
-  private Optional<SSLContext> sslContext;
+  private HttpClient httpClient;
 
   public SoapClient(
-      final Jaxb2Marshaller marshaller,
-      final String soapAction,
-      boolean hostnameValidationIsEnabled,
-      Optional<SSLContext> sslContext) {
+      final Jaxb2Marshaller marshaller, final String soapAction, HttpClient httpClient) {
     setMarshaller(marshaller);
     setUnmarshaller(marshaller);
     this.soapAction = soapAction;
-    this.hostnameValidationIsEnabled = hostnameValidationIsEnabled;
-    this.sslContext = sslContext;
+    this.httpClient = httpClient;
   }
 
   public <T> T sendRequest(
@@ -61,29 +47,7 @@ public class SoapClient extends WebServiceGatewaySupport {
     getJaxb2Marshaller().setMtomEnabled(mtomEnabled);
     final WebServiceTemplate webServiceTemplate = getWebServiceTemplate();
     webServiceTemplate.setInterceptors(new ClientInterceptor[] {new SoapClientInterceptor()});
-    if (sslContext.isPresent()) {
-      TlsSocketStrategy tlsSocketStrategy =
-          ClientTlsStrategyBuilder.create()
-              .setSslContext(sslContext.get())
-              .setHostnameVerifier(
-                  hostnameValidationIsEnabled
-                      ? new DefaultHostnameVerifier()
-                      : NoopHostnameVerifier.INSTANCE)
-              .buildClassic();
-
-      PoolingHttpClientConnectionManager connectionManager =
-          PoolingHttpClientConnectionManagerBuilder.create()
-              .setTlsSocketStrategy(tlsSocketStrategy)
-              .build();
-
-      CloseableHttpClient httpClient =
-          HttpClients.custom()
-              .setConnectionManager(connectionManager)
-              // In order to prevent an I/O error: Content-Length header already present
-              .addRequestInterceptorFirst(
-                  (httpRequest, entity, context) -> httpRequest.removeHeaders("Content-Length"))
-              .build();
-
+    if (httpClient != null) {
       SimpleHttpComponents5MessageSender messageSender =
           new SimpleHttpComponents5MessageSender(httpClient);
       webServiceTemplate.setMessageSender(messageSender);

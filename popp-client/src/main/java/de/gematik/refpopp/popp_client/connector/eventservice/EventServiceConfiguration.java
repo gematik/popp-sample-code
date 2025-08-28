@@ -20,17 +20,17 @@
 
 package de.gematik.refpopp.popp_client.connector.eventservice;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
-@Component
-@ConfigurationProperties(prefix = "connector.terminal-configuration.context")
-@Data
-public class Context {
+@Configuration
+public class EventServiceConfiguration {
 
-  private String clientSystemId;
-  private String mandantId;
-  private String workplaceId;
-  private String userId;
+  @Bean
+  public Jaxb2Marshaller eventServiceMarshaller() {
+    final Jaxb2Marshaller marshaller = new Jaxb2Marshaller();
+    marshaller.setContextPath("de.gematik.ws.conn.eventservice.v7");
+    return marshaller;
+  }
 }

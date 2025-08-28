@@ -12,5 +12,12 @@ certificates:
   ocsp-response: "certificates/ocsp/resp.der"
   cvc-popp-service-private-key: "identities/PoPP26-Server/80276001011699902101-cvc-flag0/80276001011699902101-cvc-flag0.prv"
   identities-location: ${IDENTITIES_LOCATION:classpath:identities}
+
 cert-hash-import:
   location: ${CERT_HASH_IMPORT_LOCATION:}
+
+jwt-token:
+  popp:
+    actor-id: "telematik-id"
+    actor-profession-oid: "1.2.276.0.76.4.50"
+    authorization-details: "details"

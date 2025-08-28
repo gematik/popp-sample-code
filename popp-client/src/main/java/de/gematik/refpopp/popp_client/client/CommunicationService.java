@@ -32,6 +32,7 @@ import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
+import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import de.gematik.refpopp.popp_client.client.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
@@ -62,12 +63,26 @@ public class CommunicationService {
   private final ClientServerCommunicationService clientServerCommunicationService;
   private final ConnectorCommunicationService connectorCommunicationService;
 
+  private CardConnectionType pendingCardConnectionType;
+  private String pendingClientSessionId;
+
   public void start(final CardConnectionType cardConnectionType, final String clientSessionId) {
+    if (isContactlessConnection(cardConnectionType)) {
+      log.info("| PACE not yet completed, waiting for initialization...");
+      pendingCardConnectionType = cardConnectionType;
+      pendingClientSessionId = clientSessionId;
+      return;
+    }
+
+    executeStart(cardConnectionType, clientSessionId);
+  }
+
+  private void executeStart(
+      final CardConnectionType cardConnectionType, final String clientSessionId) {
     validateConnectionCompatibility(cardConnectionType);
     clientServerCommunicationService.connect();
     final var sslSession = clientServerCommunicationService.getSSLSession();
     sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
-    sslSession.putValue(CLIENT_SESSION_ID, clientSessionId);
     resolveSessionIdAndSendMessage(cardConnectionType, clientSessionId);
   }
 
@@ -89,6 +104,17 @@ public class CommunicationService {
   }
 
   @EventListener
+  public void handlePaceInitializationComplete(final PaceInitializationCompleteEvent event) {
+    log.info("| PACE initialization completed, starting pending Communication Service");
+    executeStart(pendingCardConnectionType, pendingClientSessionId);
+  }
+
+  private boolean isContactlessConnection(CardConnectionType cardConnectionType) {
+    return cardConnectionType == CardConnectionType.CONTACTLESS_STANDARD
+        || cardConnectionType == CardConnectionType.CONTACTLESS_CONNECTOR;
+  }
+
+  @EventListener
   public void handleServerEvent(final TextMessageReceivedEvent event) {
     log.debug("| Entering handleServerEvent() with event-payload {}", event.getPayload());
     final var eventPayload = event.getPayload();
@@ -105,6 +131,10 @@ public class CommunicationService {
   private void resolveSessionIdAndSendMessage(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
+
+    final var sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.putValue(CLIENT_SESSION_ID, sessionId);
+
     sendStartMessage(cardConnectionType, sessionId);
   }
 
@@ -188,7 +218,17 @@ public class CommunicationService {
     final var cardConnectionType = (CardConnectionType) sslSession.getValue(CARD_CONNECTION_TYPE);
     if (CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)) {
       final var clientSessionId = (String) sslSession.getValue(CLIENT_SESSION_ID);
-      connectorCommunicationService.stopCardSession(clientSessionId);
+      try {
+        connectorCommunicationService.stopCardSession(clientSessionId);
+      } catch (org.springframework.ws.soap.client.SoapFaultClientException exception) {
+        String faultString = exception.getFaultStringOrReason();
+        boolean unknownSession =
+            faultString != null && faultString.contains("Unbekannte Session ID");
+        if (!unknownSession) {
+          throw exception;
+        }
+        log.info("Session {} is already closed.", clientSessionId);
+      }
     }
   }
 

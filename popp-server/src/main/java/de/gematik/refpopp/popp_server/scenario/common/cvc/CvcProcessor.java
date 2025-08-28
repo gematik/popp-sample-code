@@ -54,11 +54,29 @@ public class CvcProcessor {
     return cvc;
   }
 
+  public Cvc createAndValidateCvcCa(
+      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
+    final var cvc = createCvcCa(sessionId, scenarioResult, stepName);
+    checkExpirationDate(sessionId, cvc);
+    validateCvcSignature(sessionId, cvc);
+    return cvc;
+  }
+
   private Cvc createCvc(
       final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
     final var result =
         scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepName);
     sessionAccessor.storeCvc(sessionId, result.data());
+
+    return cvcFactory.create(result.data());
+  }
+
+  private Cvc createCvcCa(
+      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
+    final var result =
+        scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepName);
+    sessionAccessor.storeCvcCA(sessionId, result.data());
+
     return cvcFactory.create(result.data());
   }
 

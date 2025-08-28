@@ -7,11 +7,13 @@ popp-server:
 
 connector:
   end-point-url: "https://127.0.0.1"
+  log-ws: true
   secure:
-    enable: false
-    hostname-validation: true
+    enable: true
+    hostname-validation: false
     keystore: keystore.p12
     keystore-password: changeit
+    trust-all: false
     truststore: truststore.p12
     truststore-password: changeit
   terminal-configuration:

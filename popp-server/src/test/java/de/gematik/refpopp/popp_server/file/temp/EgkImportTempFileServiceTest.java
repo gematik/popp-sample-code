@@ -42,19 +42,14 @@ class EgkImportTempFileServiceTest {
   }
 
   @Test
-  void createFileWithEmptyPathCreatesTempFileInDefaultDirectory() throws IOException {
+  void createFileWithEmptyPathThrowsIOException() {
     // given
     final String path = "";
 
-    // when
-    final Path tempFile = sut.createFile(path);
-
-    // then
-    assertThat(tempFile).exists();
-    assertThat(tempFile.getFileName().toString()).startsWith("egk-").endsWith(".dat");
-
-    // cleanup
-    Files.deleteIfExists(tempFile);
+    // when / then
+    assertThatThrownBy(() -> sut.createFile(path))
+        .isInstanceOf(IOException.class)
+        .hasMessageContaining("Path must not be empty or blank.");
   }
 
   @Test

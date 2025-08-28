@@ -29,10 +29,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
+import de.gematik.refpopp.popp_client.connector.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
-import de.gematik.ws.conn.cardservice.v8.StartCardSessionResponse;
-import java.util.Optional;
+import de.gematik.ws.conn.cardservice.v821.StartCardSessionResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -45,14 +44,15 @@ class StartCardSessionClientTest {
   @BeforeEach
   void setUp() {
     final var jaxb2MarshallerMock = mock(Jaxb2Marshaller.class);
+    final Context contextMock = mock(Context.class);
     serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
     sut =
         new StartCardSessionClient(
             jaxb2MarshallerMock,
+            contextMock,
             serviceEndpointProviderMock,
             "http://tempuri.org/SecureSendAPDU",
-            false,
-            Optional.empty());
+            null);
   }
 
   @Test
@@ -60,9 +60,7 @@ class StartCardSessionClientTest {
     // given
     final String expectedSessionId = "sessionId";
     final String handle = "handle";
-    final var serviceEndpointMock = mock(ServiceEndpoint.class);
-    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(serviceEndpointMock);
-    when(serviceEndpointMock.getEndpoint()).thenReturn("service.endpoint");
+    when(serviceEndpointProviderMock.getCardServiceFullEndpoint()).thenReturn("service.endpoint");
     final var soapResponseMock = mock(StartCardSessionResponse.class);
     when(soapResponseMock.getSessionId()).thenReturn(expectedSessionId);
     final StartCardSessionClient spySut = spy(sut);

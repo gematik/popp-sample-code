@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.connector.eventservice;
+package de.gematik.refpopp.popp_client.connector;
 
 import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 

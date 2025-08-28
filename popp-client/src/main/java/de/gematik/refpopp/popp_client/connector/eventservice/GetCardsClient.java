@@ -20,21 +20,24 @@
 
 package de.gematik.refpopp.popp_client.connector.eventservice;
 
+import de.gematik.refpopp.popp_client.connector.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
+import de.gematik.ws.conn.cardservice.v8.CardInfoType;
+import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
 import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 import de.gematik.ws.conn.eventservice.v7.GetCards;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
-/** Sends a GetCards request to the connector. */
+/** Sends a <i>GetCards</i> request to the connector. */
 @Component
 @Slf4j
 public class GetCardsClient extends SoapClient {
@@ -47,24 +50,26 @@ public class GetCardsClient extends SoapClient {
       final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Value("${connector.soap-services.get-cards}") final String soapActionGetCards,
-      @Value("${connector.secure.hostname-validation}") final boolean hostnameValidationIsEnabled,
-      Optional<SSLContext> sslContext) {
-    super(eventServiceMarshaller, soapActionGetCards, hostnameValidationIsEnabled, sslContext);
+      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
+    super(eventServiceMarshaller, soapActionGetCards, httpClient);
     this.context = context;
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 
   public DetermineCardHandleResponse performGetCards() {
     final GetCards soapRequest = createSoapRequestObject();
+    String endpoint = serviceEndpointProvider.getEventServiceFullEndpoint();
+    log.info("Sending GetCards request to connector at {}", endpoint);
     final GetCardsResponse soapResponse =
-        sendRequest(
-            soapRequest,
-            serviceEndpointProvider.getEventServiceFullEndpoint(),
-            GetCardsResponse.class);
-    final var determineCardHandleResponse = new DetermineCardHandleResponse();
+        sendRequest(soapRequest, endpoint, GetCardsResponse.class);
+    final DetermineCardHandleResponse determineCardHandleResponse =
+        new DetermineCardHandleResponse();
 
-    final List<String> cardHandles = new ArrayList<>();
-    soapResponse.getCards().getCard().forEach(card -> cardHandles.add(card.getCardHandle()));
+    final List<String> cardHandles =
+        soapResponse.getCards().getCard().stream()
+            .filter(card -> CardTypeType.EGK.equals(card.getCardType()))
+            .map(CardInfoType::getCardHandle)
+            .toList();
 
     determineCardHandleResponse.setCardHandles(cardHandles);
     return determineCardHandleResponse;
@@ -75,15 +80,15 @@ public class GetCardsClient extends SoapClient {
   }
 
   private GetCards createGetCards() {
-    final var contextType = getContextType();
-    final var getCards = new GetCards();
+    final ContextType contextType = getContextType();
+    final GetCards getCards = new GetCards();
     getCards.setContext(contextType);
 
     return getCards;
   }
 
   private ContextType getContextType() {
-    final var contextType = new ContextType();
+    final ContextType contextType = new ContextType();
     contextType.setClientSystemId(context.getClientSystemId());
     contextType.setMandantId(context.getMandantId());
     contextType.setWorkplaceId(context.getWorkplaceId());

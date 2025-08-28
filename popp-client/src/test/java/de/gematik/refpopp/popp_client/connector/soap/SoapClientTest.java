@@ -29,8 +29,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Optional;
-import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -46,7 +46,7 @@ class SoapClientTest {
   void setUp() {
     marshallerMock = mock(Jaxb2Marshaller.class);
     final String soapAction = "http://tempuri.org/SoapAction";
-    sut = new SoapClient(marshallerMock, soapAction, false, Optional.empty());
+    sut = new SoapClient(marshallerMock, soapAction, HttpClients.createDefault());
   }
 
   @Test
@@ -83,9 +83,9 @@ class SoapClientTest {
   @Test
   void giveSslContextAndCheckItIsSet() {
     // given
-    SSLContext sslContext = mock(SSLContext.class);
+    HttpClient httpClient = mock(HttpClient.class);
     final String soapAction = "http://tempuri.org/SoapAction";
-    SoapClient sslSut = new SoapClient(marshallerMock, soapAction, false, Optional.of(sslContext));
+    SoapClient sslSut = new SoapClient(marshallerMock, soapAction, httpClient);
 
     final WebServiceTemplate webServiceTemplateMock = mock(WebServiceTemplate.class);
     sslSut.setWebServiceTemplate(webServiceTemplateMock);

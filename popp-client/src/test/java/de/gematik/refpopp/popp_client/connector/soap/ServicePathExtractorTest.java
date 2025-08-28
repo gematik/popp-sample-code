@@ -44,7 +44,7 @@ class ServicePathExtractorTest {
   @BeforeEach
   void setUp() {
     connectorServicesFactoryMock = mock(ConnectorServicesFactory.class);
-    sut = new ServicePathExtractor("http://localhost:8080", connectorServicesFactoryMock);
+    sut = new ServicePathExtractor("http://localhost:8080", false, connectorServicesFactoryMock);
   }
 
   @Test
@@ -101,7 +101,38 @@ class ServicePathExtractorTest {
   }
 
   @Test
-  void getCardServicePathWithTLSEndpoint() {
+  void getCardServicePathWithTlsEndpoint() {
+    // given
+    ServicePathExtractor secureServicePathExtractor =
+        new ServicePathExtractor("http://localhost:8080", true, connectorServicesFactoryMock);
+    final var connectorServicesMock = mock(ConnectorServices.class, RETURNS_DEEP_STUBS);
+    when(connectorServicesFactoryMock.createConnectorServices()).thenReturn(connectorServicesMock);
+    final var serviceType = new ServiceType();
+    serviceType.setName("CardService");
+    final var versionsType = new VersionsType();
+    final var versionType = new VersionType();
+    versionType.setVersion("version");
+    serviceType.setVersions(versionsType);
+    final EndpointType nonSecureEndpointType = new EndpointType();
+    nonSecureEndpointType.setLocation("nonsecurelocation");
+    versionType.setEndpoint(nonSecureEndpointType);
+    final EndpointType secureEndpointType = new EndpointType();
+    secureEndpointType.setLocation("securelocation");
+    versionType.setEndpointTLS(secureEndpointType);
+    versionsType.getVersion().add(versionType);
+    when(connectorServicesMock.getServiceInformation().getService())
+        .thenReturn(List.of(serviceType));
+
+    // when
+    final var result = secureServicePathExtractor.getCardServicePath();
+
+    // then
+    assertThat(result).isNotNull();
+    assertThat(result.getPath()).isEqualTo("securelocation");
+  }
+
+  @Test
+  void getCardServicePathWithNonTlsEndpoint() {
     // given
     final var connectorServicesMock = mock(ConnectorServices.class, RETURNS_DEEP_STUBS);
     when(connectorServicesFactoryMock.createConnectorServices()).thenReturn(connectorServicesMock);
@@ -111,9 +142,12 @@ class ServicePathExtractorTest {
     final var versionType = new VersionType();
     versionType.setVersion("version");
     serviceType.setVersions(versionsType);
-    final var endpointType = new EndpointType();
-    endpointType.setLocation("location");
-    versionType.setEndpointTLS(endpointType);
+    final EndpointType nonSecureEndpointType = new EndpointType();
+    nonSecureEndpointType.setLocation("nonsecurelocation");
+    versionType.setEndpoint(nonSecureEndpointType);
+    final EndpointType secureEndpointType = new EndpointType();
+    secureEndpointType.setLocation("securelocation");
+    versionType.setEndpointTLS(secureEndpointType);
     versionsType.getVersion().add(versionType);
     when(connectorServicesMock.getServiceInformation().getService())
         .thenReturn(List.of(serviceType));
@@ -123,7 +157,7 @@ class ServicePathExtractorTest {
 
     // then
     assertThat(result).isNotNull();
-    assertThat(result.getPath()).isEqualTo("location");
+    assertThat(result.getPath()).isEqualTo("nonsecurelocation");
   }
 
   @Test

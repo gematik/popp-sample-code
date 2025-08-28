@@ -23,6 +23,7 @@ package de.gematik.refpopp.popp_client.connector;
 import de.gematik.refpopp.popp_client.connector.cardservice.SecureSendAPDUClient;
 import de.gematik.refpopp.popp_client.connector.cardservice.StartCardSessionClient;
 import de.gematik.refpopp.popp_client.connector.cardservice.StopCardSessionClient;
+import de.gematik.refpopp.popp_client.connector.eventservice.DetermineCardHandleResponse;
 import de.gematik.refpopp.popp_client.connector.eventservice.GetCardsClient;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.List;
@@ -53,8 +54,9 @@ public class RealConnectorCommunicationService implements ConnectorCommunication
 
   @Override
   public String getConnectedEgkCard() {
-    final var determineCardHandleResponse = getCardsClient.performGetCards();
-    final var cardHandles = determineCardHandleResponse.getCardHandles();
+    final DetermineCardHandleResponse determineCardHandleResponse =
+        getCardsClient.performGetCards();
+    final List<String> cardHandles = determineCardHandleResponse.getCardHandles();
 
     return evaluateCardResponse(cardHandles);
   }

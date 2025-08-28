@@ -20,7 +20,7 @@
 			Beschreibung: Dienst zur Verwaltung der Karten
 		</documentation>
 	</annotation>
-	<import namespace="http://ws.gematik.de/conn/CardService/v8.1" schemaLocation="CardService.xsd"/>
+	<import namespace="http://ws.gematik.de/conn/CardService/v8.1" schemaLocation="CardService_v8_1_3.xsd"/>
 	<import namespace="http://ws.gematik.de/conn/ConnectorCommon/v5.0" schemaLocation="ConnectorCommon.xsd"/>
 	<import namespace="http://ws.gematik.de/tel/error/v2.0" schemaLocation="../tel/error/TelematikError.xsd"/>
 	<import namespace="http://ws.gematik.de/conn/CardServiceCommon/v2.0" schemaLocation="CardServiceCommon.xsd"/>

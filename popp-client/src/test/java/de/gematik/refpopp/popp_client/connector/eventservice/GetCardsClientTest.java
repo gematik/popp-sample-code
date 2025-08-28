@@ -31,11 +31,12 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.refpopp.popp_client.connector.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v8.CardInfoType;
+import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
@@ -56,19 +57,46 @@ class GetCardsClientTest {
             contextMock,
             serviceEndpointProviderMock,
             "http://tempuri.org/GetCards",
-            false,
-            Optional.empty());
+            null);
   }
 
   @Test
-  void performGetCardsReturnsCardHandles() {
+  void performGetCardsAndCheckCardHandleExists() {
     // given
     final var expectedCardHandles = List.of("cardHandle1");
     final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
     final var cardInfoType = new CardInfoType();
+    cardInfoType.setCardType(CardTypeType.EGK);
     cardInfoType.setCardHandle("cardHandle1");
     when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
     when(soapResponseMock.getCards().getCard()).thenReturn(List.of(cardInfoType));
+    final GetCardsClient spySut = spy(sut);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(any(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    final var actualResponse = spySut.performGetCards();
+
+    // then
+    assertThat(actualResponse).isNotNull();
+    assertThat(actualResponse.getCardHandles()).containsExactly(expectedCardHandles.getFirst());
+    verify(serviceEndpointProviderMock).getEventServiceFullEndpoint();
+  }
+
+  @Test
+  void performGetCardsWithTwoCardsAndCheckOnlyEgkIsReturned() {
+    // given
+    final var expectedCardHandles = List.of("egkCardHandle");
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    final var cardInfoType1 = new CardInfoType();
+    cardInfoType1.setCardType(CardTypeType.SMC_KT);
+    cardInfoType1.setCardHandle("smcKtCardHandle");
+    final var cardInfoType2 = new CardInfoType();
+    cardInfoType2.setCardType(CardTypeType.EGK);
+    cardInfoType2.setCardHandle("egkCardHandle");
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of(cardInfoType1, cardInfoType2));
     final GetCardsClient spySut = spy(sut);
     doReturn(soapResponseMock)
         .when(spySut)
