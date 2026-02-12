@@ -20,19 +20,24 @@
 
 package de.gematik.refpopp.popp_client.connector.cardservice;
 
+import static de.gematik.refpopp.popp_client.configuration.helper.SoapActionVersionHelper.buildSoapAction;
+
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
+import de.gematik.refpopp.popp_client.connector.soap.SoapActions;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
 import de.gematik.ws.conn.cardservice.v821.StopCardSession;
 import de.gematik.ws.conn.cardservice.v821.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
+import java.util.function.Supplier;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
 @Component
+@Lazy
 public class StopCardSessionClient extends SoapClient {
 
   private final ServiceEndpointProvider serviceEndpointProvider;
@@ -40,9 +45,12 @@ public class StopCardSessionClient extends SoapClient {
   public StopCardSessionClient(
       final Jaxb2Marshaller cardServiceMarshaller,
       final ServiceEndpointProvider serviceEndpointProvider,
-      @Value("${connector.soap-services.stop-card-session}") final String soapActionStopCardSession,
       @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
-    super(cardServiceMarshaller, soapActionStopCardSession, httpClient);
+    super(
+        cardServiceMarshaller,
+        (Supplier<String>)
+            () -> buildSoapAction(serviceEndpointProvider, SoapActions.STOP_CARD_SESSION),
+        httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 

@@ -20,7 +20,8 @@
 
 package de.gematik.refpopp.popp_client.cardreader.card;
 
-import static org.mockito.Mockito.any;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
@@ -29,75 +30,61 @@ import de.gematik.refpopp.popp_client.cardreader.events.CardReaderConnectedEvent
 import de.gematik.refpopp.popp_client.cardreader.events.CardReaderRemovedEvent;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardTerminal;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
 class CardEventPublisherTest {
 
-  private CardEventPublisher cardEventPublisher;
-
-  @Mock private ApplicationEventPublisher eventPublisherMock;
-  @Mock private CardChannel cardChannelMock;
-  @Mock private CardTerminal cardTerminalMock;
-
-  private AutoCloseable closeable;
-
-  @BeforeEach
-  void setUp() {
-    closeable = MockitoAnnotations.openMocks(this);
-    cardEventPublisher = new CardEventPublisher(eventPublisherMock);
-  }
-
-  @AfterEach
-  void close() throws Exception {
-    closeable.close();
-  }
-
   @Test
   void publishReaderConnectedEventPublishesEvent() {
-    // given
+    final var eventPublisher = mock(ApplicationEventPublisher.class);
+    final var cardTerminal = mock(CardTerminal.class);
+    final var publisher = new CardEventPublisher(eventPublisher);
 
-    // when
-    cardEventPublisher.publishReaderConnectedEvent(cardTerminalMock, "Reader connected");
+    publisher.publishReaderConnectedEvent(cardTerminal, "reader up");
 
-    // then
-    verify(eventPublisherMock).publishEvent(any(CardReaderConnectedEvent.class));
+    final var captor = ArgumentCaptor.forClass(CardReaderConnectedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+    assertThat(captor.getValue().getTerminal()).contains(cardTerminal);
+    assertThat(captor.getValue().getMessage()).isEqualTo("reader up");
   }
 
   @Test
   void publishReaderRemovedEventPublishesEvent() {
-    // given
+    final var eventPublisher = mock(ApplicationEventPublisher.class);
+    final var publisher = new CardEventPublisher(eventPublisher);
 
-    // when
-    cardEventPublisher.publishReaderRemovedEvent("Reader removed");
+    publisher.publishReaderRemovedEvent("reader down");
 
-    // then
-    verify(eventPublisherMock).publishEvent(any(CardReaderRemovedEvent.class));
+    final var captor = ArgumentCaptor.forClass(CardReaderRemovedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+    assertThat(captor.getValue().getMessage()).isEqualTo("reader down");
   }
 
   @Test
   void publishCardConnectedEventPublishesEvent() {
-    // given
+    final var eventPublisher = mock(ApplicationEventPublisher.class);
+    final var cardChannel = mock(CardChannel.class);
+    final var publisher = new CardEventPublisher(eventPublisher);
 
-    // when
-    cardEventPublisher.publishCardConnectedEvent(cardChannelMock);
+    publisher.publishCardConnectedEvent(cardChannel);
 
-    // then
-    verify(eventPublisherMock).publishEvent(any(CardConnectedEvent.class));
+    final var captor = ArgumentCaptor.forClass(CardConnectedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+    assertThat(captor.getValue().getCardChannel()).contains(cardChannel);
+    assertThat(captor.getValue().getEventMessage()).isEqualTo("Card was connected");
   }
 
   @Test
   void publishCardRemovedEventPublishesEvent() {
-    // given
+    final var eventPublisher = mock(ApplicationEventPublisher.class);
+    final var publisher = new CardEventPublisher(eventPublisher);
 
-    // when
-    cardEventPublisher.publishCardRemovedEvent("Card removed");
+    publisher.publishCardRemovedEvent("card removed");
 
-    // then
-    verify(eventPublisherMock).publishEvent(any(CardRemovedEvent.class));
+    final var captor = ArgumentCaptor.forClass(CardRemovedEvent.class);
+    verify(eventPublisher).publishEvent(captor.capture());
+    assertThat(captor.getValue().getEventMessage()).isEqualTo("card removed");
   }
 }

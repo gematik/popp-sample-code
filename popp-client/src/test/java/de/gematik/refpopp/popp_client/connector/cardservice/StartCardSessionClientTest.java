@@ -30,6 +30,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_client.connector.Context;
+import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v821.StartCardSessionResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,16 +44,16 @@ class StartCardSessionClientTest {
 
   @BeforeEach
   void setUp() {
+    serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
+    ServiceEndpoint endpointMock = mock(ServiceEndpoint.class);
+    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(endpointMock);
+    when(endpointMock.getVersion()).thenReturn("8.1.2");
+
     final var jaxb2MarshallerMock = mock(Jaxb2Marshaller.class);
     final Context contextMock = mock(Context.class);
-    serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
     sut =
         new StartCardSessionClient(
-            jaxb2MarshallerMock,
-            contextMock,
-            serviceEndpointProviderMock,
-            "http://tempuri.org/SecureSendAPDU",
-            null);
+            jaxb2MarshallerMock, contextMock, serviceEndpointProviderMock, null);
   }
 
   @Test

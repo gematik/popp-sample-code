@@ -20,11 +20,7 @@
 
 package de.gematik.refpopp.popp_client.cardreader.card;
 
-import de.gematik.openhealth.smartcard.ExchangeUtilsKt;
-import de.gematik.openhealth.smartcard.SmartCardUtilsKt;
-import de.gematik.openhealth.smartcard.card.HealthCardScopeKt;
-import de.gematik.openhealth.smartcard.card.TrustedChannelScope;
-import de.gematik.openhealth.smartcard.command.CardCommandApdu;
+import de.gematik.openhealth.healthcard.*;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
@@ -52,7 +48,7 @@ public class CardCommunicationService {
   private static final String CARD_ACCESS_NUMBER = "123123";
   private static final HexFormat HEX_FORMAT = HexFormat.of();
   private CardChannel cardChannel;
-  private TrustedChannelScope trustedChannel;
+  private SecureChannel secureChannel;
   private final ApplicationEventPublisher eventPublisher;
 
   public CardCommunicationService(ApplicationEventPublisher eventPublisher) {
@@ -65,7 +61,7 @@ public class CardCommunicationService {
   public void handleCardRemovedEvent(final CardRemovedEvent event) {
     log.debug("| Entering handleCardRemovedEvent()");
     cardChannel = null;
-    trustedChannel = null;
+    secureChannel = null;
     log.debug("| Exiting handleCardRemovedEvent()");
   }
 
@@ -134,16 +130,16 @@ public class CardCommunicationService {
     return Optional.of(cardChannel);
   }
 
-  public Optional<TrustedChannelScope> getTrustedChannel() {
-    if (trustedChannel == null) {
+  public Optional<SecureChannel> getSecureChannel() {
+    if (secureChannel == null) {
       return Optional.empty();
     }
-    return Optional.of(trustedChannel);
+    return Optional.of(secureChannel);
   }
 
   private ResponseAPDU sendApdu(final CommandAPDU commandAPDU) {
     final ResponseAPDU responseAPDU;
-    if (trustedChannel != null) {
+    if (secureChannel != null) {
       responseAPDU = transmitSecure(commandAPDU);
     } else {
       responseAPDU = transmitStandard(commandAPDU);
@@ -169,22 +165,74 @@ public class CardCommunicationService {
   }
 
   private ResponseAPDU transmitSecure(final CommandAPDU commandAPDU) {
-    final var cmd = CardCommandApdu.Companion.ofApdu(commandAPDU.getBytes());
-    final var response = SmartCardUtilsKt.transmitBlocking(trustedChannel, cmd);
-    return new ResponseAPDU(response.getBytes());
+    try {
+      final var cmd = CommandApdu.Companion.fromBytes(commandAPDU.getBytes());
+      final var response = secureChannel.transmit(cmd);
+      return new ResponseAPDU(response.toBytes());
+    } catch (final ApduException | SecureChannelException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  private void initializePACE() {
-    final var healthCardScope =
-        HealthCardScopeKt.healthCardScope(new OpenHealthCardCommunication(cardChannel.getCard()));
-    trustedChannel =
-        ExchangeUtilsKt.establishTrustedChannelBlocking(healthCardScope, CARD_ACCESS_NUMBER);
-    log.debug(
-        "| PACE Key: {}",
-        HexFormat.ofDelimiter(" ").formatHex(trustedChannel.getPaceKey().getEnc().getData()));
+  protected void initializePACE() {
+    try {
+      final var cardChannel =
+          new de.gematik.openhealth.healthcard.CardChannel() {
+            public boolean supportsExtendedLength() {
+              return true;
+            }
+
+            public ResponseApdu transmit(CommandApdu commandApdu) {
+
+              final var response =
+                  transmitStandard(new CommandAPDU(commandApduToBytes(commandApdu)));
+              try {
+                return responseApduFromBytes(response.getBytes());
+              } catch (ApduException e) {
+                throw new IllegalStateException(e);
+              }
+            }
+          };
+
+      final var cardAccessNumber = createCardAccessNumber();
+      secureChannel = establishSecureChannel(cardChannel, cardAccessNumber);
+    } catch (final SecureChannelException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
-  private boolean isContactless() {
+  protected CardAccessNumber createCardAccessNumber() throws SecureChannelException {
+    return createCardAccessNumberFromDigits(CARD_ACCESS_NUMBER);
+  }
+
+  protected SecureChannel establishSecureChannel(
+      final de.gematik.openhealth.healthcard.CardChannel cardChannel,
+      final CardAccessNumber cardAccessNumber)
+      throws SecureChannelException {
+    return doEstablishSecureChannel(cardChannel, cardAccessNumber);
+  }
+
+  protected CardAccessNumber createCardAccessNumberFromDigits(final String digits)
+      throws SecureChannelException {
+    return CardAccessNumber.Companion.fromDigits(digits);
+  }
+
+  protected SecureChannel doEstablishSecureChannel(
+      final de.gematik.openhealth.healthcard.CardChannel cardChannel,
+      final CardAccessNumber cardAccessNumber)
+      throws SecureChannelException {
+    return HealthcardKt.establishSecureChannel(cardChannel, cardAccessNumber);
+  }
+
+  protected byte[] commandApduToBytes(final CommandApdu commandApdu) {
+    return commandApdu.toBytes();
+  }
+
+  protected ResponseApdu responseApduFromBytes(final byte[] bytes) throws ApduException {
+    return ResponseApdu.Companion.fromBytes(bytes);
+  }
+
+  protected boolean isContactless() {
     // perform some card operation that is only allowed with PACE on contactless readers
     final CommandAPDU commandAPDU = new CommandAPDU(0x00, 0xB0, 0x87, 0x00, 0x100);
     final ResponseAPDU responseAPDU;

@@ -8,21 +8,26 @@ spring:
       - "classpath:contact-based-scenarios.yaml"
       - "classpath:open-egk-scenarios.yaml"
       - "classpath:contact-less-scenarios.yaml"
-
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+      file-size-threshold: 1MB
+      location: /tmp
   datasource:
     url: jdbc:postgresql://localhost:5432/egk_hash_db
     username: poppserver
     password: verysafe
     driver-class-name: org.postgresql.Driver
-    jpa:
+  jpa:
+    open-in-view: true
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+    properties:
       hibernate:
-        ddl-auto: update
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
-      show-sql: true
-      properties:
-        hibernate:
-          format_sql: true
-
+        format_sql: true
   liquibase:
     change-log: classpath:/db/changelog/db.changelog-master.sql
 

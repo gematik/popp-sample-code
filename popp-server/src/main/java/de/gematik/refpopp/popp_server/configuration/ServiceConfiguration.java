@@ -72,7 +72,7 @@ public class ServiceConfiguration {
   }
 
   @Bean("poppKeyStoreLoader")
-  public KeyStoreLoader trustKeyStoreLoader(
+  public KeyStoreLoader poppKeyStoreLoader(
       @Value("${certificates.popp-keystore}") final Resource location,
       @Value("${certificates.popp-keystore-password}") final String password) {
     return new KeyStoreLoader(location, password);

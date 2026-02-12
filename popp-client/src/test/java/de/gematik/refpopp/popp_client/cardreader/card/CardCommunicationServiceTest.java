@@ -23,30 +23,23 @@ package de.gematik.refpopp.popp_client.cardreader.card;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-import de.gematik.openhealth.crypto.key.SecretKey;
-import de.gematik.openhealth.smartcard.ExchangeUtilsKt;
-import de.gematik.openhealth.smartcard.card.HealthCardScope;
-import de.gematik.openhealth.smartcard.card.HealthCardScopeKt;
-import de.gematik.openhealth.smartcard.card.PaceKey;
-import de.gematik.openhealth.smartcard.card.TrustedChannelScope;
+import de.gematik.openhealth.healthcard.CardAccessNumber;
+import de.gematik.openhealth.healthcard.CommandApdu;
+import de.gematik.openhealth.healthcard.NoHandle;
+import de.gematik.openhealth.healthcard.ResponseApdu;
+import de.gematik.openhealth.healthcard.SecureChannel;
+import de.gematik.openhealth.healthcard.SecureChannelException;
+import de.gematik.openhealth.healthcard.SecureChannelException.Transport;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import java.util.HexFormat;
 import java.util.List;
-import javax.smartcardio.Card;
-import javax.smartcardio.CardChannel;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CommandAPDU;
-import javax.smartcardio.ResponseAPDU;
+import javax.smartcardio.*;
+import kotlin.jvm.internal.DefaultConstructorMarker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,9 +51,9 @@ class CardCommunicationServiceTest {
 
   @Mock private Card cardMock;
   @Mock private CardChannel cardChannelMock;
-  @Mock private TrustedChannelScope trustedChannelMock;
+  @Mock private SecureChannel secureChannelMock;
+  @Mock private CardAccessNumber cardAccessNumberMock;
   @Mock private ResponseAPDU responseAPDUMock;
-  @Mock private HealthCardScope healthCardScopeMock;
 
   private AutoCloseable closeable;
 
@@ -104,6 +97,15 @@ class CardCommunicationServiceTest {
 
     // then
     assertThat(cardCommunicationService.getCardChannel().isPresent()).isFalse();
+  }
+
+  @Test
+  void handleCardRemovedEventClearsSecureChannel() {
+    cardCommunicationService.setSecureChannel(secureChannelMock);
+
+    cardCommunicationService.handleCardRemovedEvent(new CardRemovedEvent(cardMock, "message"));
+
+    assertThat(cardCommunicationService.getSecureChannel()).isEmpty();
   }
 
   @Test
@@ -159,6 +161,30 @@ class CardCommunicationServiceTest {
   }
 
   @Test
+  void processUsesSecureChannelWhenAvailable() throws Exception {
+    final var scenarioStep = new ScenarioStep("00 A4 04 00 00", List.of("9000"));
+    final var responseApduMock = mock(ResponseApdu.class);
+    cardCommunicationService.setSecureChannel(secureChannelMock);
+    when(secureChannelMock.transmit(any(CommandApdu.class))).thenReturn(responseApduMock);
+    when(responseApduMock.toBytes()).thenReturn(new byte[] {(byte) 0x90, 0x00});
+
+    final var statusWordAndData = cardCommunicationService.process(scenarioStep);
+
+    assertThat(statusWordAndData).isEqualTo("9000");
+    verify(cardChannelMock, never()).transmit(any(CommandAPDU.class));
+  }
+
+  @Test
+  void processThrowsWhenSecureChannelFails() throws Exception {
+    final var scenarioStep = new ScenarioStep("00A4040000", List.of("9000"));
+    cardCommunicationService.setSecureChannel(secureChannelMock);
+    when(secureChannelMock.transmit(any(CommandApdu.class)))
+        .thenThrow(newTransportException("secure channel error"));
+
+    assertThrows(IllegalStateException.class, () -> cardCommunicationService.process(scenarioStep));
+  }
+
+  @Test
   void throwsExceptionWhenNoCardInserted() {
     // given
     final var scenarioStep = new ScenarioStep("00A4040000", List.of("9000"));
@@ -186,19 +212,38 @@ class CardCommunicationServiceTest {
   }
 
   @Test
-  void getTrustedChannel() {
+  void getSecureChannel() {
     // given // when
-    cardCommunicationService.setTrustedChannel(trustedChannelMock);
+    cardCommunicationService.setSecureChannel(secureChannelMock);
 
     // then
-    assertThat(cardCommunicationService.getTrustedChannel().isPresent()).isTrue();
+    assertThat(cardCommunicationService.getSecureChannel().isPresent()).isTrue();
   }
 
   @Test
-  void handleCardConnectionEventContactless() throws CardException {
+  void isContactlessReturnsFalseWhenTransmitReturnsNull() throws CardException {
+    when(cardChannelMock.getCard()).thenReturn(cardMock);
+    when(cardChannelMock.transmit(any(CommandAPDU.class))).thenReturn(null);
+
+    assertThat(cardCommunicationService.isContactless()).isFalse();
+  }
+
+  @Test
+  void initializePACEWrapsSecureChannelException() throws SecureChannelException {
+    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
+    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
+    doThrow(newTransportException("bad can"))
+        .when(cardCommunicationService)
+        .createCardAccessNumberFromDigits(any());
+
+    assertThrows(IllegalStateException.class, () -> cardCommunicationService.initializePACE());
+  }
+
+  @Test
+  void handleCardConnectionEventContactless() throws CardException, SecureChannelException {
     // given
     final var eventPublisherMock = mock(ApplicationEventPublisher.class);
-    cardCommunicationService = new CardCommunicationService(eventPublisherMock);
+    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
     cardCommunicationService.setCardChannel(cardChannelMock);
 
     // for testing isContactless():
@@ -206,30 +251,97 @@ class CardCommunicationServiceTest {
     when(cardChannelMock.transmit(any(CommandAPDU.class))).thenReturn(responseAPDUMock);
     when(responseAPDUMock.getSW()).thenReturn(0x6982);
 
-    // for testing initializePACE():
-    try (final var healthCardScopeKt = mockStatic(HealthCardScopeKt.class);
-        final var exchangeUtilsKt = mockStatic(ExchangeUtilsKt.class)) {
-      healthCardScopeKt
-          .when(() -> HealthCardScopeKt.healthCardScope(any(OpenHealthCardCommunication.class)))
-          .thenReturn(healthCardScopeMock);
-      exchangeUtilsKt
-          .when(
-              () ->
-                  ExchangeUtilsKt.establishTrustedChannelBlocking(
-                      any(HealthCardScope.class), anyString()))
-          .thenReturn(trustedChannelMock);
-      when(trustedChannelMock.getPaceKey())
-          .thenReturn(
-              new PaceKey(new SecretKey("abc".getBytes()), new SecretKey("xyz".getBytes())));
+    doReturn(cardAccessNumberMock)
+        .when(cardCommunicationService)
+        .createCardAccessNumberFromDigits(any());
+    doReturn(secureChannelMock)
+        .when(cardCommunicationService)
+        .doEstablishSecureChannel(any(), eq(cardAccessNumberMock));
 
-      final var event = new CardConnectedEvent(cardChannelMock, "message");
+    // when
+    cardCommunicationService.handleCardConnectionEvent(
+        new CardConnectedEvent(cardChannelMock, "message"));
 
-      // when
-      cardCommunicationService.handleCardConnectionEvent(event);
+    // then
+    assertThat(cardCommunicationService.getSecureChannel()).contains(secureChannelMock);
+    verify(eventPublisherMock).publishEvent(any(PaceInitializationCompleteEvent.class));
+    verify(cardCommunicationService).createCardAccessNumber();
+    verify(cardCommunicationService).establishSecureChannel(any(), eq(cardAccessNumberMock));
+  }
 
-      // then
-      assertThat(cardCommunicationService.getTrustedChannel().isPresent()).isTrue();
-      verify(eventPublisherMock).publishEvent(any(PaceInitializationCompleteEvent.class));
+  @Test
+  void handleCardConnectionEventContactBasedDoesNotInitializePace()
+      throws CardException, SecureChannelException {
+    // given
+    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
+    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
+    cardCommunicationService.setCardChannel(cardChannelMock);
+
+    // for testing isContactless():
+    when(cardChannelMock.getCard()).thenReturn(cardMock);
+    when(cardChannelMock.transmit(any(CommandAPDU.class))).thenReturn(responseAPDUMock);
+    when(responseAPDUMock.getSW()).thenReturn(0x9000);
+
+    // when
+    cardCommunicationService.handleCardConnectionEvent(
+        new CardConnectedEvent(cardChannelMock, "message"));
+
+    // then
+    assertThat(cardCommunicationService.getSecureChannel()).isEmpty();
+    verify(eventPublisherMock, never()).publishEvent(any(PaceInitializationCompleteEvent.class));
+    verify(cardCommunicationService, never()).createCardAccessNumber();
+    verify(cardCommunicationService, never()).establishSecureChannel(any(), any());
+  }
+
+  @Test
+  void initializePACEUsesInternalChannelAndSecureChannelSetup() throws Exception {
+    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
+    final var responseApduMock = mock(ResponseApdu.class);
+    final var service =
+        new CardCommunicationService(eventPublisherMock) {
+          @Override
+          protected CardAccessNumber createCardAccessNumberFromDigits(final String digits) {
+            return new CardAccessNumber(NoHandle.INSTANCE);
+          }
+
+          @Override
+          protected SecureChannel doEstablishSecureChannel(
+              final de.gematik.openhealth.healthcard.CardChannel cardChannel,
+              final CardAccessNumber cardAccessNumber) {
+            cardChannel.transmit(new CommandApdu(NoHandle.INSTANCE));
+            return secureChannelMock;
+          }
+
+          @Override
+          protected byte[] commandApduToBytes(final CommandApdu commandApdu) {
+            return new byte[] {0x00, (byte) 0xA4, 0x00, 0x00};
+          }
+
+          @Override
+          protected ResponseApdu responseApduFromBytes(final byte[] bytes) {
+            return responseApduMock;
+          }
+        };
+
+    service.setCardChannel(cardChannelMock);
+    when(cardChannelMock.transmit(any(CommandAPDU.class))).thenReturn(responseAPDUMock);
+    when(responseAPDUMock.getBytes()).thenReturn(new byte[] {(byte) 0x90, 0x00});
+
+    service.initializePACE();
+
+    assertThat(service.getSecureChannel()).contains(secureChannelMock);
+    verify(cardChannelMock).transmit(any(CommandAPDU.class));
+  }
+
+  private SecureChannelException newTransportException(final String message) {
+    try {
+      final var ctor =
+          Transport.class.getDeclaredConstructor(
+              int.class, String.class, DefaultConstructorMarker.class);
+      ctor.setAccessible(true);
+      return ctor.newInstance(1, message, null);
+    } catch (final Exception e) {
+      throw new IllegalStateException(e);
     }
   }
 }

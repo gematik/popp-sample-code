@@ -128,7 +128,7 @@ class TokenClaimsTest {
             sessionId,
             SessionContainer.SessionStorageKey.CARD_CONNECTION_TYPE,
             CardConnectionType.class))
-        .thenReturn(Optional.of(CardConnectionType.fromType("unknown")));
+        .thenReturn(Optional.of(CardConnectionType.UNKNOWN));
 
     // when
     final Map<String, Object> claims = sut.createPoppClaims(x509Data, sessionId);

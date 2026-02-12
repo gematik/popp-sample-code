@@ -43,7 +43,7 @@ public class ServicePathExtractor {
 
   public ServicePathExtractor(
       @Value("${connector.end-point-url}") final String connectorUrl,
-      @Value("${connector.secure.enable}") final boolean isSecureConnectionEnabled,
+      @Value("${connector.secure.enable:false}") final boolean isSecureConnectionEnabled,
       final ConnectorServicesFactory connectorServicesFactory) {
     this.connectorUrl = connectorUrl;
     this.isSecureConnectionEnabled = isSecureConnectionEnabled;

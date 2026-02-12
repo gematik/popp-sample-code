@@ -24,37 +24,31 @@ import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Profile("mock")
-public class MockConnectorCommunicationService implements ConnectorCommunicationService {
+public class MockConnectorCommunicationService {
 
   private static final String CARD_HANDLE = "58366430-60ad-417b-ac8c-2a99467c6cf6";
   private static final String TEMP_UUID = "e4eaaaf2-d142-11e1-b3e4-080027620cdd";
 
   private final AtomicInteger counter = new AtomicInteger(1);
 
-  @Override
   public String getConnectedEgkCard() {
     return CARD_HANDLE;
   }
 
-  @Override
   public String startCardSession(final String cardHandle) {
     return TEMP_UUID;
   }
 
-  @Override
   public Status stopCardSession(final String uuidSessionId) {
     final var status = new Status();
     status.setResult("OK");
     return status;
   }
 
-  @Override
   public List<String> secureSendApdu(final String signedScenario) {
     if (counter.get() == 1) {
       counter.incrementAndGet();

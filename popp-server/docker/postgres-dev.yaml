@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:latest
-    container_name: postgres-container
+  popp-server-db:
+    image: postgres:18-alpine
+    container_name: popp-server-db
     environment:
       POSTGRES_USER: poppserver
       POSTGRES_PASSWORD: verysafe
@@ -11,9 +9,15 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - popp-server-db-data:/var/lib/postgresql
     restart: on-failure
+    networks:
+      - popp-network
 
 volumes:
-  postgres_data:
-    driver: local
+  popp-server-db-data:
+
+networks:
+  popp-network:
+    name: popp-network
+    driver: bridge

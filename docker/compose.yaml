@@ -1,0 +1,50 @@
+services:
+  popp-client:
+    profiles: [ "full" ]
+    image: local/popp/popp-client:1.0.4-SNAPSHOT
+    container_name: popp-client
+    environment:
+      - POPP_SERVER_URL=wss://popp-server:8443/ws
+    networks:
+      - popp-network
+    ports:
+      - "8081:8081"
+    depends_on:
+      - popp-server
+
+  popp-server:
+    image: local/popp/popp-server:2.0.0
+    container_name: popp-server
+    ports:
+      - "8443:8443"
+    environment:
+      - IDENTITIES_LOCATION=classpath:identities
+      - CERT_HASH_IMPORT_LOCATION=file:/app/import
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://popp-server-db:5432/egk_hash_db
+    networks:
+      - popp-network
+    depends_on:
+      - popp-server-db
+
+  popp-server-db:
+    image: postgres:18-alpine
+    container_name: popp-server-db
+    environment:
+      POSTGRES_USER: poppserver
+      POSTGRES_PASSWORD: verysafe
+      POSTGRES_DB: egk_hash_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - popp-server-db-data:/var/lib/postgresql
+    restart: on-failure
+    networks:
+      - popp-network
+
+volumes:
+  popp-server-db-data:
+
+networks:
+  popp-network:
+    name: popp-network
+    driver: bridge

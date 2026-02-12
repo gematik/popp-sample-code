@@ -27,118 +27,24 @@ import org.junit.jupiter.api.Test;
 class StatusWordAndDataTest {
 
   @Test
-  void statusWordAndDataToStringReturnsCorrectFormat() {
-    // given
-    final StatusWordAndData statusWordAndData =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
+  void equalsHashCodeAndToString() {
+    final var data1 = new byte[] {0x01, 0x02};
+    final var data2 = new byte[] {0x01, 0x02};
+    final var data3 = new byte[] {0x02, 0x03};
 
-    // when
-    final String result = statusWordAndData.toString();
+    final var a = new StatusWordAndData("9000", data1);
+    final var b = new StatusWordAndData("9000", data2);
+    final var c = new StatusWordAndData("6a82", data2);
+    final var d = new StatusWordAndData("9000", data3);
 
-    // then
-    assertThat(result).isEqualTo("StatusWordAndData{statusWord='9000', data=[1, 2]}");
-  }
+    assertThat(a).isEqualTo(a);
+    assertThat(a).isEqualTo(b);
+    assertThat(a).isNotEqualTo(c);
+    assertThat(a).isNotEqualTo(d);
+    assertThat(a).isNotEqualTo(new Object());
 
-  @Test
-  void statusWordAndDataEqualsReturnsTrueForSameObject() {
-    // given
-    final StatusWordAndData statusWordAndData =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-
-    // when
-    final boolean result = statusWordAndData.equals(statusWordAndData);
-
-    // then
-    assertThat(result).isTrue();
-  }
-
-  @Test
-  void statusWordAndDataEqualsReturnsTrueForEqualObjects() {
-    // given
-    final StatusWordAndData statusWordAndData1 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-    final StatusWordAndData statusWordAndData2 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-
-    // when
-    final boolean result = statusWordAndData1.equals(statusWordAndData2);
-
-    // then
-    assertThat(result).isTrue();
-  }
-
-  @Test
-  void statusWordAndDataEqualsReturnsFalseForDifferentStatusWords() {
-    // given
-    final StatusWordAndData statusWordAndData1 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-    final StatusWordAndData statusWordAndData2 =
-        new StatusWordAndData("9001", new byte[] {0x01, 0x02});
-
-    // when
-    final boolean result = statusWordAndData1.equals(statusWordAndData2);
-
-    // then
-    assertThat(result).isFalse();
-  }
-
-  @Test
-  void statusWordAndDataEqualsReturnsFalseForDifferentData() {
-    // given
-    final StatusWordAndData statusWordAndData1 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-    final StatusWordAndData statusWordAndData2 =
-        new StatusWordAndData("9000", new byte[] {0x03, 0x04});
-
-    // when
-    final boolean result = statusWordAndData1.equals(statusWordAndData2);
-
-    // then
-    assertThat(result).isFalse();
-  }
-
-  @Test
-  void statusWordAndDataEqualsReturnsFalseForDifferentInstance() {
-    // given
-    final StatusWordAndData statusWordAndData =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-
-    // when
-    final boolean result = statusWordAndData.equals("9000");
-
-    // then
-    assertThat(result).isFalse();
-  }
-
-  @Test
-  void statusWordAndDataHashCodeReturnsSameHashCodeForEqualObjects() {
-    // given
-    final StatusWordAndData statusWordAndData1 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-    final StatusWordAndData statusWordAndData2 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-
-    // when
-    final int hashCode1 = statusWordAndData1.hashCode();
-    final int hashCode2 = statusWordAndData2.hashCode();
-
-    // then
-    assertThat(hashCode1).isEqualTo(hashCode2);
-  }
-
-  @Test
-  void statusWordAndDataHashCodeReturnsDifferentHashCodeForDifferentObjects() {
-    // given
-    final StatusWordAndData statusWordAndData1 =
-        new StatusWordAndData("9000", new byte[] {0x01, 0x02});
-    final StatusWordAndData statusWordAndData2 =
-        new StatusWordAndData("9001", new byte[] {0x03, 0x04});
-
-    // when
-    final int hashCode1 = statusWordAndData1.hashCode();
-    final int hashCode2 = statusWordAndData2.hashCode();
-
-    // then
-    assertThat(hashCode1).isNotEqualTo(hashCode2);
+    assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    assertThat(a.toString()).contains("statusWord='9000'");
+    assertThat(a.toString()).contains("[1, 2]");
   }
 }

@@ -6,7 +6,7 @@ This project provides a sample implementation of the PoPP-Service and
 PoPP-Client according to [gemSpec_PoPP_Service](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2).
 The [eGK-Hash-Datenbank](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2/#6.2.1.9) is implemented as PostgresSQL database.
 
-You can run the components either locally or via Docker.
+You can run the components either locally or via Docker [Quick start](#quick-start-docker-full-profile--recommended-for-testing-with-the-virtual-card).
 
 ## Building and running the project locally
 
@@ -23,7 +23,7 @@ You can run the components either locally or via Docker.
 *Notes*
 
 - Ensure ports '8081' (PoPP-Client), `5432` (eGK-Hash-Datenbank) and `8443` (PoPP-Service) are free.
-- You can modify `docker-compose.yml` to fit your environment.
+- You can modify `compose.yaml` to fit your environment.
 
 ## Step-by-step guide
 
@@ -37,6 +37,12 @@ Optionally without tests:
 
 ```bash
   ./mvnw clean install -Dmaven.test.skip=true
+```
+
+or 
+
+```bash
+  ./mvnw clean install -DskipTests=true
 ```
 
 ### Configuration
@@ -56,6 +62,7 @@ cardreader:
 
 The name is case-sensitive but does not have to be complete, for example with "REINER SCT" the
 Standard-Kartenleser named "REINER SCT cyberJack RFID standard 1" will be found.
+
 
 #### b) Konnektor
 
@@ -128,11 +135,6 @@ connector:
     clientSystemId: <ClientSystemId for Konnektor Context>
     workplaceId: <WorkplaceId for Konnektor Context>
     mandantId: <MandantId for Konnektor Context>
-  soap-services:
-    get-cards: <GetCards soap service endpoint>
-    start-card-session: <StartCardSession soap service endpoint>
-    stop-card-session: <StopCardSession soap service endpoint>
-    secure-send-apdu: <SecureSendApdu soap service endpoint>
 ```
 Example:
 
@@ -153,11 +155,6 @@ connector:
     clientSystemId: "ClientID1"
     workplaceId: "Workplace1"
     mandantId: "Mandant1"
-  soap-services:
-    get-cards: "http://ws.gematik.de/conn/EventService/v7.2#GetCards"
-    start-card-session: "http://ws.gematik.de/conn/CardService/v8.2#StartCardSession"
-    stop-card-session: "http://ws.gematik.de/conn/CardService/v8.2#StopCardSession"
-    secure-send-apdu: "http://ws.gematik.de/conn/CardService/v8.2#SecureSendAPDU"
 ```
 
 **Supported Konnektor functions**
@@ -168,11 +165,68 @@ connector:
 - `GetCards`         - see [GetCards in gemSpec_Kon](https://gemspec.gematik.de/docs/gemSpec/gemSpec_Kon/latest/#4.1.6.5.2)
         -- If GetCards finds more than one eGK the first one is used.
 
+#### c) Virtual Card
+
+If you want to use a virtual card instead a card reader or Konnektor you can configure it as follows.
+This allows testing without any card-related hardware.
+The card data will be read from the XML image file specified.
+
+```yaml
+virtual-card:
+  image-file: <XML image file>
+```
+
 ## Execution
+
+### Quick start (Docker, full profile – recommended for testing with the virtual card)
+
+
+For a quick **out-of-the-box setup** (including **PoPP-Client**, **PoPP-Service**, and the **eGK-Hash-Datenbank**),
+this project provides a Docker Compose **`full` profile**.
+
+This mode is especially useful for:
+
+- testing the **virtual card**
+- running the complete PoPP stack without card readers or a Konnektor
+
+#### 1. Build Docker images via Maven
+
+Docker images are built as part of the Maven build.  
+Make sure Docker image creation is **enabled**:
+
+```bash
+./mvnw clean install -Dskip.dockerbuild=false
+```
+This step builds the Docker images `local/popp/popp-server:<version>` and `local/popp/popp-client:<version>`.
+
+#### 2. Start the full stack via Docker Compose
+
+```bash
+docker compose -f docker/compose.yaml --profile full up
+```
+
+This starts:
+
+- PoPP-Server
+- eGK-Hash-Datenbank (PostgreSQL)
+- PoPP-Client (without card reader/Konnektor, using virtual card)
+
+#### 3. Verify startup
+
+Once all containers are running, the following endpoints are available:
+
+- PoPP-Client Swagger UI: <http://localhost:8081/swagger-ui.html>
+
+#### 4. Testing with a virtual card
+
+The full Docker profile is intended to be used together with the virtual card configuration. You can test it via the 
+Swagger-Ui with the `/token` endpoint as described below with the communication type `contact-virtual`.
+
+This allows testing PoPP flows without any card-related hardware.
 
 ### Start the eGK-Hash-Datenbank
 
-Before running the PoPP-Service, you need to start the eGK-Hash-Datenbank.
+If you want to run the PoPP-Service with out Docker, you need to start the eGK-Hash-Datenbank.
 
 ```bash
   cd popp-server/docker && docker compose --file postgres-dev.yaml up
@@ -244,9 +298,20 @@ To execute the tests for a specific module, use the `-pl` option to specify the 
 
 ## Generate a PoPP-Token
 
-The client provides the following endpoint to generate a PoPP-Token:
+The client provides the following POST endpoint to generate a PoPP-Token:
 
-`http://localhost:8081/token/{communication-type}?clientsessionid={client-session-id} `
+```
+POST http://localhost:8081/token
+```
+
+With Request Body:
+
+```json
+{
+  "communicationType": "<one of the supported types>",
+  "clientSessionId": "<optional>"
+}
+```
 
 The request parameter `clientsessionid` is optional. If set, the `clientsessionid` will overwrite the Konnektor `clientsessionid` from `StartCardSession`
 
@@ -256,23 +321,29 @@ The communication type must be one of the following:
   - use contact-based interface from Standard-Kartenleser
 - `contactless-standard`
   - use contactless interface from Standard-Kartenleser
+- `contact-virtual`
+  - use a virtual card from a card image file, no card reader needed
 - `contact-connector`
   - use contact-based interface from eHealth-Kartenterminal via Konnektor
-  - *Note: if the client was started with mock configuration (see above) the scenario is simulated without any terminal and just with static APDUs*
 - `contactless-connector`
   - use contactless interface from eHealth-Kartenterminal via Konnektor
 - `contact-connector-via-standard-terminal`
-  - generate sample messages for Konnektor via contact-based interface from Standard-Kartenleser
+  - generate sample messages for Konnektor via contact-based interface from Standard-Kartenleser \
 
 ### Example usage
 
-To generate a PoPP-Token with `contact-standard` option, open the following URL in your browser:
-[http://localhost:8081/token/contact-standard](http://localhost:8081/token/contact-standard)
+To generate a PoPP token, you can use the Swagger UI. Open the following URL in your browser:
+[http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
 
-Alternatively, you can use this `curl` command in the terminal:
+Alternatively, you can use this `curl` command in the terminal, e.g.:
 
 ```bash
-  curl http://localhost:8081/token/contact-standard
+curl -X POST http://localhost:8081/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "communicationType": "contact-standard",
+    "clientSessionId": "123456"
+  }'
 ```
 
 To view the generated PoPP-Token, check the console output of the client. 
@@ -291,7 +362,7 @@ For PoPP-Token claims see [api-popp](https://github.com/gematik/api-popp/blob/ma
 
 ## License
 
-Copyright 2025-2025 gematik GmbH
+Copyright 2025-2026 gematik GmbH
 
 Apache License, Version 2.0
 

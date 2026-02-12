@@ -20,7 +20,6 @@
 
 package de.gematik.refpopp.popp_client.configuration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.refpopp.popp_client.cardreader.CardReader;
 import de.gematik.refpopp.popp_client.cardreader.CardReaderService;
 import de.gematik.refpopp.popp_client.cardreader.Monitoring;
@@ -31,6 +30,7 @@ import javax.smartcardio.TerminalFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 public class ServiceConfiguration {

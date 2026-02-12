@@ -20,14 +20,14 @@
 
 package de.gematik.refpopp.popp_client.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import javax.net.ssl.SSLSession;
 import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.client.WebSocketClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @Slf4j
@@ -71,7 +71,7 @@ public class ClientServerCommunicationService {
         throw new IllegalStateException("Websocket client is not connected");
       }
       webSocketClient.send(messageAsString);
-    } catch (final JsonProcessingException ex) {
+    } catch (final JacksonException ex) {
       log.error("Error converting message object to string: {}", ex.getMessage());
       throw new IllegalStateException("Error converting message object to string");
     }

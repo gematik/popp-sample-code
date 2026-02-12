@@ -1,4 +1,9 @@
 spring:
+  config:
+    import:
+      - "classpath:contact-based-scenarios.yaml"
+      - "classpath:open-egk-scenarios.yaml"
+      - "classpath:contact-less-scenarios.yaml"
   profiles:
     default: dev
     active: dev
@@ -8,13 +13,16 @@ server:
   tomcat:
     max-http-form-post-size: 2147483648 # 2GB
 
+springdoc:
+  api-docs:
+    enabled: true
+
 popp-server:
-  url: default-url
+  url: wss://localhost:8443/ws
 popp-client:
   secure:
     key-store: mykeystore.p12
     store-password: popp-store
-
 
 connector:
   end-point-url: "http://ti-konnektor/cardservice"
@@ -27,3 +35,6 @@ connector:
 
 card-reader:
   name:
+
+virtual-card:
+  image-file:

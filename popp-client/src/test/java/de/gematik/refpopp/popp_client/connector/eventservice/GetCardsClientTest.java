@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_client.connector.Context;
+import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v8.CardInfoType;
 import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
@@ -49,15 +50,15 @@ class GetCardsClientTest {
   @BeforeEach
   void setUp() {
     serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
+    ServiceEndpoint endpointMock = mock(ServiceEndpoint.class);
+    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(endpointMock);
+    when(endpointMock.getVersion()).thenReturn("7.2.0");
+
     final Jaxb2Marshaller eventServiceMarshallerMock = mock(Jaxb2Marshaller.class);
     final Context contextMock = mock(Context.class);
     sut =
         new GetCardsClient(
-            eventServiceMarshallerMock,
-            contextMock,
-            serviceEndpointProviderMock,
-            "http://tempuri.org/GetCards",
-            null);
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null);
   }
 
   @Test

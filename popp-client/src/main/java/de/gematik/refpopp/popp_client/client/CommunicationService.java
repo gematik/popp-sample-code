@@ -20,61 +20,78 @@
 
 package de.gematik.refpopp.popp_client.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
-import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
-import de.gematik.poppcommons.api.messages.ErrorMessage;
-import de.gematik.poppcommons.api.messages.PoPPMessage;
-import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
-import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
-import de.gematik.poppcommons.api.messages.StartMessage;
-import de.gematik.poppcommons.api.messages.TokenMessage;
+import de.gematik.poppcommons.api.messages.*;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
+import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import de.gematik.refpopp.popp_client.client.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
-import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationService;
-import java.io.IOException;
+import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.*;
+import javax.net.ssl.SSLSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
+@Lazy
 @Slf4j
 @RequiredArgsConstructor
 public class CommunicationService {
 
-  private static final String CONNECTOR_MOCK = "connectorMock";
+  private static final String VIRTUAL_CARD = "virtualCard";
   public static final String CARD_CONNECTION_TYPE = "cardConnectionType";
   public static final String CLIENT_SESSION_ID = "clientSessionId";
   private final ObjectMapper mapper;
   private final CardCommunicationService cardCommunicationService;
   private final ClientServerCommunicationService clientServerCommunicationService;
-  private final ConnectorCommunicationService connectorCommunicationService;
+  private final ConnectorCommunicationServiceWrapper connectorCommunicationServiceWrapper;
+  private final VirtualCardService virtualCardService;
 
   private CardConnectionType pendingCardConnectionType;
   private String pendingClientSessionId;
+  private final Map<String, CompletableFuture<String>> tokenQueue = new ConcurrentHashMap<>();
 
-  public void start(final CardConnectionType cardConnectionType, final String clientSessionId) {
+  public String start(final CardConnectionType cardConnectionType, final String clientSessionId) {
     if (isContactlessConnection(cardConnectionType)) {
       log.info("| PACE not yet completed, waiting for initialization...");
       pendingCardConnectionType = cardConnectionType;
       pendingClientSessionId = clientSessionId;
-      return;
+      return null;
     }
+    final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
+    CompletableFuture<String> tokenFuture = new CompletableFuture<>();
+    tokenQueue.put(sessionId, tokenFuture);
+    executeStart(cardConnectionType, sessionId);
 
-    executeStart(cardConnectionType, clientSessionId);
+    return waitAndGetToken(tokenFuture);
+  }
+
+  private String waitAndGetToken(CompletableFuture<String> tokenFuture) {
+    try {
+      return tokenFuture.get(5, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt(); // ✓ restore interrupt flag
+      throw new RuntimeException("Thread was interrupted while waiting for token", e);
+    } catch (TimeoutException e) {
+      throw new RuntimeException("Token retrieval timed out", e);
+    } catch (ExecutionException e) {
+      throw new RuntimeException("Error while retrieving token", e);
+    }
   }
 
   private void executeStart(
@@ -83,15 +100,43 @@ public class CommunicationService {
     clientServerCommunicationService.connect();
     final var sslSession = clientServerCommunicationService.getSSLSession();
     sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
-    resolveSessionIdAndSendMessage(cardConnectionType, clientSessionId);
+    putSessionIdIntoSSLSession(clientSessionId);
+    sendStartMessage(cardConnectionType, clientSessionId);
   }
 
-  public void startConnectorMock(
-      final CardConnectionType cardConnectionType, final String clientSessionId) {
+  public String startConnectorMock(final String clientSessionId) {
     clientServerCommunicationService.connect();
     final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CONNECTOR_MOCK, true);
-    resolveSessionIdAndSendMessage(cardConnectionType, clientSessionId);
+    sslSession.putValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK, true);
+    final var sessionId =
+        (clientSessionId != null && !clientSessionId.isBlank())
+            ? clientSessionId
+            : UUID.randomUUID().toString();
+
+    CompletableFuture<String> tokenFuture = new CompletableFuture<>();
+    tokenQueue.put(sessionId, tokenFuture);
+    sendStartMessageWithSessionId(CardConnectionType.CONTACT_CONNECTOR, sessionId);
+
+    return waitAndGetToken(tokenFuture);
+  }
+
+  public String startVirtualCard(
+      final CardConnectionType cardConnectionType, final String clientSessionId) {
+    log.info("| Using virtual card");
+
+    clientServerCommunicationService.connect();
+    final var sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
+    sslSession.putValue(VIRTUAL_CARD, true);
+
+    final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
+    putSessionIdIntoSSLSession(sessionId);
+
+    CompletableFuture<String> tokenFuture = new CompletableFuture<>();
+    tokenQueue.put(sessionId, tokenFuture);
+    sendStartMessage(cardConnectionType, sessionId);
+
+    return waitAndGetToken(tokenFuture);
   }
 
   @EventListener
@@ -122,20 +167,15 @@ public class CommunicationService {
     try {
       final var poPPMessage = mapper.readValue(eventPayload, PoPPMessage.class);
       handlePoPPMessage(poPPMessage);
-    } catch (final JsonProcessingException e) {
+    } catch (final JacksonException e) {
       log.error("Error parsing message: {}", e.getMessage());
       throw new IllegalArgumentException("Error parsing message", e);
     }
   }
 
-  private void resolveSessionIdAndSendMessage(
-      final CardConnectionType cardConnectionType, final String clientSessionId) {
-    final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
-
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CLIENT_SESSION_ID, sessionId);
-
-    sendStartMessage(cardConnectionType, sessionId);
+  private void putSessionIdIntoSSLSession(final String clientSessionId) {
+    final SSLSession sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.putValue(CLIENT_SESSION_ID, clientSessionId);
   }
 
   private void sendStartMessage(
@@ -169,17 +209,17 @@ public class CommunicationService {
     final var signedScenario = connectorScenarioMessage.getSignedScenario();
 
     final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var isConnectorMock = sslSession.getValue(CONNECTOR_MOCK);
+    final var isConnectorMock =
+        sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK);
     if (Boolean.TRUE.equals(isConnectorMock)) {
       useStandardTerminalAsMock(signedScenario);
     } else {
-      final var responses = connectorCommunicationService.secureSendApdu(signedScenario);
+      final var responses = connectorCommunicationServiceWrapper.secureSendApdu(signedScenario);
       sendScenarioResponseMessage(responses);
     }
   }
 
   private void useStandardTerminalAsMock(final String signedScenario) {
-    // temporary implementation until connector interface is available
     final String[] tokenParts = signedScenario.split("\\.");
     if (tokenParts.length != 3) {
       throw new IllegalArgumentException("| Invalid token format");
@@ -187,19 +227,27 @@ public class CommunicationService {
 
     final var payloadJson =
         new String(Base64.getUrlDecoder().decode(tokenParts[1]), StandardCharsets.UTF_8);
-    try {
-      final var claims = mapper.readValue(payloadJson, new TypeReference<Map<String, Object>>() {});
-      final var message = mapper.convertValue(claims.get("message"), StandardScenarioMessage.class);
-      handleStandardScenarioMessage(message);
-    } catch (final IOException e) {
-      log.error("| Error parsing token: {}", e.getMessage());
-    }
+    final var claims = mapper.readValue(payloadJson, new TypeReference<Map<String, Object>>() {});
+    final var message = mapper.convertValue(claims.get("message"), StandardScenarioMessage.class);
+    handleStandardScenarioMessage(message);
   }
 
   private void handleStandardScenarioMessage(
       final StandardScenarioMessage standardScenarioMessage) {
     final var steps = standardScenarioMessage.getSteps();
-    final var responses = cardCommunicationService.process(steps);
+
+    final var sslSession = clientServerCommunicationService.getSSLSession();
+    final var isVirtualCard = sslSession.getValue(VIRTUAL_CARD);
+    List<String> responses;
+    if (Boolean.TRUE.equals(isVirtualCard)) {
+      if (virtualCardService.isConfigured()) {
+        responses = virtualCardService.process(steps);
+      } else {
+        throw new IllegalStateException("No image file configured for virtual card.");
+      }
+    } else {
+      responses = cardCommunicationService.process(steps);
+    }
     sendScenarioResponseMessage(responses);
   }
 
@@ -210,6 +258,16 @@ public class CommunicationService {
 
   private void handleTokenMessage(final TokenMessage tokenMessage) {
     log.info("| Received PoPP token: {}", tokenMessage.getToken());
+    final var clientSessionId =
+        (String) clientServerCommunicationService.getSSLSession().getValue(CLIENT_SESSION_ID);
+    log.info("| ClientSessionId: {}", clientSessionId);
+    CompletableFuture<String> tokenFuture = tokenQueue.get(clientSessionId);
+    if (tokenFuture != null) {
+      tokenFuture.complete(tokenMessage.getToken());
+      tokenQueue.remove(clientSessionId);
+    } else {
+      log.warn("| No token future found for clientSessionId {}", clientSessionId);
+    }
     stopConnectorSessionIfRequired();
   }
 
@@ -219,7 +277,7 @@ public class CommunicationService {
     if (CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)) {
       final var clientSessionId = (String) sslSession.getValue(CLIENT_SESSION_ID);
       try {
-        connectorCommunicationService.stopCardSession(clientSessionId);
+        connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
       } catch (org.springframework.ws.soap.client.SoapFaultClientException exception) {
         String faultString = exception.getFaultStringOrReason();
         boolean unknownSession =
@@ -235,23 +293,31 @@ public class CommunicationService {
   private void validateConnectionCompatibility(final CardConnectionType cardConnectionType) {
     if (cardConnectionType.equals(CardConnectionType.CONTACT_STANDARD)
         || cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
-      if (cardCommunicationService.getTrustedChannel().isPresent()) {
+      if (cardCommunicationService.getSecureChannel().isPresent()) {
         throw new IllegalStateException("Contact connection requested but card is contactless.");
       }
     } else {
-      if (cardCommunicationService.getTrustedChannel().isEmpty()) {
+      if (cardCommunicationService.getSecureChannel().isEmpty()) {
         throw new IllegalStateException(
             "Contactless connection requested but card is contact-based.");
       }
     }
   }
 
+  private void sendStartMessageWithSessionId(
+      final CardConnectionType cardConnectionType, final String sessionId) {
+    final var sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.putValue(CLIENT_SESSION_ID, sessionId);
+
+    sendStartMessage(cardConnectionType, sessionId);
+  }
+
   private String resolveSessionId(
       final String sessionUUID, final CardConnectionType cardConnectionType) {
     if (cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
       final var connectorSessionId =
-          connectorCommunicationService.startCardSession(
-              connectorCommunicationService.getConnectedEgkCard());
+          connectorCommunicationServiceWrapper.startCardSession(
+              connectorCommunicationServiceWrapper.getConnectedEgkCard());
       return isValidSessionId(sessionUUID) ? sessionUUID : connectorSessionId;
     }
     return sessionUUID != null ? sessionUUID : UUID.randomUUID().toString();

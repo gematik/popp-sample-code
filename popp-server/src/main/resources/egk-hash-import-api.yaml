@@ -1,0 +1,68 @@
+openapi: 3.0.3
+info:
+  title: EGK Hash Import API
+  version: 1.0.0
+  description: >
+    Describes the public `/cert-hash/import` endpoint exposed by
+    `CertHashImportController`. The controller persists the uploaded file
+    under `cert-hash-import.location` and invokes
+    `EgkHashImportService#importData(Path, String)` which verifies the CMS
+    signature, parses egkInfos and persists EGK certificate hashes.
+servers:
+  - url: https://localhost:8443
+paths:
+  /cert-hash/import:
+    post:
+      tags:
+        - EGK Hash Import
+      summary: Import EGK certificate hashes from a CMS container.
+      description: >
+        Accepts a multipart/form-data upload, stores it temporarily using
+        `EgkImportTempFileService`, and triggers `EgkHashImportService`.
+        The service verifies the CMS signature via `CmsSignatureVerifier`,
+        parses `EgkTransferEntry` objects and processes them asynchronously
+        using consumer threads, batching writes via the `BatchFlusherFactory`.
+        Import metrics (imported, blocked, skipped) are collected through
+        `ImportReportProcessor`. If the CMS signature is invalid, the service
+        logs a warning and finalizes the report without persisting entries.
+      operationId: importCertHashFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >
+                    CMS container that contains egkInfos according to the ASN.1 definition
+                    documented in `EgkHashImportService`.
+                sessionId:
+                  type: string
+                  description: Optional session identifier used for logging and import report tracking.
+      responses:
+        '200':
+          description: File was accepted and processing was started without controller errors.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: Request to import cert hash file was successful
+        '400':
+          description: The multipart request did not contain a file.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: No file uploaded
+        '500':
+          description: Storing the uploaded file failed before the service was invoked.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'Could not save uploaded file: <detailed error message>'

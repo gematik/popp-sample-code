@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_client.connector.soap;
 
+import java.util.function.Supplier;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.ws.client.core.WebServiceTemplate;
@@ -30,15 +31,18 @@ import org.springframework.ws.transport.http.SimpleHttpComponents5MessageSender;
 
 public class SoapClient extends WebServiceGatewaySupport {
 
-  private final String soapAction;
+  private final Supplier<String> soapActionSupplier;
+  private final HttpClient httpClient;
+  private String soapActionCached;
   private boolean mtomEnabled;
-  private HttpClient httpClient;
 
   public SoapClient(
-      final Jaxb2Marshaller marshaller, final String soapAction, HttpClient httpClient) {
+      final Jaxb2Marshaller marshaller,
+      final Supplier<String> soapActionSupplier,
+      HttpClient httpClient) {
     setMarshaller(marshaller);
     setUnmarshaller(marshaller);
-    this.soapAction = soapAction;
+    this.soapActionSupplier = soapActionSupplier;
     this.httpClient = httpClient;
   }
 
@@ -55,9 +59,16 @@ public class SoapClient extends WebServiceGatewaySupport {
     final T response =
         responseType.cast(
             webServiceTemplate.marshalSendAndReceive(
-                serviceEndpoint, request, new SoapActionCallback(soapAction)));
+                serviceEndpoint, request, new SoapActionCallback(getSoapAction())));
     mtomEnabled = false;
     return response;
+  }
+
+  protected synchronized String getSoapAction() {
+    if (soapActionCached == null && soapActionSupplier != null) {
+      soapActionCached = soapActionSupplier.get();
+    }
+    return soapActionCached;
   }
 
   private Jaxb2Marshaller getJaxb2Marshaller() {

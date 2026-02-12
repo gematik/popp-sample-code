@@ -1,6 +1,5 @@
-
-# Use the official Eclipse Temurin JDK 21 Alpine-based image
-FROM eclipse-temurin:21 AS build
+# Use the official Eclipse Temurin JRE 21 Alpine-based image
+FROM eclipse-temurin:21-jre-noble
 
 ARG COMMIT_HASH
 ARG VERSION
@@ -14,14 +13,19 @@ LABEL de.gematik.vendor="gematik GmbH" \
 
 STOPSIGNAL SIGTERM
 
-HEALTHCHECK CMD curl --fail http://popp-server:8443/actuator/health | grep UP || exit 1
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y curl \
+  && rm -rf /var/lib/apt/lists/*
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+  CMD curl -fs http://localhost:8443/ || exit 1
+
+# Set the working directory inside the container
+WORKDIR /app
 
 # Default USERID and GROUPID
 ARG USERID=10000
 ARG GROUPID=10000
-
-# Set the working directory inside the container
-WORKDIR /app
 
 # Run as User (not root)
 USER $USERID:$GROUPID
@@ -32,9 +36,7 @@ ENV IDENTITIES_LOCATION=/app/identities
 ENV SERVER_SSL_KEY_STORE=classpath:mykeystore.p12
 ENV SERVER_SSL_KEY_ALIAS=ZertifikatAlias
 
-# COPY identities /app/identities
-
 # Expose the port that the application runs on
 EXPOSE 8443
 
-CMD ["sh", "-c", "exec java -jar -Dspring.profiles.active=dev popp-server.jar"]
+CMD ["sh", "-c", "exec java -Dspring.profiles.active=dev -jar popp-server.jar"]

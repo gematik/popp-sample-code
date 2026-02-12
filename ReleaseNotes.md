@@ -2,7 +2,24 @@
 
 # Release Notes popp-sample-code
 
-### Known Issues
+## Release 2.0.0
+
+### changed 
+
+- API change: The PoPP token is now returned in the REST response.  
+- API break: To generate a PoPP token, use the following POST endpoint instead of GET:
+  `POST http://localhost:8081/token`
+  See `README.md` for the required request body.
+- You no longer need to specify the SOAP services in `application.yaml`; the versions are now read from `connector.sds`.
+- Virtual card images are now supported.  
+  See `README.md` for details.
+- 
+
+
+### fixed
+
+- it is now possible to skip tests with -DskipTests=true
+- Postgres service is starting via docker compose [Issue 13](https://github.com/gematik/popp-sample-code/issues/13)
 
 ## Release 1.0.3
 

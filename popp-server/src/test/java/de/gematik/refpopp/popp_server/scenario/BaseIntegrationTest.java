@@ -34,7 +34,7 @@ public abstract class BaseIntegrationTest {
   @Container
   @SuppressWarnings("resource")
   private static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:latest")
+      new PostgreSQLContainer<>("postgres:18-alpine")
           .withDatabaseName("egk_hash_db")
           .withUsername("poppserver")
           .withPassword("verysafe");

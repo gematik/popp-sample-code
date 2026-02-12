@@ -28,8 +28,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
 import de.gematik.refpopp.popp_client.client.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.client.SecureWebSocketClient;
@@ -42,6 +40,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.ObjectProvider;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 class ClientServerCommunicationServiceTest {
 
@@ -107,7 +107,7 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
-  void sendMessageSuccessfully() throws JsonProcessingException {
+  void sendMessageSuccessfully() {
     // given
     when(webSocketClientMock.isClosed()).thenReturn(false);
     when(objectMapperMock.writeValueAsString(any())).thenReturn("message");
@@ -122,7 +122,7 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
-  void sendMessageThrowsExceptionBecauseNoConnectionEstablished() throws JsonProcessingException {
+  void sendMessageThrowsExceptionBecauseNoConnectionEstablished() {
     // given
     when(objectMapperMock.writeValueAsString(any())).thenReturn("message");
     final var responseMessage = new ScenarioResponseMessage(List.of("9000", "abcdef"));
@@ -135,12 +135,11 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
-  void sendMessageThrowsExceptionBecauseMessageCouldNotBeConverted()
-      throws JsonProcessingException {
+  void sendMessageThrowsExceptionBecauseMessageCouldNotBeConverted() {
     // given
     when(webSocketClientMock.isClosed()).thenReturn(false);
     when(objectMapperMock.writeValueAsString(any()))
-        .thenThrow(new JsonProcessingException("Test exception") {});
+        .thenThrow(new JacksonException("Test exception") {});
     final var responseMessage = new ScenarioResponseMessage(List.of("9000", "abcdef"));
 
     // when

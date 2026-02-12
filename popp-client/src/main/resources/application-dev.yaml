@@ -1,10 +1,3 @@
-popp-client:
-  secure:
-    key-store: mykeystore.p12
-    store-password: popp-store
-popp-server:
-  url: wss://localhost:8443/ws
-
 connector:
   end-point-url: "https://127.0.0.1"
   log-ws: true
@@ -21,11 +14,15 @@ connector:
       clientSystemId: "ClientID1"
       workplaceId: "Workplace1"
       mandantId: "Mandant1"
-  soap-services:
-    get-cards: "http://ws.gematik.de/conn/EventService/v7.2#GetCards"
-    start-card-session: "http://ws.gematik.de/conn/CardService/v8.2#StartCardSession"
-    stop-card-session: "http://ws.gematik.de/conn/CardService/v8.2#StopCardSession"
-    secure-send-apdu: "http://ws.gematik.de/conn/CardService/v8.2#SecureSendAPDU"
 
 card-reader:
-  name: "Identive Identive CLOUD 4700 F Dual Interface Reader"
+  name: "REINER SCT"
+
+virtual-card:
+  image-file: "IMG_eGK_G21_TU_root6 1.xml"
+
+popp-client:
+  static-qr:
+    tid: "1-20-ARV1661246300001992"
+    wpid: ""
+    size: 300

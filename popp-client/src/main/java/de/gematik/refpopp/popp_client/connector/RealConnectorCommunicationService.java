@@ -28,18 +28,16 @@ import de.gematik.refpopp.popp_client.connector.eventservice.GetCardsClient;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Profile("!mock")
-public class RealConnectorCommunicationService implements ConnectorCommunicationService {
+public class RealConnectorCommunicationService {
 
-  private final GetCardsClient getCardsClient;
-  private final StartCardSessionClient startCardSessionClient;
-  private final StopCardSessionClient stopCardSessionClient;
-  private final SecureSendAPDUClient secureSendAPDUClient;
+  private GetCardsClient getCardsClient;
+  private StartCardSessionClient startCardSessionClient;
+  private StopCardSessionClient stopCardSessionClient;
+  private SecureSendAPDUClient secureSendAPDUClient;
 
   public RealConnectorCommunicationService(
       final GetCardsClient getCardsClient,
@@ -52,7 +50,6 @@ public class RealConnectorCommunicationService implements ConnectorCommunication
     this.secureSendAPDUClient = secureSendAPDUClient;
   }
 
-  @Override
   public String getConnectedEgkCard() {
     final DetermineCardHandleResponse determineCardHandleResponse =
         getCardsClient.performGetCards();
@@ -61,17 +58,14 @@ public class RealConnectorCommunicationService implements ConnectorCommunication
     return evaluateCardResponse(cardHandles);
   }
 
-  @Override
   public String startCardSession(final String cardHandle) {
     return startCardSessionClient.performStartCardSession(cardHandle);
   }
 
-  @Override
   public Status stopCardSession(final String uuidSessionId) {
     return stopCardSessionClient.performStopCardSession(uuidSessionId);
   }
 
-  @Override
   public List<String> secureSendApdu(final String signedScenario) {
     return secureSendAPDUClient.performSecureSendAPDU(signedScenario);
   }

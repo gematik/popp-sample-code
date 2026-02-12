@@ -20,20 +20,25 @@
 
 package de.gematik.refpopp.popp_client.connector.cardservice;
 
+import static de.gematik.refpopp.popp_client.configuration.helper.SoapActionVersionHelper.buildSoapAction;
+
 import de.gematik.refpopp.popp_client.connector.Context;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
+import de.gematik.refpopp.popp_client.connector.soap.SoapActions;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
 import de.gematik.ws.conn.cardservice.v821.StartCardSession;
 import de.gematik.ws.conn.cardservice.v821.StartCardSessionResponse;
 import de.gematik.ws.conn.connectorcontext.v2.ContextType;
+import java.util.function.Supplier;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
 @Component
+@Lazy
 public class StartCardSessionClient extends SoapClient {
 
   private final Context context;
@@ -43,10 +48,12 @@ public class StartCardSessionClient extends SoapClient {
       final Jaxb2Marshaller cardServiceMarshaller,
       final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
-      @Value("${connector.soap-services.start-card-session}")
-          final String soapActionStartCardSession,
       @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
-    super(cardServiceMarshaller, soapActionStartCardSession, httpClient);
+    super(
+        cardServiceMarshaller,
+        (Supplier<String>)
+            () -> buildSoapAction(serviceEndpointProvider, SoapActions.START_CARD_SESSION),
+        httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
     this.context = context;
   }

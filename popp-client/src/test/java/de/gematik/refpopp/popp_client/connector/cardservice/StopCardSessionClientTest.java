@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v821.StopCardSessionResponse;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
@@ -42,14 +43,14 @@ class StopCardSessionClientTest {
 
   @BeforeEach
   void setUp() {
-    final var jaxb2MarshallerMock = mock(Jaxb2Marshaller.class);
+
     serviceEndpointProviderMock = mock(ServiceEndpointProvider.class);
-    sut =
-        new StopCardSessionClient(
-            jaxb2MarshallerMock,
-            serviceEndpointProviderMock,
-            "http://tempuri.org/SecureSendAPDU",
-            null);
+    ServiceEndpoint endpointMock = mock(ServiceEndpoint.class);
+    when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(endpointMock);
+    when(endpointMock.getVersion()).thenReturn("8.1.2");
+
+    final var jaxb2MarshallerMock = mock(Jaxb2Marshaller.class);
+    sut = new StopCardSessionClient(jaxb2MarshallerMock, serviceEndpointProviderMock, null);
   }
 
   @Test

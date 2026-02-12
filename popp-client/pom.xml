@@ -7,12 +7,12 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>1.0.3</version>
+    <version>2.0.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-client</artifactId>
-  <version>1.0.3</version>
+  <version>2.0.0</version>
   <packaging>jar</packaging>
 
   <name>popp-client</name>
@@ -21,6 +21,9 @@
 
   <properties>
     <sonar.coverage.exclusions>**/de/gematik/refpopp/popp_client/configuration/**/*, **/*Configuration.java</sonar.coverage.exclusions>
+      <docker.image.name>${docker.registry.gematik}/popp/popp-client</docker.image.name>
+      <commit_hash>undefined</commit_hash>
+      <skip.dockerbuild>true</skip.dockerbuild>
   </properties>
 
   <dependencies>
@@ -46,6 +49,11 @@
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>3.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.java-websocket</groupId>
@@ -79,42 +87,23 @@
     </dependency>
     <dependency>
       <groupId>de.gematik.openhealth</groupId>
-      <artifactId>smartcard-jvm</artifactId>
-      <version>0.1.2</version>
+      <artifactId>healthcard-jvm</artifactId>
+      <version>0.1.1-alpha2</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
-      <version>1.81</version>
+      <version>1.83</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
-      <version>1.81</version>
+      <version>1.83</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bctls-jdk18on</artifactId>
-      <version>1.81</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.openhealth</groupId>
-      <artifactId>crypto-jvm</artifactId>
-      <version>0.1.2</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.bouncycastle</groupId>
-          <artifactId>bcprov-jdk18on</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.bouncycastle</groupId>
-          <artifactId>bcpkix-jdk18on</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.bouncycastle</groupId>
-          <artifactId>bctls-jdk18on</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>1.83</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -123,7 +112,17 @@
     <dependency>
       <groupId>org.apache.httpcomponents.client5</groupId>
       <artifactId>httpclient5</artifactId>
-      <version>5.5</version>
+      <version>5.6</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>core</artifactId>
+      <version>3.5.4</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>javase</artifactId>
+      <version>3.5.4</version>
     </dependency>
   </dependencies>
 
@@ -132,6 +131,93 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <configuration>
+              <!--suppress UnresolvedMavenProperty, MavenModelInspection -->
+              <encoding>UTF-8</encoding>
+              <outputDirectory>${basedir}/target/tmpdocker</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/docker</directory>
+                  <includes>
+                    <include>**/*</include>
+                  </includes>
+                </resource>
+                <resource>
+                  <directory>${basedir}/target</directory>
+                  <includes>
+                    <include>popp-client*.jar</include>
+                  </includes>
+                  <excludes>
+                    <exclude>popp-client-*-javadoc.jar</exclude>
+                    <exclude>popp-client-*-sources.jar</exclude>
+                  </excludes>
+                </resource>
+              </resources>
+              <skip>${skip.dockerbuild}</skip>
+            </configuration>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <id>copy-docker-resources-jar_and_dockerfile</id>
+            <phase>package</phase>
+          </execution>
+          <execution>
+            <configuration>
+              <!--suppress UnresolvedMavenProperty, MavenModelInspection -->
+              <encoding>UTF-8</encoding>
+              <outputDirectory>${basedir}/target/tmpdocker/identities</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/src/main/resources/identities</directory>
+                  <includes>
+                    <include>**/*</include>
+                  </includes>
+                </resource>
+              </resources>
+              <skip>${skip.dockerbuild}</skip>
+            </configuration>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <id>copy-docker-resources-identities</id>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>io.fabric8</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <version>${version.docker-maven-plugin}</version>
+        <configuration>
+          <images>
+            <image>
+              <build>
+                <args>
+                  <COMMIT_HASH>${commit_hash}</COMMIT_HASH>
+                  <VERSION>${project.version}</VERSION>
+                </args>
+                <dockerFile>${basedir}/target/tmpdocker/Dockerfile</dockerFile>
+              </build>
+              <name>${docker.image.name}:${project.version}</name>
+            </image>
+          </images>
+          <skip>${skip.dockerbuild}</skip>
+          <verbose>true</verbose>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>build</goal>
+            </goals>
+            <id>default</id>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
@@ -281,6 +367,7 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>${version.maven-javadoc-plugin}</version>
         <configuration>
+          <detectOfflineLinks>false</detectOfflineLinks>
           <doclint>none</doclint>
         </configuration>
         <executions>
@@ -311,9 +398,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${version.maven-surefire-plugin}</version>
-        <configuration>
-          <skipTests>${skip.unittests}</skipTests>
-        </configuration>
       </plugin>
 
       <!-- to upload jacoco results to sonar server via mvn sonar:sonar-->
@@ -328,7 +412,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>4.1.0</version>
         <executions>
           <execution>
             <id>xjc</id>

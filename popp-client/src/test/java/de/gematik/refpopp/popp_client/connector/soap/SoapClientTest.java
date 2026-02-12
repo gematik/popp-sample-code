@@ -46,7 +46,7 @@ class SoapClientTest {
   void setUp() {
     marshallerMock = mock(Jaxb2Marshaller.class);
     final String soapAction = "http://tempuri.org/SoapAction";
-    sut = new SoapClient(marshallerMock, soapAction, HttpClients.createDefault());
+    sut = new SoapClient(marshallerMock, () -> soapAction, HttpClients.createDefault());
   }
 
   @Test
@@ -85,7 +85,7 @@ class SoapClientTest {
     // given
     HttpClient httpClient = mock(HttpClient.class);
     final String soapAction = "http://tempuri.org/SoapAction";
-    SoapClient sslSut = new SoapClient(marshallerMock, soapAction, httpClient);
+    SoapClient sslSut = new SoapClient(marshallerMock, () -> soapAction, httpClient);
 
     final WebServiceTemplate webServiceTemplateMock = mock(WebServiceTemplate.class);
     sslSut.setWebServiceTemplate(webServiceTemplateMock);

@@ -28,14 +28,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import jakarta.xml.soap.MessageFactory;
+import jakarta.xml.soap.SOAPMessage;
 import java.io.StringReader;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.dom.DOMSource;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ws.context.MessageContext;
+import org.springframework.ws.soap.SoapBody;
 import org.springframework.ws.soap.client.SoapFaultClientException;
 import org.springframework.ws.soap.saaj.SaajSoapMessage;
 import org.w3c.dom.Document;
@@ -85,6 +89,13 @@ class SoapClientInterceptorTest {
     final var responseDocument = mock(SaajSoapMessage.class);
     when(messageContext.getResponse()).thenReturn(responseDocument);
     when(responseDocument.getDocument()).thenReturn(soapFaultDocument);
+    MessageFactory mf = MessageFactory.newInstance();
+    SOAPMessage soapMessage = mf.createMessage();
+    soapMessage.getSOAPPart().setContent(new DOMSource(soapFaultDocument));
+    SaajSoapMessage springSaajMsg = new SaajSoapMessage(soapMessage);
+
+    SoapBody soapBody = springSaajMsg.getSoapBody();
+    when(responseDocument.getSoapBody()).thenReturn(soapBody);
 
     // when / then
     assertThatThrownBy(() -> sut.handleResponse(messageContext))

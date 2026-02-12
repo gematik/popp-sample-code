@@ -7,12 +7,12 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.5</version>
+    <version>4.0.2</version>
   </parent>
 
   <groupId>de.gematik.refpopp</groupId>
   <artifactId>popp-example-impl-global</artifactId>
-  <version>1.0.3</version>
+  <version>2.0.0</version>
   <packaging>pom</packaging>
   <name>popp-sample-code</name>
   <description>PoPP - example implementation</description>
@@ -79,29 +79,29 @@
     <sonar.cpd.exclusions>
     </sonar.cpd.exclusions>
 
-    <version.assertj>3.27.3</version.assertj>
+    <version.assertj>3.27.7</version.assertj>
     <version.bouncycastle.bcpkix>1.80</version.bouncycastle.bcpkix>
-    <version.docker-maven-plugin>0.46.0</version.docker-maven-plugin>
-    <version.jacoco-maven-plugin>0.8.13</version.jacoco-maven-plugin>
-    <version.jjwt>0.12.6</version.jjwt>
-    <version.lombok>1.18.38</version.lombok>
+    <version.docker-maven-plugin>0.48.0</version.docker-maven-plugin>
+    <version.jacoco-maven-plugin>0.8.14</version.jacoco-maven-plugin>
+    <version.jjwt>0.13.0</version.jjwt>
+    <version.lombok>1.18.42</version.lombok>
     <version.maven>3.8.6</version.maven>
     <version.maven-clean-plugin>3.5.0</version.maven-clean-plugin>
-    <version.maven-compiler-plugin>3.14.0</version.maven-compiler-plugin>
-    <version.maven-enforcer-plugin>3.6.1</version.maven-enforcer-plugin>
-    <version.maven-failsafe-plugin>3.5.3</version.maven-failsafe-plugin>
+    <version.maven-compiler-plugin>3.14.1</version.maven-compiler-plugin>
+    <version.maven-enforcer-plugin>3.6.2</version.maven-enforcer-plugin>
+    <version.maven-failsafe-plugin>3.5.4</version.maven-failsafe-plugin>
     <version.maven-gpg-plugin>3.2.8</version.maven-gpg-plugin>
-    <version.maven-javadoc-plugin>3.11.2</version.maven-javadoc-plugin>
+    <version.maven-javadoc-plugin>3.12.0</version.maven-javadoc-plugin>
     <version.maven-project-info-reports-plugin>3.9.0</version.maven-project-info-reports-plugin>
     <!-- only needed for mvn site to avoid stack traces flooding the console -->
-    <version.maven-resources-plugin>3.3.1</version.maven-resources-plugin>
+    <version.maven-resources-plugin>3.4.0</version.maven-resources-plugin>
     <version.maven-site-plugin>3.21.0</version.maven-site-plugin>
     <!-- settings for upload to sonar server -->
-    <version.maven-source-plugin>3.3.1</version.maven-source-plugin>
-    <version.maven-surefire-plugin>3.5.3</version.maven-surefire-plugin>
-    <version.central-publishing-maven-plugin>0.8.0</version.central-publishing-maven-plugin>
-    <version.sonar-maven-plugin>5.1.0.4751</version.sonar-maven-plugin>
-    <version.spotless-maven-plugin>2.46.1</version.spotless-maven-plugin>
+    <version.maven-source-plugin>3.4.0</version.maven-source-plugin>
+    <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
+    <version.central-publishing-maven-plugin>0.10.0</version.central-publishing-maven-plugin>
+    <version.sonar-maven-plugin>5.5.0.6356</version.sonar-maven-plugin>
+    <version.spotless-maven-plugin>3.2.0</version.spotless-maven-plugin>
     <version.spotless.google-java-format>1.27.0</version.spotless.google-java-format>
     <version.spring-boot-maven-plugin>3.3.2</version.spring-boot-maven-plugin>
   </properties>
@@ -165,13 +165,13 @@
       <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
-        <version>2.20.0</version>
+        <version>2.21.0</version>
       </dependency>
       <dependency>
         <groupId>org.jacoco</groupId>
         <artifactId>org.jacoco.agent</artifactId>
         <classifier>runtime</classifier>
-        <version>0.8.13</version>
+        <version>0.8.14</version>
         <scope>test</scope>
       </dependency>
     </dependencies>
@@ -262,7 +262,6 @@
             -Dfile.encoding=UTF-8
             -Djacoco-agent.destfile=${project.basedir}/../popp-coverage-report/target/jacoco.exec
           </argLine>
-          <skipTests>${skip.unittests}</skipTests>
         </configuration>
       </plugin>
 
@@ -307,7 +306,9 @@
           <includes>
             <include>**/*IT.java</include>
           </includes>
-          <skip>${skip.inttests}</skip>
+          <excludes>
+            <exclude>**/*Test.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
 
@@ -340,6 +341,16 @@
                 <spacesPerTab>2</spacesPerTab>
               </indent>
             </format>
+              <format>
+                  <!-- define the files to apply to -->
+                  <includes>
+                      <include>**/*.swift</include>
+                  </includes>
+                  <licenseHeader>
+                      <file>license-header.txt</file>
+                      <delimiter>import|class|struct|enum|protocol </delimiter>
+                  </licenseHeader>
+              </format>
           </formats>
 
           <java>
@@ -366,6 +377,14 @@
             </includes>
             <importOrder/>
           </groovy>
+            <kotlin>
+                <includes>
+                    <include>**/*.kt</include>
+                </includes>
+                <licenseHeader>
+                    <file>license-header.txt</file>
+                </licenseHeader>
+            </kotlin>
           <markdown>
             <includes>
               <include>**/*.md</include>
@@ -425,5 +444,46 @@
         </plugins>
       </build>
     </profile>
+      <profile>
+          <id>jenkins-integrationtests</id>
+          <build>
+              <plugins>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-surefire-plugin</artifactId>
+                      <version>${version.maven-surefire-plugin}</version>
+                      <executions>
+                          <execution>
+                              <id>default-test</id>
+                              <phase>none</phase>
+                          </execution>
+                      </executions>
+                  </plugin>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-failsafe-plugin</artifactId>
+                      <version>${version.maven-failsafe-plugin}</version>
+                      <executions>
+                          <execution>
+                              <id>run-tests</id>
+                              <phase>integration-test</phase>
+                              <goals>
+                                  <goal>integration-test</goal>
+                                  <goal>verify</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                      <configuration>
+                          <includes>
+                              <include>**/*IT.java</include>
+                          </includes>
+                          <excludes>
+                              <exclude>**/*Test.java</exclude>
+                          </excludes>
+                      </configuration>
+                  </plugin>
+              </plugins>
+          </build>
+      </profile>
   </profiles>
 </project>

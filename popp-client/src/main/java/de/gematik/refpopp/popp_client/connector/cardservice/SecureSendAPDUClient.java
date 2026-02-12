@@ -20,19 +20,24 @@
 
 package de.gematik.refpopp.popp_client.connector.cardservice;
 
+import static de.gematik.refpopp.popp_client.configuration.helper.SoapActionVersionHelper.buildSoapAction;
+
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
+import de.gematik.refpopp.popp_client.connector.soap.SoapActions;
 import de.gematik.refpopp.popp_client.connector.soap.SoapClient;
 import de.gematik.ws.conn.cardservice.v821.SecureSendAPDU;
 import de.gematik.ws.conn.cardservice.v821.SecureSendAPDUResponse;
 import java.util.List;
+import java.util.function.Supplier;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
 @Component
+@Lazy
 public class SecureSendAPDUClient extends SoapClient {
 
   private final ServiceEndpointProvider serviceEndpointProvider;
@@ -40,9 +45,12 @@ public class SecureSendAPDUClient extends SoapClient {
   public SecureSendAPDUClient(
       final Jaxb2Marshaller cardServiceMarshaller,
       final ServiceEndpointProvider serviceEndpointProvider,
-      @Value("${connector.soap-services.secure-send-apdu}") final String soapActionSecureSendAPDU,
       @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
-    super(cardServiceMarshaller, soapActionSecureSendAPDU, httpClient);
+    super(
+        cardServiceMarshaller,
+        (Supplier<String>)
+            () -> buildSoapAction(serviceEndpointProvider, SoapActions.SECURE_SEND_APDU),
+        httpClient);
     this.serviceEndpointProvider = serviceEndpointProvider;
   }
 
