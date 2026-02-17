@@ -1,7 +1,7 @@
 services:
   popp-client:
     profiles: [ "full" ]
-    image: local/popp/popp-client:1.0.4-SNAPSHOT
+    image: local/popp/popp-client:2.0.0
     container_name: popp-client
     environment:
       - POPP_SERVER_URL=wss://popp-server:8443/ws
