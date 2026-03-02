@@ -1,12 +1,12 @@
 connector:
-  end-point-url: "https://127.0.0.1"
+  end-point-url: "https://127.0.0.1:9443"
   log-ws: true
   secure:
     enable: true
     hostname-validation: false
     keystore: keystore.p12
     keystore-password: changeit
-    trust-all: false
+    trust-all: true
     truststore: truststore.p12
     truststore-password: changeit
   terminal-configuration:

@@ -30,12 +30,16 @@ public class SoapActionVersionHelper {
 
   public static String buildSoapAction(
       ServiceEndpointProvider endpointProvider, SoapActions soapAction) {
-    String version = getVersionFromServiceEndpoint(endpointProvider);
+    String version = (soapAction != null && soapAction == SoapActions.GET_CARDS) ? getVersionFromServiceEndpoint(endpointProvider, endpointProvider.getEventServiceEndpoint().getVersion()) : getVersionFromServiceEndpoint(endpointProvider);
     return soapAction.getServiceEndpoint() + version + soapAction.getCommand();
   }
 
   private static String getVersionFromServiceEndpoint(ServiceEndpointProvider endpointProvider) {
     String version = endpointProvider.getCardServiceEndpoint().getVersion();
+    return getVersionFromServiceEndpoint(endpointProvider, version);
+  }
+
+  private static String getVersionFromServiceEndpoint(ServiceEndpointProvider endpointProvider, String version) {
     if (version == null || version.isBlank()) {
       throw new IllegalStateException(
           "Version is missing for " + endpointProvider.getCardServiceEndpoint().getEndpoint());

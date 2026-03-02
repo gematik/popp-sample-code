@@ -25,8 +25,8 @@ popp-client:
     store-password: popp-store
 
 connector:
-  end-point-url: "http://ti-konnektor/cardservice"
-  event-service-endpoint: http://localhost:80/eventservice
+  end-point-url: "https://localhost:9443/"
+#  event-service-endpoint: https://localhost:9443/services/EventService/v7.2
 #  terminal-configuration:
 #    context:
 #      clientSystemId: "Client-System"
