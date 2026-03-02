@@ -192,6 +192,7 @@
             <encoding>${project.build.sourceEncoding}</encoding>
             <source>${java.version}</source>
             <target>${java.version}</target>
+            <proc>full</proc>
             <debug>true</debug>
           </configuration>
         </plugin>
