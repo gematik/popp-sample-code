@@ -1,0 +1,206 @@
+<Bundle xmlns="http://hl7.org/fhir">
+  <id value="019aa697-e026-7735-b898-09ead32a7fa5" />
+  <meta>
+    <lastUpdated value="2025-07-14T15:16:17.89+01:00" />
+    <profile value="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMBundle|1.0.0" />
+  </meta>
+  <type value="collection" />
+  <timestamp value="2025-07-14T15:16:17.89+01:00" />
+  <entry>
+    <fullUrl value="https://gematik.de/fhir/Patient/019aa694-7e82-76ba-9b71-cbb1456f219e" />
+    <resource>
+      <Patient>
+        <id value="019aa694-7e82-76ba-9b71-cbb1456f219e" />
+        <meta>
+          <profile value="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMPatient|1.0.0" />
+        </meta>
+        <identifier>
+          <system value="http://fhir.de/sid/gkv/kvid-10" />
+          <value value="C345678908" />
+        </identifier>
+        <name>
+          <use value="official" />
+          <text value="Charlie Carolinataube" />
+          <family value="Carolinataube">
+            <extension url="http://hl7.org/fhir/StructureDefinition/humanname-own-name">
+              <valueString value="Carolinataube" />
+            </extension>
+          </family>
+          <given value="Charlie" />
+        </name>
+        <gender value="other">
+          <extension url="http://fhir.de/StructureDefinition/gender-amtlich-de">
+            <valueCoding>
+              <system value="http://fhir.de/CodeSystem/gender-amtlich-de" />
+              <code value="D" />
+              <display value="divers" />
+            </valueCoding>
+          </extension>
+        </gender>
+        <birthDate value="1979-06-11" />
+        <address>
+          <type value="physical" />
+          <line value="Taubenweg 3c">
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-houseNumber">
+              <valueString value="3c" />
+            </extension>
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-streetName">
+              <valueString value="Taubenweg" />
+            </extension>
+          </line>
+          <line value="zweites Hinterhaus links">
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-ADXP-additionalLocator">
+              <valueString value="Hinterhaus links" />
+            </extension>
+          </line>
+          <city value="Chemnitz" />
+          <postalCode value="09128" />
+          <country value="Deutschland">
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-codedString">
+              <valueCoding>
+                <system value="urn:iso:std:iso:3166" />
+                <code value="DE" />
+              </valueCoding>
+            </extension>
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-codedString">
+              <valueCoding>
+                <system value="http://fhir.de/CodeSystem/deuev/anlage-8-laenderkennzeichen" />
+                <code value="D" />
+              </valueCoding>
+            </extension>
+          </country>
+        </address>
+      </Patient>
+    </resource>
+  </entry>
+  <entry>
+    <fullUrl value="https://gematik.de/fhir/Coverage/019aa696-5a70-7a68-ad1c-83b7369f7049" />
+    <resource>
+      <Coverage>
+        <id value="019aa696-5a70-7a68-ad1c-83b7369f7049" />
+        <meta>
+          <profile value="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMCoverageGKV|1.0.0" />
+        </meta>
+        <extension url="http://fhir.de/StructureDefinition/gkv/wop">
+          <valueCoding>
+            <system value="https://fhir.kbv.de/CodeSystem/KBV_CS_SFHIR_ITA_WOP" />
+            <code value="98" />
+            <display value="Sachsen" />
+          </valueCoding>
+        </extension>
+        <extension url="http://fhir.de/StructureDefinition/gkv/versichertenart">
+          <valueCoding>
+            <system value="https://fhir.kbv.de/CodeSystem/KBV_CS_SFHIR_KBV_VERSICHERTENSTATUS" />
+            <code value="1" />
+            <display value="Mitglieder" />
+          </valueCoding>
+        </extension>
+        <extension url="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMDMPTeilnahme">
+          <extension url="dmp">
+            <valueCoding>
+              <system value="https://fhir.kbv.de/CodeSystem/KBV_CS_SFHIR_KBV_DMP" />
+              <code value="01" />
+              <display value="DM2" />
+            </valueCoding>
+          </extension>
+          <extension url="zeitraum">
+            <valuePeriod>
+              <start value="2001-01-01" />
+            </valuePeriod>
+          </extension>
+          <extension url="digitalesDMP">
+            <valueBoolean value="false" />
+          </extension>
+        </extension>
+        <extension url="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMDMPTeilnahme">
+          <extension url="dmp">
+            <valueCoding>
+              <system value="https://fhir.kbv.de/CodeSystem/KBV_CS_SFHIR_KBV_DMP" />
+              <code value="08" />
+              <display value="Depression" />
+            </valueCoding>
+          </extension>
+          <extension url="zeitraum">
+            <valuePeriod>
+              <start value="2020-01-01" />
+              <end value="2023-12-31" />
+            </valuePeriod>
+          </extension>
+          <extension url="digitalesDMP">
+            <valueBoolean value="true" />
+          </extension>
+        </extension>
+        <extension url="http://fhir.de/StructureDefinition/gkv/kostenerstattung">
+          <extension url="aerztlicheVersorgung">
+            <valueBoolean value="true" />
+          </extension>
+          <extension url="zahnaerztlicheVersorgung">
+            <valueBoolean value="true" />
+          </extension>
+          <extension url="stationaererBereich">
+            <valueBoolean value="true" />
+          </extension>
+          <extension url="veranlassteLeistungen">
+            <valueBoolean value="true" />
+          </extension>
+        </extension>
+        <status value="active" />
+        <type>
+          <coding>
+            <system value="http://fhir.de/CodeSystem/versicherungsart-de-basis" />
+            <code value="GKV" />
+          </coding>
+        </type>
+        <beneficiary>
+          <reference value="https://gematik.de/fhir/Patient/019aa694-7e82-76ba-9b71-cbb1456f219e" />
+        </beneficiary>
+        <period>
+          <start value="1979-06-11" />
+          <end value="2027-01-01" />
+        </period>
+        <payor>
+          <extension url="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMKostentraegerRolle">
+            <valueCoding>
+              <system value="https://gematik.de/fhir/vsdm2/CodeSystem/VSDMKostentraegerRolleCS" />
+              <code value="H" />
+              <display value="Haupt-Kostenträger" />
+            </valueCoding>
+          </extension>
+          <reference value="https://gematik.de/fhir/Organization/019aa691-dd16-7d29-a3e0-f84ab48b9db0" />
+        </payor>
+      </Coverage>
+    </resource>
+  </entry>
+  <entry>
+    <fullUrl value="https://gematik.de/fhir/Organization/019aa691-dd16-7d29-a3e0-f84ab48b9db0" />
+    <resource>
+      <Organization>
+        <id value="019aa691-dd16-7d29-a3e0-f84ab48b9db0" />
+        <meta>
+          <profile value="https://gematik.de/fhir/vsdm2/StructureDefinition/VSDMPayorOrganization|1.0.0" />
+        </meta>
+        <identifier>
+          <system value="http://fhir.de/sid/arge-ik/iknr" />
+          <value value="107723372" />
+        </identifier>
+        <name value="Beispielkostenträger Chemnitz" />
+        <address>
+          <country value="Deutschland">
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-codedString">
+              <valueCoding>
+                <system value="urn:iso:std:iso:3166" />
+                <code value="DE" />
+              </valueCoding>
+            </extension>
+            <extension url="http://hl7.org/fhir/StructureDefinition/iso21090-codedString">
+              <valueCoding>
+                <system value="http://fhir.de/CodeSystem/deuev/anlage-8-laenderkennzeichen" />
+                <code value="D" />
+              </valueCoding>
+            </extension>
+          </country>
+        </address>
+      </Organization>
+    </resource>
+  </entry>
+</Bundle>
