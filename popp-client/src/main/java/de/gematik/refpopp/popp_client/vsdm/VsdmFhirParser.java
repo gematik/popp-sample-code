@@ -43,6 +43,8 @@ public class VsdmFhirParser {
   private static final String EXT_WOP = "gkv/wop";
   private static final String EXT_VERSICHERTENART = "gkv/versichertenart";
   private static final String EXT_PERSONENGRUPPE = "gkv/besondere-personengruppe";
+  private static final String EXT_ZUZAHLUNGSSTATUS = "gkv/zuzahlungsstatus";
+  private static final String EXT_DMP_KENNZEICHNUNG = "gkv/dmp-kennzeichnung";
   private static final String EXT_KOSTENTRAEGER_ROLLE = "VSDMKostentraegerRolle";
   private static final String ROLE_HAUPTKOSTENTRAEGER = "H";
 
@@ -65,7 +67,6 @@ public class VsdmFhirParser {
         }
       }
 
-      applyDefaults(bundle);
       LOG.info("Successfully parsed FHIR Bundle for KVNR: {}", bundle.getKvnr());
       return bundle;
 
@@ -129,6 +130,9 @@ public class VsdmFhirParser {
       Address addr = p.getAddressFirstRep();
       bundle.setOrt(addr.getCity());
       bundle.setPlz(addr.getPostalCode());
+      if (addr.hasCountry()) {
+        bundle.setWohnsitzlaendercode(addr.getCountry());
+      }
 
       if (addr.hasLine()) {
         for (StringType line : addr.getLine()) {
@@ -142,7 +146,6 @@ public class VsdmFhirParser {
           }
         }
       }
-      bundle.setWohnsitzlaendercode("D"); // Fallback
     }
   }
 
@@ -155,6 +158,8 @@ public class VsdmFhirParser {
         if (url.endsWith(EXT_WOP)) bundle.setWop(code);
         else if (url.endsWith(EXT_VERSICHERTENART)) bundle.setVersichertenStatus(code);
         else if (url.endsWith(EXT_PERSONENGRUPPE)) bundle.setBesonderePersonengruppe(code);
+        else if (url.endsWith(EXT_ZUZAHLUNGSSTATUS)) bundle.setZuzahlungsstatus(code);
+        else if (url.endsWith(EXT_DMP_KENNZEICHNUNG)) bundle.setDmpKennzeichnung(code);
       }
     }
 
@@ -190,12 +195,5 @@ public class VsdmFhirParser {
         break;
       }
     }
-  }
-
-  private void applyDefaults(VsdmBundle bundle) {
-    if (bundle.getZuzahlungsstatus() == null) bundle.setZuzahlungsstatus("0");
-    if (bundle.getDmpKennzeichnung() == null) bundle.setDmpKennzeichnung("0");
-    if (bundle.getVersichertenStatus() == null) bundle.setVersichertenStatus("1");
-    if (bundle.getWohnsitzlaendercode() == null) bundle.setWohnsitzlaendercode("D");
   }
 }
