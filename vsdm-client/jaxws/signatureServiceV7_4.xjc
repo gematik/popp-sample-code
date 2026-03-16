@@ -1,0 +1,7 @@
+<bindings xmlns="https://jakarta.ee/xml/ns/jaxb" version="3.0">
+  <bindings schemaLocation="../src/main/resources/api-telematik-OPB4/conn/SignatureService.xsd">
+    <schemaBindings>
+      <package name="de.gematik.ws.conn.signatureservice.v74"/>
+    </schemaBindings>
+  </bindings>
+</bindings>

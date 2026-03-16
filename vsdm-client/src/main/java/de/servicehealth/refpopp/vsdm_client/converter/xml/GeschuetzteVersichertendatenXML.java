@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm.xml;
+package de.servicehealth.refpopp.vsdm_client.converter.xml;
 
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;

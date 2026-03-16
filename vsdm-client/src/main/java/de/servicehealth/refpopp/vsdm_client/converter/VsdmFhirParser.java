@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm;
+package de.servicehealth.refpopp.vsdm_client.converter;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;

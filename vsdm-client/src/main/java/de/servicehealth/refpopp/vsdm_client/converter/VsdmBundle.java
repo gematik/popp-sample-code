@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm;
+package de.servicehealth.refpopp.vsdm_client.converter;
 
 /** Representation of relevant data from a VSDM 2.0 Bundle. */
 public class VsdmBundle {

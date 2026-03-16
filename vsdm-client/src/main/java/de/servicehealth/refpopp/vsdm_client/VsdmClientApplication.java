@@ -18,14 +18,15 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm;
+package de.servicehealth.refpopp.vsdm_client;
 
-public class VsdmProcessingException extends RuntimeException {
-  public VsdmProcessingException(String message) {
-    super(message);
-  }
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-  public VsdmProcessingException(String message, Throwable cause) {
-    super(message, cause);
+@SpringBootApplication
+public class VsdmClientApplication {
+
+  public static void main(final String[] args) {
+    SpringApplication.run(VsdmClientApplication.class, args);
   }
 }

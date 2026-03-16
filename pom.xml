@@ -46,6 +46,7 @@
     <module>popp-server</module>
     <module>popp-client</module>
     <module>popp-coverage-report</module>
+    <module>vsdm-client</module>
   </modules>
 
 

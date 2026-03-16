@@ -18,13 +18,10 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm;
+package de.servicehealth.refpopp.vsdm_client.converter;
 
-import de.gematik.refpopp.popp_client.vsdm.xml.AllgemeineVersicherungsdatenXML;
-import de.gematik.refpopp.popp_client.vsdm.xml.GeschuetzteVersichertendatenXML;
-import de.gematik.refpopp.popp_client.vsdm.xml.PersoenlicheVersichertendatenXML;
-import de.gematik.refpopp.popp_client.vsdm.xml.PruefungsnachweisXML;
 import de.gematik.ws.conn.vsds.vsdservice.v5.*;
+import de.servicehealth.refpopp.vsdm_client.converter.xml.*;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;

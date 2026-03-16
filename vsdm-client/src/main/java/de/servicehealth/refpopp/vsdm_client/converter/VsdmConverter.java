@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_client.vsdm;
+package de.servicehealth.refpopp.vsdm_client.converter;
 
 import de.gematik.ws.conn.vsds.vsdservice.v5.ReadVSDResponse;
 import lombok.RequiredArgsConstructor;
