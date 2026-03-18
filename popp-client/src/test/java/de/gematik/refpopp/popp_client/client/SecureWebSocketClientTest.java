@@ -30,6 +30,7 @@ import de.gematik.refpopp.popp_client.client.events.WebSocketCommunicationErrorE
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
 import java.net.URI;
+import java.nio.file.Path;
 import org.java_websocket.handshake.ServerHandshake;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,9 +44,15 @@ class SecureWebSocketClientTest {
   @BeforeEach
   void setUp() throws Exception {
     eventPublisherMock = mock(CommunicationEventPublisher.class);
+    final var smcbPrivateP12Path = Path.of("../docker/zeta/smcb-private/smcb_private.p12");
     sut =
         new SecureWebSocketClient(
-            new URI("wss://example.com"), eventPublisherMock, "popp_keystore.p12", "popp-store");
+            new URI("wss://example.com"),
+            eventPublisherMock,
+            smcbPrivateP12Path,
+            "alias",
+            "00",
+            false);
   }
 
   @Test

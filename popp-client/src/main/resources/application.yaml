@@ -18,11 +18,7 @@ springdoc:
     enabled: true
 
 popp-server:
-  url: wss://localhost:8443/ws
-popp-client:
-  secure:
-    key-store: mykeystore.p12
-    store-password: popp-store
+  url: wss://popp-zeta-ingress:443/ws
 
 connector:
   end-point-url: "http://ti-konnektor/cardservice"
@@ -32,6 +28,14 @@ connector:
 #      clientSystemId: "Client-System"
 #      workplaceId: "Arbeitsplatz_01"
 #      principalId: "Client007"
+
+zeta:
+  client:
+    disableServerValidation: true
+  authentication.smb:
+    alias: "alias"
+    keyfile: "/app/smcb_private.p12"
+    password: "00"
 
 card-reader:
   name:

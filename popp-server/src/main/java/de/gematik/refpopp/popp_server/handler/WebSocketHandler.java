@@ -20,8 +20,6 @@
 
 package de.gematik.refpopp.popp_server.handler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.ErrorMessage;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
@@ -36,6 +34,8 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 public class WebSocketHandler extends AbstractWebSocketHandler {
@@ -76,7 +76,7 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
       egkMessageOrchestrator.orchestrate(poppMessage, sessionCommunication);
     } catch (final ScenarioException e) {
       handleScenarioException(session, e);
-    } catch (final JsonProcessingException e) {
+    } catch (final JacksonException e) {
       handleScenarioException(
           session,
           new ScenarioException(session.getId(), "Error while processing JSON", "errorCode"));

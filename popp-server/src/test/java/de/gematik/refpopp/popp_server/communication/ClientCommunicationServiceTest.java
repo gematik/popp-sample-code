@@ -24,12 +24,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 class ClientCommunicationServiceTest {
 

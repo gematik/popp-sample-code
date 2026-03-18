@@ -1,19 +1,30 @@
+popp-server:
+  url: wss://popp-zeta-ingress:443/ws
+
 connector:
-  end-point-url: "https://127.0.0.1"
+  end-point-url: ${CONNECTOR_END_POINT_URL:https://127.0.0.1}
   log-ws: true
   secure:
-    enable: true
-    hostname-validation: false
-    keystore: keystore.p12
-    keystore-password: changeit
-    trust-all: false
-    truststore: truststore.p12
-    truststore-password: changeit
+    enable: ${CONNECTOR_SECURE_ENABLE:true}
+    hostname-validation: ${CONNECTOR_SECURE_HOSTNAME_VALIDATION:false}
+    keystore: ${CONNECTOR_SECURE_KEYSTORE:keystore.p12}
+    keystore-password: ${CONNECTOR_SECURE_KEYSTORE_PASSWORD:changeit}
+    trust-all: ${CONNECTOR_SECURE_TRUST_ALL:true}
+    truststore: ${CONNECTOR_SECURE_TRUSTSTORE:truststore.p12}
+    truststore-password: ${CONNECTOR_SECURE_TRUSTSTORE_PASSWORD:changeit}
   terminal-configuration:
     context:
-      clientSystemId: "ClientID1"
-      workplaceId: "Workplace1"
-      mandantId: "Mandant1"
+      clientSystemId: ${CONTEXT_CLIENT_SYSTEM_ID:C1}
+      workplaceId: ${CONTEXT_WORKPLACE_ID:W1}
+      mandantId: ${CONTEXT_MANDANT_ID:M1}
+
+zeta:
+  client:
+    disableServerValidation: true
+  authentication.smb:
+    alias: "alias"
+    keyfile: "/app/smcb_private.p12"
+    password: "00"
 
 card-reader:
   name: "REINER SCT"

@@ -23,7 +23,7 @@ package de.gematik.refpopp.popp_client;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "de.gematik.refpopp.popp_client")
 public class PoppClientApplication {
 
   public static void main(final String[] args) {

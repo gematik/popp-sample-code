@@ -2,6 +2,17 @@
 
 # Release Notes popp-sample-code
 
+## Release 2.1.2
+
+### Known Issues
+- If your EGK has an older CVCA you may get problems while testing with the Rise PoPP-Service
+- We only support the PoPP Client as a Docker container. If you have problems while starting the spring application, we will fix them for the next release
+- Standard-Kartenleser is not supported in this release, we will fix this for the next release
+
+### changed
+- ZETA integration
+- You can now use PoPP-Service from this project directly or use the Rise PoPP-Service after some configuration changes (see README.md)
+
 ## Release 2.0.0
 
 ### changed 
@@ -13,8 +24,6 @@
 - You no longer need to specify the SOAP services in `application.yaml`; the versions are now read from `connector.sds`.
 - Virtual card images are now supported.  
   See `README.md` for details.
-- 
-
 
 ### fixed
 

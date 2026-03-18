@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
-import javax.net.ssl.SSLSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -98,16 +97,16 @@ public class CommunicationService {
       final CardConnectionType cardConnectionType, final String clientSessionId) {
     validateConnectionCompatibility(cardConnectionType);
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
     putSessionIdIntoSSLSession(clientSessionId);
     sendStartMessage(cardConnectionType, clientSessionId);
   }
 
   public String startConnectorMock(final String clientSessionId) {
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK, true);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK, true);
     final var sessionId =
         (clientSessionId != null && !clientSessionId.isBlank())
             ? clientSessionId
@@ -125,9 +124,10 @@ public class CommunicationService {
     log.info("| Using virtual card");
 
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
-    sslSession.putValue(VIRTUAL_CARD, true);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
+    sslSession.put(VIRTUAL_CARD, true);
+    putSessionIdIntoSSLSession(clientSessionId);
 
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     putSessionIdIntoSSLSession(sessionId);
@@ -174,15 +174,15 @@ public class CommunicationService {
   }
 
   private void putSessionIdIntoSSLSession(final String clientSessionId) {
-    final SSLSession sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CLIENT_SESSION_ID, clientSessionId);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CLIENT_SESSION_ID, clientSessionId);
   }
 
   private void sendStartMessage(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
     final var startMessage =
         StartMessage.builder()
-            .version("1.0")
+            .version("1.0.0")
             .clientSessionId(clientSessionId)
             .cardConnectionType(cardConnectionType)
             .build();
@@ -208,9 +208,9 @@ public class CommunicationService {
       final ConnectorScenarioMessage connectorScenarioMessage) {
     final var signedScenario = connectorScenarioMessage.getSignedScenario();
 
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var isConnectorMock =
-        sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final Object isConnectorMock =
+        sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK);
     if (Boolean.TRUE.equals(isConnectorMock)) {
       useStandardTerminalAsMock(signedScenario);
     } else {
@@ -236,8 +236,8 @@ public class CommunicationService {
       final StandardScenarioMessage standardScenarioMessage) {
     final var steps = standardScenarioMessage.getSteps();
 
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var isVirtualCard = sslSession.getValue(VIRTUAL_CARD);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final Object isVirtualCard = sslSession.get(VIRTUAL_CARD);
     List<String> responses;
     if (Boolean.TRUE.equals(isVirtualCard)) {
       if (virtualCardService.isConfigured()) {
@@ -259,7 +259,7 @@ public class CommunicationService {
   private void handleTokenMessage(final TokenMessage tokenMessage) {
     log.info("| Received PoPP token: {}", tokenMessage.getToken());
     final var clientSessionId =
-        (String) clientServerCommunicationService.getSSLSession().getValue(CLIENT_SESSION_ID);
+        (String) clientServerCommunicationService.getSSLSession().get(CLIENT_SESSION_ID);
     log.info("| ClientSessionId: {}", clientSessionId);
     CompletableFuture<String> tokenFuture = tokenQueue.get(clientSessionId);
     if (tokenFuture != null) {
@@ -272,10 +272,10 @@ public class CommunicationService {
   }
 
   private void stopConnectorSessionIfRequired() {
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var cardConnectionType = (CardConnectionType) sslSession.getValue(CARD_CONNECTION_TYPE);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final var cardConnectionType = (CardConnectionType) sslSession.get(CARD_CONNECTION_TYPE);
     if (CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)) {
-      final var clientSessionId = (String) sslSession.getValue(CLIENT_SESSION_ID);
+      final var clientSessionId = (String) sslSession.get(CLIENT_SESSION_ID);
       try {
         connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
       } catch (org.springframework.ws.soap.client.SoapFaultClientException exception) {
@@ -306,8 +306,8 @@ public class CommunicationService {
 
   private void sendStartMessageWithSessionId(
       final CardConnectionType cardConnectionType, final String sessionId) {
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CLIENT_SESSION_ID, sessionId);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CLIENT_SESSION_ID, sessionId);
 
     sendStartMessage(cardConnectionType, sessionId);
   }

@@ -30,8 +30,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
@@ -48,6 +46,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.ObjectMapper;
 
 class WebSocketHandlerTest {
 
@@ -126,12 +126,12 @@ class WebSocketHandlerTest {
     // given
     final var payload =
         """
-        {"type":"START_MESSAGE","version":"1.0","cardConnectionType":"CONNECTOR"}
+        {"type":"START_MESSAGE","version":"1.0.0","cardConnectionType":"CONNECTOR"}
         """;
     final var message = new TextMessage(payload);
     final var objectMapperMock = mock(ObjectMapper.class);
     final var messageCapture = ArgumentCaptor.forClass(TextMessage.class);
-    doThrow(JsonProcessingException.class)
+    doThrow(new StreamReadException("invalid json"))
         .when(objectMapperMock)
         .readValue(anyString(), eq(PoPPMessage.class));
     when(objectMapperMock.writeValueAsString(any())).thenReturn("type, ERROR_MESSAGE");
@@ -157,7 +157,7 @@ class WebSocketHandlerTest {
     // given
     final var payload =
         """
-        {"type":"Start","version":"1.0","cardConnectionType":"contact-connector"}
+        {"type":"Start","version":"1.0.0","cardConnectionType":"contact-connector"}
         """;
     final var message = new TextMessage(payload);
     doThrow(ScenarioException.class).when(messageHandlerOrchestratorMock).orchestrate(any(), any());
