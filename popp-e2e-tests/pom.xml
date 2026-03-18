@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>de.gematik.refpopp</groupId>
+    <artifactId>popp-example-impl-global</artifactId>
+    <version>2.1.1-SNAPSHOT</version>
+  </parent>
+  <groupId>de.gematik.refpopp</groupId>
+  <artifactId>popp-e2e-tests</artifactId>
+  <version>2.1.1-SNAPSHOT</version>
+  <name>popp-e2e-tests</name>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+    <dependency>
+      <groupId>de.gematik.refpopp</groupId>
+      <artifactId>popp-server</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>de.gematik.refpopp</groupId>
+      <artifactId>popp-client</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>1.21.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <version>2.0.2</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- popp-server dependency already declared above -->
+  </dependencies>
+</project>

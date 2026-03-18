@@ -6,7 +6,11 @@ This project provides a sample implementation of the PoPP-Service and
 PoPP-Client according to [gemSpec_PoPP_Service](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2).
 The [eGK-Hash-Datenbank](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2/#6.2.1.9) is implemented as PostgresSQL database.
 
-You can run the components either locally or via Docker [Quick start](#quick-start-docker-full-profile--recommended-for-testing-with-the-virtual-card).
+- There are 4 modes to run the components:
+    - You can run all components via Docker [Quick start](#quick-start-docker-full-profile--recommended-for-testing-with-the-virtual-card). Only testing with virtual card and Konnektor is possible in this mode.
+    - You can run the PoPP-Client [locally and all other components via Docker](#start-the-popp-client-locally-and-connect-to-the-dockerized-zeta-popp-server-and-egk-hash-datenbank). This allows testing with a Standard-Kartenleser or Konnektor.
+    - You can run the PoPP-Client [locally against the Rise PoPP-Server](#start-the-popp-client-locally-and-connect-to-the-rise-popp-server) (with virtual card, Standard-Kartenleser or Konnektor).
+    - You can run all components [locally](#start-all-components-locally). Currently not available, work in progress.
 
 ## Building and running the project locally
 
@@ -18,7 +22,14 @@ You can run the components either locally or via Docker [Quick start](#quick-sta
 - **Standard-Kartenleser** (PC/SC via USB) or
 - **Konnektor and eHealth Kartenterminal**
 
-> All keys and p12 stores contained in this repository are intentionally published to allow the project to run out of the box after cloning.
+> The keys and p12 stores contained in this repository are intentionally published to allow the project to run out of the box after cloning.
+
+> An exception is the SMC-B certificate and key pair. Please request a test SMC-B at [gematik Anfrageportal](https://service.gematik.de/servicedesk/customer/portal/37).
+
+> Please place them in the docker/zeta/smcb-private folder as follows: 
+> - smcb_private.p12 (p12 file with AUT_E256_X509 certificate)
+> - smcb_private.alias.txt (alias of the smcb certificate in the p12 file, default is alias)
+> - smcb_private.pw.txt (password of the p12 file).
 
 *Notes*
 
@@ -189,6 +200,9 @@ This mode is especially useful for:
 - testing the **virtual card**
 - running the complete PoPP stack without card readers or a Konnektor
 
+Make sure that the entry `zeta : authentication.smb : keyfile` in `application.yaml` or `application-dev.yaml` has a format 
+like `"/app/smcb_private.p12"` so that the keyfile can be found in the docker container.
+
 #### 1. Build Docker images via Maven
 
 Docker images are built as part of the Maven build.  
@@ -197,7 +211,8 @@ Make sure Docker image creation is **enabled**:
 ```bash
 ./mvnw clean install -Dskip.dockerbuild=false
 ```
-This step builds the Docker images `local/popp/popp-server:<version>` and `local/popp/popp-client:<version>`.
+This step builds the Docker images `local/popp/popp-server:<version>` and `local/popp/popp-client:<version>`, as well as
+`local/popp/popp-server:latest` and `local/popp/popp-client:latest`. The latter is the default version in the compose.yaml.
 
 #### 2. Start the full stack via Docker Compose
 
@@ -224,9 +239,83 @@ Swagger-Ui with the `/token` endpoint as described below with the communication 
 
 This allows testing PoPP flows without any card-related hardware.
 
-### Start the eGK-Hash-Datenbank
+### Start the PoPP-Client locally and connect to the Dockerized Zeta, PoPP-Server and eGK-Hash-Datenbank
 
-If you want to run the PoPP-Service with out Docker, you need to start the eGK-Hash-Datenbank.
+This mode is especially useful for testing the complete PoPP stack with card readers or a Konnektor.
+
+*For ZETA:*
+
+- Ensure you have the following entry in your "hosts" file (e.g. in Windows under C:\Windows\System32\drivers\etc):
+
+```bash
+  127.0.0.1 popp-zeta-ingress
+```
+
+- If you use Windows, ensure that popp-zeta-ingress uses port 443:
+  - value of `popp-zeta-ingress : ports` in `compose.yaml` must be `"443:443"`
+  - value of `popp-server : url` in `application.yaml` must be `"wss://popp-zeta-ingress:443/ws"`
+
+
+- If you use Linux, ensure that popp-zeta-ingress uses port 2001:
+  - value of `popp-zeta-ingress : ports` in `compose.yaml` must be `"2001:443"`
+  - value of `popp-server : url` in `application.yaml` must be `"wss://popp-zeta-ingress:2001/ws"`
+
+#### 1. Build Docker images via Maven as above
+
+#### 2. Start all components except the PoPP-Client via Docker Compose
+
+```bash
+docker compose -f docker/compose.yaml up
+```
+
+This starts:
+
+- Zeta
+- PoPP-Server
+- eGK-Hash-Datenbank (PostgreSQL)
+
+#### 3. Start the PoPP-Client locally
+
+```bash
+  ./mvnw -pl popp-client spring-boot:run
+```
+
+#### 4. Verify startup as above
+
+### Start the PoPP-Client via Docker compose and connect to the Rise PoPP-Server
+
+#### Prerequisites:
+
+Connecting to the Rise PoPP Server only works if you’ve been granted access. To get onto the allowlist, please visit the [gematik Anfrageportal](https://service.gematik.de/servicedesk/customer/portal/37).
+You will get the correct endpoint with your request.
+
+#### 1. Configure the PoPP-Client to connect to the Rise PoPP-Server
+
+Make sure that the popp-server entry in `application.yaml` or `application-dev.yaml` has the following value:
+
+```yaml
+popp-server:
+  url: wss://your_endpoint
+```
+
+Make sure that `compose.yaml` is configured as follows:
+
+```yaml
+services:
+  popp-client:
+    environment:
+      - POPP_SERVER_URL=wss://your_endpoint
+```
+
+#### 2. Start the PoPP-Client via Docker compose
+
+#### 3. Verify startup as above
+
+### Start all components locally
+
+#### Start the eGK-Hash-Datenbank
+
+If you want to run the PoPP-Service without Docker, you need to start the eGK-Hash-Datenbank.
 
 ```bash
   cd popp-server/docker && docker compose --file postgres-dev.yaml up
@@ -250,13 +339,16 @@ For powershell use:
   cd docker; docker compose down)
 ```
 
-### Start the PoPP-Service
+#### Start the PoPP-Service
 
 ```bash
   ./mvnw -pl popp-server spring-boot:run
 ```
 
-### Start the PoPP-Client
+#### Start the PoPP-Client
+
+If you want to run the PoPP-Client without Docker, make sure that the entry `zeta : authentication.smb : keyfile` in `application.yaml` or `application-dev.yaml` has a format
+like `"classpath:smcb_private.p12"` so that the keyfile can be found in the classpath.
 
 ```bash
   ./mvnw -pl popp-client spring-boot:run

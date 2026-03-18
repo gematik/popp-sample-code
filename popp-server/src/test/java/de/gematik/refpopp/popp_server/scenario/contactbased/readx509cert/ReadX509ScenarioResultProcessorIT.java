@@ -22,8 +22,6 @@ package de.gematik.refpopp.popp_server.scenario.contactbased.readx509cert;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_server.repository.CertHashRepository;
 import de.gematik.refpopp.popp_server.scenario.BaseIntegrationTest;
@@ -40,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 class ReadX509ScenarioResultProcessorIT extends BaseIntegrationTest {
 
@@ -64,7 +64,7 @@ class ReadX509ScenarioResultProcessorIT extends BaseIntegrationTest {
   }
 
   @Test
-  void process() throws JsonProcessingException {
+  void process() throws JacksonException {
     // given
     final var sessionId = "sessionId";
     final var autAsHex =
