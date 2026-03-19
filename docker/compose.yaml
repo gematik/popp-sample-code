@@ -41,6 +41,14 @@ services:
     networks:
       - popp-network
 
+  vsdm-client:
+    image: local/popp/vsdm-client:latest
+    container_name: vsdm-client
+    ports:
+      - "8080:8080"
+    networks:
+      - popp-network
+
 volumes:
   popp-server-db-data:
 

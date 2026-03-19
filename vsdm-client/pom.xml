@@ -16,10 +16,20 @@
   <name>vsdm-client</name>
   <description>VSDM Client Application</description>
 
+  <properties>
+    <docker.image.name>${docker.registry.gematik}/popp/vsdm-client</docker.image.name>
+    <commit_hash>undefined</commit_hash>
+    <skip.dockerbuild>false</skip.dockerbuild>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+        <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web-services</artifactId>
     </dependency>
     <dependency>
       <groupId>de.gematik.refpopp</groupId>
@@ -63,6 +73,71 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <configuration>
+              <encoding>UTF-8</encoding>
+              <outputDirectory>${basedir}/target/tmpdocker</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/docker</directory>
+                  <includes>
+                    <include>**/*</include>
+                  </includes>
+                </resource>
+                <resource>
+                  <directory>${basedir}/target</directory>
+                  <includes>
+                    <include>vsdm-client*.jar</include>
+                  </includes>
+                  <excludes>
+                    <exclude>vsdm-client-*-javadoc.jar</exclude>
+                    <exclude>vsdm-client-*-sources.jar</exclude>
+                  </excludes>
+                </resource>
+              </resources>
+              <skip>${skip.dockerbuild}</skip>
+            </configuration>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <id>copy-docker-resources-jar_and_dockerfile</id>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>io.fabric8</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <version>${version.docker-maven-plugin}</version>
+        <configuration>
+          <images>
+            <image>
+              <build>
+                <args>
+                  <COMMIT_HASH>${commit_hash}</COMMIT_HASH>
+                  <VERSION>${project.version}</VERSION>
+                </args>
+                <dockerFile>${basedir}/target/tmpdocker/Dockerfile</dockerFile>
+              </build>
+              <name>${docker.image.name}:latest</name>
+            </image>
+          </images>
+          <skip>${skip.dockerbuild}</skip>
+          <verbose>true</verbose>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>build</goal>
+            </goals>
+            <id>default</id>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
