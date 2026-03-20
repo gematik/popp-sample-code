@@ -18,7 +18,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD curl -fs http://localhost:8443/ || exit 1
+  CMD curl -fs --insecure https://localhost:8443/import-reports/latest || exit 1
 
 # Set the working directory inside the container
 WORKDIR /app
