@@ -24,6 +24,7 @@ import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketCommunicationErrorEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
+import de.gematik.refpopp.popp_client.configuration.PathResolver;
 import de.gematik.zeta.sdk.BuildConfig;
 import de.gematik.zeta.sdk.StorageConfig;
 import de.gematik.zeta.sdk.TpmConfig;
@@ -40,6 +41,7 @@ import de.gematik.zeta.sdk.storage.InMemoryStorage;
 import io.ktor.client.plugins.logging.LogLevel;
 import jakarta.annotation.PostConstruct;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -74,7 +76,7 @@ public class SecureWebSocketClient {
   public SecureWebSocketClient(
       @Value("${popp-server.url}") final URI serverUri,
       final CommunicationEventPublisher eventPublisher,
-      @Value("${zeta.authentication.smb.keyfile}") final Path keyfile,
+      @Value("${zeta.authentication.smb.keyfile}") final String keyfile,
       @Value("${zeta.authentication.smb.alias}") final String alias,
       @Value("${zeta.authentication.smb.password}") final String password,
       @Value("${zeta.client.disableServerValidation}") final boolean disableServerValidation) {
@@ -82,7 +84,7 @@ public class SecureWebSocketClient {
     this.eventPublisher = eventPublisher;
     this.pool = Executors.newFixedThreadPool(1);
     this.sessionMetadata = new HashMap<>();
-    this.keyfile = keyfile;
+    this.keyfile = PathResolver.resolveAgainstWorkingDirectoryAncestors(keyfile);
     this.alias = alias;
     this.password = password;
     this.disableServerValidation = disableServerValidation;
@@ -113,8 +115,8 @@ public class SecureWebSocketClient {
   }
 
   private SubjectTokenProvider getTokenProvider() {
-    if (!keyfile.toFile().canRead()) {
-      throw new IllegalStateException("Can't read private key");
+    if (!Files.isReadable(keyfile)) {
+      throw new IllegalStateException("Can't read private key: " + keyfile);
     }
     return new SmbTokenProvider(
         new SmbTokenProvider.Credentials(keyfile.toString(), alias, password));

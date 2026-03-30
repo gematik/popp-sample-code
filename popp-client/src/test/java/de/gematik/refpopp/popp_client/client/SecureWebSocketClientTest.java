@@ -29,8 +29,8 @@ import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketCommunicationErrorEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
+import de.gematik.refpopp.popp_client.configuration.PathResolver;
 import java.net.URI;
-import java.nio.file.Path;
 import org.java_websocket.handshake.ServerHandshake;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +44,10 @@ class SecureWebSocketClientTest {
   @BeforeEach
   void setUp() throws Exception {
     eventPublisherMock = mock(CommunicationEventPublisher.class);
-    final var smcbPrivateP12Path = Path.of("../docker/zeta/smcb-private/smcb_private.p12");
+    final var smcbPrivateP12Path =
+        PathResolver.resolveAgainstWorkingDirectoryAncestors(
+                "docker/zeta/smcb-private/smcb_private.p12")
+            .toString();
     sut =
         new SecureWebSocketClient(
             new URI("wss://example.com"),

@@ -4,7 +4,8 @@ services:
     image: local/popp/popp-client:latest
     container_name: popp-client
     environment:
-      - POPP_SERVER_URL=wss://popp-zeta-ingress:443/ws
+      - SPRING_PROFILES_ACTIVE=dev-local
+      - ZETA_AUTHENTICATION_SMB_KEYFILE=/app/smcb_private.p12
     networks:
       - popp-network
     ports:

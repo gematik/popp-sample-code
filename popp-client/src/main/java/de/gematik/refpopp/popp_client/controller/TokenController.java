@@ -80,8 +80,7 @@ public class TokenController {
                             value =
                                 """
                                 {
-                                  "communicationType": "contact-standard",
-                                  "clientSessionId": "123456"
+                                  "communicationType": "contact-standard"
                                 }
                                 """),
                         @ExampleObject(
@@ -89,8 +88,7 @@ public class TokenController {
                             value =
                                 """
                                 {
-                                  "communicationType": "contactless-standard",
-                                  "clientSessionId": ""
+                                  "communicationType": "contactless-standard"
                                 }
                                 """),
                         @ExampleObject(
@@ -98,7 +96,15 @@ public class TokenController {
                             value =
                                 """
                                 {
-                                  "communicationType": "contact-virtual",
+                                  "communicationType": "contact-virtual"
+                                }
+                                """),
+                        @ExampleObject(
+                            name = "Contact Connector",
+                            value =
+                                """
+                                {
+                                  "communicationType": "contact-connector",
                                   "clientSessionId": "123456"
                                 }
                                 """)
