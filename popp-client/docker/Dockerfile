@@ -36,4 +36,4 @@ COPY --chown=$USERID:$GROUPID popp-client*.jar /app/popp-client.jar
 EXPOSE 8081
 EXPOSE 9001
 
-CMD ["sh", "-c", "exec java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:9001 -Dspring.profiles.active=dev -jar popp-client.jar"]
+CMD ["sh", "-c", "exec java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:9001 -jar popp-client.jar"]

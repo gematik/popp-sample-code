@@ -2,16 +2,28 @@
 
 # Release Notes popp-sample-code
 
-## Release 2.1.2
+## Release 2.1.3
 
 ### Known Issues
-- If your EGK has an older CVCA you may get problems while testing with the Rise PoPP-Service
-- We only support the PoPP Client as a Docker container. If you have problems while starting the spring application, we will fix them for the next release
-- Standard-Kartenleser is not supported in this release, we will fix this for the next release
+- If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
+- Standard-Kartenleser with Docker is not supported in this release, we will fix this in an upcoming release
+
+## added
+- Our PoPP-Service now has a JWSK endpoint
+
+## changed
+- We changed how to start our PoPP-Client and PoPP-Service, please look at the README if you have questions
+  - This means you can now also start the PoPP-Client locally or with Docker
+- Updated the invocations in the swagger UI
+
+## fixed
+- getCards gets now the correct EventServiceVersion
+
+## Release 2.1.2
 
 ### changed
 - ZETA integration
-- You can now use PoPP-Service from this project directly or use the Rise PoPP-Service after some configuration changes (see README.md)
+- You can now use PoPP-Service from this project directly or use the RISE PoPP-Service after some configuration changes (see README.md)
 
 ## Release 2.0.0
 

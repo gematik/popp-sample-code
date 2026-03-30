@@ -24,7 +24,6 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.messages.*;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
-import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import de.gematik.refpopp.popp_client.client.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
@@ -61,17 +60,9 @@ public class CommunicationService {
   private final ConnectorCommunicationServiceWrapper connectorCommunicationServiceWrapper;
   private final VirtualCardService virtualCardService;
 
-  private CardConnectionType pendingCardConnectionType;
-  private String pendingClientSessionId;
   private final Map<String, CompletableFuture<String>> tokenQueue = new ConcurrentHashMap<>();
 
   public String start(final CardConnectionType cardConnectionType, final String clientSessionId) {
-    if (isContactlessConnection(cardConnectionType)) {
-      log.info("| PACE not yet completed, waiting for initialization...");
-      pendingCardConnectionType = cardConnectionType;
-      pendingClientSessionId = clientSessionId;
-      return null;
-    }
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     CompletableFuture<String> tokenFuture = new CompletableFuture<>();
     tokenQueue.put(sessionId, tokenFuture);
@@ -95,11 +86,12 @@ public class CommunicationService {
 
   private void executeStart(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
-    validateConnectionCompatibility(cardConnectionType);
     clientServerCommunicationService.connect();
     final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
     sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
     putSessionIdIntoSSLSession(clientSessionId);
+
+    validateConnectionCompatibility(cardConnectionType);
     sendStartMessage(cardConnectionType, clientSessionId);
   }
 
@@ -127,7 +119,6 @@ public class CommunicationService {
     final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
     sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
     sslSession.put(VIRTUAL_CARD, true);
-    putSessionIdIntoSSLSession(clientSessionId);
 
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     putSessionIdIntoSSLSession(sessionId);
@@ -146,17 +137,6 @@ public class CommunicationService {
     } else if (event instanceof WebSocketConnectionClosedEvent) {
       log.info("| Disconnected from server");
     }
-  }
-
-  @EventListener
-  public void handlePaceInitializationComplete(final PaceInitializationCompleteEvent event) {
-    log.info("| PACE initialization completed, starting pending Communication Service");
-    executeStart(pendingCardConnectionType, pendingClientSessionId);
-  }
-
-  private boolean isContactlessConnection(CardConnectionType cardConnectionType) {
-    return cardConnectionType == CardConnectionType.CONTACTLESS_STANDARD
-        || cardConnectionType == CardConnectionType.CONTACTLESS_CONNECTOR;
   }
 
   @EventListener
@@ -291,12 +271,16 @@ public class CommunicationService {
   }
 
   private void validateConnectionCompatibility(final CardConnectionType cardConnectionType) {
-    if (cardConnectionType.equals(CardConnectionType.CONTACT_STANDARD)
+    if (cardCommunicationService.getCardChannel().isEmpty()
+        && cardConnectionType != CardConnectionType.CONTACT_CONNECTOR) {
+      throw new IllegalStateException("No card inserted.");
+    } else if (cardConnectionType.equals(CardConnectionType.CONTACT_STANDARD)
         || cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
       if (cardCommunicationService.getSecureChannel().isPresent()) {
         throw new IllegalStateException("Contact connection requested but card is contactless.");
       }
-    } else {
+    } else if (cardConnectionType.equals(CardConnectionType.CONTACTLESS_STANDARD)
+        || cardConnectionType.equals(CardConnectionType.CONTACTLESS_CONNECTOR)) {
       if (cardCommunicationService.getSecureChannel().isEmpty()) {
         throw new IllegalStateException(
             "Contactless connection requested but card is contact-based.");
@@ -320,7 +304,8 @@ public class CommunicationService {
               connectorCommunicationServiceWrapper.getConnectedEgkCard());
       return isValidSessionId(sessionUUID) ? sessionUUID : connectorSessionId;
     }
-    return sessionUUID != null ? sessionUUID : UUID.randomUUID().toString();
+    final var sessionUUIDExists = sessionUUID != null && !sessionUUID.isEmpty();
+    return sessionUUIDExists ? sessionUUID : UUID.randomUUID().toString();
   }
 
   private static boolean isValidSessionId(final String sessionUUID) {

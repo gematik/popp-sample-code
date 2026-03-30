@@ -1,5 +1,5 @@
 popp-server:
-  url: wss://popp-ru-dev-interim.int.epa.rise-link.de:8443/popp/practitioner/api/v1/token-generation-ehc
+  url: wss://popp-zeta-ingress:443/ws
 
 connector:
   end-point-url: ${CONNECTOR_END_POINT_URL:https://127.0.0.1}

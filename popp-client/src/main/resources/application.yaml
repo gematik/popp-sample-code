@@ -4,9 +4,6 @@ spring:
       - "classpath:contact-based-scenarios.yaml"
       - "classpath:open-egk-scenarios.yaml"
       - "classpath:contact-less-scenarios.yaml"
-  profiles:
-    default: dev
-    active: dev
 
 server:
   port: 8081
@@ -17,25 +14,19 @@ springdoc:
   api-docs:
     enabled: true
 
+# obtain the Rise URL via the "Gematik-Anfrageportal" and configure it here
 popp-server:
   url: wss://popp-zeta-ingress:443/ws
-
 connector:
-  end-point-url: "http://ti-konnektor/cardservice"
-  event-service-endpoint: http://localhost:80/eventservice
-#  terminal-configuration:
-#    context:
-#      clientSystemId: "Client-System"
-#      workplaceId: "Arbeitsplatz_01"
-#      principalId: "Client007"
+  end-point-url: ${CONNECTOR_END_POINT_URL:http://ti-konnektor/cardservice}
 
 zeta:
   client:
-    disableServerValidation: true
+    disableServerValidation: ${ZETA_CLIENT_DISABLE_SERVER_VALIDATION:true}
   authentication.smb:
-    alias: "alias"
-    keyfile: "/app/smcb_private.p12"
-    password: "00"
+    alias: ${ZETA_AUTHENTICATION_SMB_ALIAS:alias}
+    keyfile: ${ZETA_AUTHENTICATION_SMB_KEYFILE:docker/zeta/smcb-private/smcb_private.p12}
+    password: ${ZETA_AUTHENTICATION_SMB_PASSWORD:00}
 
 card-reader:
   name:

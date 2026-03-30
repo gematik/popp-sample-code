@@ -44,7 +44,6 @@ import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
-import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.util.HashMap;
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.smartcardio.CardChannel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -77,7 +77,12 @@ class CommunicationServiceTest {
     connectorCommunicationServiceWrapper = mock(ConnectorCommunicationServiceWrapper.class);
     tokenQueue = new ConcurrentHashMap<>();
     virtualCardServiceMock = mock(VirtualCardService.class);
+
+    final var cardChannelMock = mock(CardChannel.class);
+    when(cardCommunicationServiceMock.getCardChannel()).thenReturn(Optional.of(cardChannelMock));
+
     when(cardCommunicationServiceMock.getSecureChannel()).thenReturn(Optional.empty());
+
     sut =
         new CommunicationService(
             mapper,
@@ -180,7 +185,7 @@ class CommunicationServiceTest {
 
   @Test
   void startSendsStartMessageIfAlreadyConnectedToServer() {
-    final String clientSessionId = "";
+    final String clientSessionId = "123456";
     final var captor = ArgumentCaptor.forClass(PoPPMessage.class);
     Map<String, Object> ssl =
         prepareMockSslSession(clientSessionId, CardConnectionType.CONTACT_STANDARD);
@@ -207,58 +212,6 @@ class CommunicationServiceTest {
     assertThatThrownBy(() -> sut.start(CardConnectionType.CONTACT_STANDARD, clientSessionId))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Contact connection requested but card is contactless.");
-    verify(clientServerCommunicationServiceMock, never()).connect();
-  }
-
-  @Test
-  void handlePaceInitializationCompleteStartsContactlessService() {
-    final var secureChannelMock = mock(SecureChannel.class);
-    when(cardCommunicationServiceMock.getSecureChannel())
-        .thenReturn(Optional.of(secureChannelMock));
-    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(new HashMap<>());
-
-    sut.start(CardConnectionType.CONTACTLESS_STANDARD, "test-session");
-    sut.handlePaceInitializationComplete(new PaceInitializationCompleteEvent());
-
-    verify(clientServerCommunicationServiceMock).connect();
-  }
-
-  @Test
-  void handlePaceInitializationCompleteFailsWhenPaceFailed() {
-    when(cardCommunicationServiceMock.getSecureChannel()).thenReturn(Optional.empty());
-
-    sut.start(CardConnectionType.CONTACTLESS_STANDARD, "test-session");
-
-    assertThatThrownBy(
-            () -> sut.handlePaceInitializationComplete(new PaceInitializationCompleteEvent()))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Contactless connection requested but card is contact-based.");
-  }
-
-  @Test
-  void startContactlessStandardWaitsForPaceInitialization() {
-    when(cardCommunicationServiceMock.getSecureChannel()).thenReturn(Optional.empty());
-
-    sut.start(CardConnectionType.CONTACTLESS_STANDARD, "test-session");
-
-    verify(clientServerCommunicationServiceMock, never()).connect();
-  }
-
-  @Test
-  void handlePaceInitializationCompleteStartsPendingService() {
-    final var secureChannelMock = mock(SecureChannel.class);
-    when(cardCommunicationServiceMock.getSecureChannel())
-        .thenReturn(Optional.of(secureChannelMock));
-    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(new HashMap<>());
-
-    // Start contactless connection which should wait for PACE
-    sut.start(CardConnectionType.CONTACTLESS_STANDARD, "test-session");
-    verify(clientServerCommunicationServiceMock, never()).connect();
-
-    sut.handlePaceInitializationComplete(new PaceInitializationCompleteEvent());
-
-    verify(clientServerCommunicationServiceMock).connect();
-    verify(clientServerCommunicationServiceMock).sendMessage(any(StartMessage.class));
   }
 
   @Test
@@ -270,7 +223,6 @@ class CommunicationServiceTest {
     assertThatThrownBy(() -> sut.start(CardConnectionType.CONTACT_STANDARD, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Contact connection requested but card is contactless.");
-    verify(clientServerCommunicationServiceMock, never()).connect();
   }
 
   @Test
