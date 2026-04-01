@@ -2,14 +2,21 @@
 
 # Release Notes popp-sample-code
 
-## Release 2.1.3
+## Release 2.1.4
 
 ### Known Issues
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported in this release, we will fix this in an upcoming release
 
+### changed
+
+- Introduce static key id for signing PoPP token and JWKS endpoint
+
+
+## Release 2.1.3
+
 ## added
-- Our PoPP-Service now has a JWSK endpoint
+- Our PoPP-Service now has a JWKS endpoint
 
 ## changed
 - We changed how to start our PoPP-Client and PoPP-Service, please look at the README if you have questions
