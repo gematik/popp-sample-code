@@ -47,13 +47,13 @@ class JwksConfigurationTest {
     this.jsonWebKeySet = jwkConfiguration.jwkSource(keystore);
     assertThat(this.jsonWebKeySet.getJsonWebKeys()).hasSize(1);
     assertThat(this.jsonWebKeySet.getJsonWebKeys().getFirst().getKeyId())
-        .isEqualTo("popp-token-server-nist-komp61");
+        .isEqualTo("staticPublicKeyId");
   }
 
   @Test
   void thatAValidJwkSetIsReturned() {
     final JwksController controller = new JwksController(this.jsonWebKeySet);
     final String jwks = controller.jwks();
-    assertThat(jwks).contains("popp-token-server-nist-komp61");
+    assertThat(jwks).contains("staticPublicKeyId");
   }
 }

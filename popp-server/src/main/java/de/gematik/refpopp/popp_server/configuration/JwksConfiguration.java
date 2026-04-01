@@ -51,7 +51,7 @@ public class JwksConfiguration {
       final PublicKey publicKey = keystore.getCertificate(firstAlias).getPublicKey();
       log.info("Public key: {}", publicKey);
       final JsonWebKey jsonWebKey = JsonWebKey.Factory.newJwk(publicKey);
-      jsonWebKey.setKeyId(firstAlias);
+      jsonWebKey.setKeyId("staticPublicKeyId");
       return new JsonWebKeySet(jsonWebKey);
     } catch (final GeneralSecurityException | JoseException e) {
       throw new IllegalStateException("Failed to initialize keystore", e);
