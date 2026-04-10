@@ -20,7 +20,6 @@
 
 package de.gematik.refpopp.popp_server.configuration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.refpopp.popp_server.handler.WebSocketHandler;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageHandlerOrchestrator;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrchestrator;
@@ -32,6 +31,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSocket

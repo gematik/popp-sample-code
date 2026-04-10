@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 import de.gematik.refpopp.popp_client.client.ClientServerCommunicationService;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.List;
-import javax.net.ssl.SSLSession;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +43,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Mock MockConnectorCommunicationService mockConnectorCommunicationService;
 
-  @Mock SSLSession sslSession;
+  @Mock Map<String, Object> sslSession;
 
   @InjectMocks ConnectorCommunicationServiceWrapper wrapper;
 
@@ -56,7 +56,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsSet_thenMockServiceIsUsed_forGetConnectedEgkCard() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
     when(mockConnectorCommunicationService.getConnectedEgkCard()).thenReturn("mock-card");
 
     String result = wrapper.getConnectedEgkCard();
@@ -68,8 +68,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsNotSet_thenRealServiceIsUsed_forGetConnectedEgkCard() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
-        .thenReturn(false);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(false);
     when(realConnectorCommunicationService.getConnectedEgkCard()).thenReturn("real-card");
 
     String result = wrapper.getConnectedEgkCard();
@@ -93,7 +92,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenSslAttributeIsNull_thenRealServiceIsUsed_forGetConnectedEgkCard() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(null);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(null);
     when(realConnectorCommunicationService.getConnectedEgkCard()).thenReturn("real-card");
 
     String result = wrapper.getConnectedEgkCard();
@@ -104,7 +103,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenSslGetValueThrowsException_thenRealServiceIsUsed_forGetConnectedEgkCard() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
         .thenThrow(new IllegalStateException("broken session"));
     when(realConnectorCommunicationService.getConnectedEgkCard()).thenReturn("real-card");
 
@@ -118,7 +117,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsSet_thenMockServiceIsUsed_forStartCardSession() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
     when(mockConnectorCommunicationService.startCardSession("card")).thenReturn("mock-session");
 
     String result = wrapper.startCardSession("card");
@@ -130,8 +129,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsNotSet_thenRealServiceIsUsed_forStartCardSession() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
-        .thenReturn(false);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(false);
     when(realConnectorCommunicationService.startCardSession("card")).thenReturn("real-session");
 
     String result = wrapper.startCardSession("card");
@@ -144,7 +142,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsSet_thenMockServiceIsUsed_forStopCardSession() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
 
     Status status = new Status();
     when(mockConnectorCommunicationService.stopCardSession("session")).thenReturn(status);
@@ -157,8 +155,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsNotSet_thenRealServiceIsUsed_forStopCardSession() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
-        .thenReturn(false);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(false);
 
     Status status = new Status();
     when(realConnectorCommunicationService.stopCardSession("session")).thenReturn(status);
@@ -173,7 +170,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsSet_thenMockServiceIsUsed_forSecureSendApdu() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(true);
 
     List<String> response = List.of("9000");
     when(mockConnectorCommunicationService.secureSendApdu("signed")).thenReturn(response);
@@ -186,8 +183,7 @@ class ConnectorCommunicationServiceWrapperTest {
 
   @Test
   void whenMockIsNotSet_thenRealServiceIsUsed_forSecureSendApdu() {
-    when(sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK))
-        .thenReturn(false);
+    when(sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK)).thenReturn(false);
 
     List<String> response = List.of("9000");
     when(realConnectorCommunicationService.secureSendApdu("signed")).thenReturn(response);

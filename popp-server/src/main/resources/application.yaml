@@ -34,7 +34,7 @@ spring:
 server:
   port: 8443
   ssl:
-    enabled: true
+    enabled: false
     key-store-type: PKCS12
     key-store: classpath:mykeystore.p12
     key-store-password: popp-store

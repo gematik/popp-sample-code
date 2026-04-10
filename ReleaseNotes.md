@@ -2,6 +2,36 @@
 
 # Release Notes popp-sample-code
 
+## Release 2.1.4
+
+### Known Issues
+- If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
+- Standard-Kartenleser with Docker is not supported in this release, we will fix this in an upcoming release
+
+### changed
+
+- Introduce static key id for signing PoPP token and JWKS endpoint
+
+
+## Release 2.1.3
+
+## added
+- Our PoPP-Service now has a JWKS endpoint
+
+## changed
+- We changed how to start our PoPP-Client and PoPP-Service, please look at the README if you have questions
+  - This means you can now also start the PoPP-Client locally or with Docker
+- Updated the invocations in the swagger UI
+
+## fixed
+- getCards gets now the correct EventServiceVersion
+
+## Release 2.1.2
+
+### changed
+- ZETA integration
+- You can now use PoPP-Service from this project directly or use the RISE PoPP-Service after some configuration changes (see README.md)
+
 ## Release 2.0.0
 
 ### changed 
@@ -13,8 +43,6 @@
 - You no longer need to specify the SOAP services in `application.yaml`; the versions are now read from `connector.sds`.
 - Virtual card images are now supported.  
   See `README.md` for details.
-- 
-
 
 ### fixed
 

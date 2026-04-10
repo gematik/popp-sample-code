@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_client.configuration.helper;
 
+import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.refpopp.popp_client.connector.soap.SoapActions;
 import lombok.AccessLevel;
@@ -30,15 +31,20 @@ public class SoapActionVersionHelper {
 
   public static String buildSoapAction(
       ServiceEndpointProvider endpointProvider, SoapActions soapAction) {
-    String version = getVersionFromServiceEndpoint(endpointProvider);
+    String version;
+    if (soapAction == SoapActions.GET_CARDS) {
+      version = getVersionFromServiceEndpoint(endpointProvider.getEventServiceEndpoint());
+    } else {
+      version = getVersionFromServiceEndpoint(endpointProvider.getCardServiceEndpoint());
+    }
     return soapAction.getServiceEndpoint() + version + soapAction.getCommand();
   }
 
-  private static String getVersionFromServiceEndpoint(ServiceEndpointProvider endpointProvider) {
-    String version = endpointProvider.getCardServiceEndpoint().getVersion();
+  private static String getVersionFromServiceEndpoint(ServiceEndpoint endpoint) {
+
+    String version = endpoint.getVersion();
     if (version == null || version.isBlank()) {
-      throw new IllegalStateException(
-          "Version is missing for " + endpointProvider.getCardServiceEndpoint().getEndpoint());
+      throw new IllegalStateException("Version is missing for " + endpoint.getEndpoint());
     }
     String[] parts = version.split("\\.");
     if (parts.length < 2) {

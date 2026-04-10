@@ -35,7 +35,6 @@ import de.gematik.openhealth.healthcard.SecureChannelException.Transport;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardConnectedEvent;
 import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
-import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import java.util.HexFormat;
 import java.util.List;
 import javax.smartcardio.*;
@@ -45,7 +44,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.context.ApplicationEventPublisher;
 
 class CardCommunicationServiceTest {
 
@@ -62,8 +60,7 @@ class CardCommunicationServiceTest {
   @BeforeEach
   void setUp() {
     closeable = MockitoAnnotations.openMocks(this);
-    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
-    cardCommunicationService = new CardCommunicationService(eventPublisherMock);
+    cardCommunicationService = new CardCommunicationService();
     cardCommunicationService.setCardChannel(cardChannelMock);
   }
 
@@ -230,8 +227,7 @@ class CardCommunicationServiceTest {
 
   @Test
   void initializePACEWrapsSecureChannelException() throws SecureChannelException {
-    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
-    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
+    cardCommunicationService = spy(new CardCommunicationService());
     doThrow(newTransportException("bad can"))
         .when(cardCommunicationService)
         .createCardAccessNumberFromDigits(any());
@@ -242,8 +238,7 @@ class CardCommunicationServiceTest {
   @Test
   void handleCardConnectionEventContactless() throws CardException, SecureChannelException {
     // given
-    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
-    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
+    cardCommunicationService = spy(new CardCommunicationService());
     cardCommunicationService.setCardChannel(cardChannelMock);
 
     // for testing isContactless():
@@ -264,7 +259,6 @@ class CardCommunicationServiceTest {
 
     // then
     assertThat(cardCommunicationService.getSecureChannel()).contains(secureChannelMock);
-    verify(eventPublisherMock).publishEvent(any(PaceInitializationCompleteEvent.class));
     verify(cardCommunicationService).createCardAccessNumber();
     verify(cardCommunicationService).establishSecureChannel(any(), eq(cardAccessNumberMock));
   }
@@ -273,8 +267,7 @@ class CardCommunicationServiceTest {
   void handleCardConnectionEventContactBasedDoesNotInitializePace()
       throws CardException, SecureChannelException {
     // given
-    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
-    cardCommunicationService = spy(new CardCommunicationService(eventPublisherMock));
+    cardCommunicationService = spy(new CardCommunicationService());
     cardCommunicationService.setCardChannel(cardChannelMock);
 
     // for testing isContactless():
@@ -288,17 +281,15 @@ class CardCommunicationServiceTest {
 
     // then
     assertThat(cardCommunicationService.getSecureChannel()).isEmpty();
-    verify(eventPublisherMock, never()).publishEvent(any(PaceInitializationCompleteEvent.class));
     verify(cardCommunicationService, never()).createCardAccessNumber();
     verify(cardCommunicationService, never()).establishSecureChannel(any(), any());
   }
 
   @Test
   void initializePACEUsesInternalChannelAndSecureChannelSetup() throws Exception {
-    final var eventPublisherMock = mock(ApplicationEventPublisher.class);
     final var responseApduMock = mock(ResponseApdu.class);
     final var service =
-        new CardCommunicationService(eventPublisherMock) {
+        new CardCommunicationService() {
           @Override
           protected CardAccessNumber createCardAccessNumberFromDigits(final String digits) {
             return new CardAccessNumber(NoHandle.INSTANCE);

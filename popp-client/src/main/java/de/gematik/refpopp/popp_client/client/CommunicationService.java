@@ -24,7 +24,6 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.messages.*;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
-import de.gematik.refpopp.popp_client.cardreader.card.events.PaceInitializationCompleteEvent;
 import de.gematik.refpopp.popp_client.client.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
@@ -36,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
-import javax.net.ssl.SSLSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -62,17 +60,9 @@ public class CommunicationService {
   private final ConnectorCommunicationServiceWrapper connectorCommunicationServiceWrapper;
   private final VirtualCardService virtualCardService;
 
-  private CardConnectionType pendingCardConnectionType;
-  private String pendingClientSessionId;
   private final Map<String, CompletableFuture<String>> tokenQueue = new ConcurrentHashMap<>();
 
   public String start(final CardConnectionType cardConnectionType, final String clientSessionId) {
-    if (isContactlessConnection(cardConnectionType)) {
-      log.info("| PACE not yet completed, waiting for initialization...");
-      pendingCardConnectionType = cardConnectionType;
-      pendingClientSessionId = clientSessionId;
-      return null;
-    }
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     CompletableFuture<String> tokenFuture = new CompletableFuture<>();
     tokenQueue.put(sessionId, tokenFuture);
@@ -96,18 +86,19 @@ public class CommunicationService {
 
   private void executeStart(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
-    validateConnectionCompatibility(cardConnectionType);
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
     putSessionIdIntoSSLSession(clientSessionId);
+
+    validateConnectionCompatibility(cardConnectionType);
     sendStartMessage(cardConnectionType, clientSessionId);
   }
 
   public String startConnectorMock(final String clientSessionId) {
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK, true);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK, true);
     final var sessionId =
         (clientSessionId != null && !clientSessionId.isBlank())
             ? clientSessionId
@@ -125,9 +116,9 @@ public class CommunicationService {
     log.info("| Using virtual card");
 
     clientServerCommunicationService.connect();
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CARD_CONNECTION_TYPE, cardConnectionType);
-    sslSession.putValue(VIRTUAL_CARD, true);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CARD_CONNECTION_TYPE, cardConnectionType);
+    sslSession.put(VIRTUAL_CARD, true);
 
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     putSessionIdIntoSSLSession(sessionId);
@@ -149,17 +140,6 @@ public class CommunicationService {
   }
 
   @EventListener
-  public void handlePaceInitializationComplete(final PaceInitializationCompleteEvent event) {
-    log.info("| PACE initialization completed, starting pending Communication Service");
-    executeStart(pendingCardConnectionType, pendingClientSessionId);
-  }
-
-  private boolean isContactlessConnection(CardConnectionType cardConnectionType) {
-    return cardConnectionType == CardConnectionType.CONTACTLESS_STANDARD
-        || cardConnectionType == CardConnectionType.CONTACTLESS_CONNECTOR;
-  }
-
-  @EventListener
   public void handleServerEvent(final TextMessageReceivedEvent event) {
     log.debug("| Entering handleServerEvent() with event-payload {}", event.getPayload());
     final var eventPayload = event.getPayload();
@@ -174,15 +154,15 @@ public class CommunicationService {
   }
 
   private void putSessionIdIntoSSLSession(final String clientSessionId) {
-    final SSLSession sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CLIENT_SESSION_ID, clientSessionId);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CLIENT_SESSION_ID, clientSessionId);
   }
 
   private void sendStartMessage(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
     final var startMessage =
         StartMessage.builder()
-            .version("1.0")
+            .version("1.0.0")
             .clientSessionId(clientSessionId)
             .cardConnectionType(cardConnectionType)
             .build();
@@ -208,9 +188,9 @@ public class CommunicationService {
       final ConnectorScenarioMessage connectorScenarioMessage) {
     final var signedScenario = connectorScenarioMessage.getSignedScenario();
 
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var isConnectorMock =
-        sslSession.getValue(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final Object isConnectorMock =
+        sslSession.get(ConnectorCommunicationServiceWrapper.CONNECTOR_MOCK);
     if (Boolean.TRUE.equals(isConnectorMock)) {
       useStandardTerminalAsMock(signedScenario);
     } else {
@@ -236,8 +216,8 @@ public class CommunicationService {
       final StandardScenarioMessage standardScenarioMessage) {
     final var steps = standardScenarioMessage.getSteps();
 
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var isVirtualCard = sslSession.getValue(VIRTUAL_CARD);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final Object isVirtualCard = sslSession.get(VIRTUAL_CARD);
     List<String> responses;
     if (Boolean.TRUE.equals(isVirtualCard)) {
       if (virtualCardService.isConfigured()) {
@@ -259,7 +239,7 @@ public class CommunicationService {
   private void handleTokenMessage(final TokenMessage tokenMessage) {
     log.info("| Received PoPP token: {}", tokenMessage.getToken());
     final var clientSessionId =
-        (String) clientServerCommunicationService.getSSLSession().getValue(CLIENT_SESSION_ID);
+        (String) clientServerCommunicationService.getSSLSession().get(CLIENT_SESSION_ID);
     log.info("| ClientSessionId: {}", clientSessionId);
     CompletableFuture<String> tokenFuture = tokenQueue.get(clientSessionId);
     if (tokenFuture != null) {
@@ -272,10 +252,10 @@ public class CommunicationService {
   }
 
   private void stopConnectorSessionIfRequired() {
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    final var cardConnectionType = (CardConnectionType) sslSession.getValue(CARD_CONNECTION_TYPE);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    final var cardConnectionType = (CardConnectionType) sslSession.get(CARD_CONNECTION_TYPE);
     if (CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)) {
-      final var clientSessionId = (String) sslSession.getValue(CLIENT_SESSION_ID);
+      final var clientSessionId = (String) sslSession.get(CLIENT_SESSION_ID);
       try {
         connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
       } catch (org.springframework.ws.soap.client.SoapFaultClientException exception) {
@@ -291,12 +271,16 @@ public class CommunicationService {
   }
 
   private void validateConnectionCompatibility(final CardConnectionType cardConnectionType) {
-    if (cardConnectionType.equals(CardConnectionType.CONTACT_STANDARD)
+    if (cardCommunicationService.getCardChannel().isEmpty()
+        && cardConnectionType != CardConnectionType.CONTACT_CONNECTOR) {
+      throw new IllegalStateException("No card inserted.");
+    } else if (cardConnectionType.equals(CardConnectionType.CONTACT_STANDARD)
         || cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
       if (cardCommunicationService.getSecureChannel().isPresent()) {
         throw new IllegalStateException("Contact connection requested but card is contactless.");
       }
-    } else {
+    } else if (cardConnectionType.equals(CardConnectionType.CONTACTLESS_STANDARD)
+        || cardConnectionType.equals(CardConnectionType.CONTACTLESS_CONNECTOR)) {
       if (cardCommunicationService.getSecureChannel().isEmpty()) {
         throw new IllegalStateException(
             "Contactless connection requested but card is contact-based.");
@@ -306,8 +290,8 @@ public class CommunicationService {
 
   private void sendStartMessageWithSessionId(
       final CardConnectionType cardConnectionType, final String sessionId) {
-    final var sslSession = clientServerCommunicationService.getSSLSession();
-    sslSession.putValue(CLIENT_SESSION_ID, sessionId);
+    final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+    sslSession.put(CLIENT_SESSION_ID, sessionId);
 
     sendStartMessage(cardConnectionType, sessionId);
   }
@@ -320,7 +304,8 @@ public class CommunicationService {
               connectorCommunicationServiceWrapper.getConnectedEgkCard());
       return isValidSessionId(sessionUUID) ? sessionUUID : connectorSessionId;
     }
-    return sessionUUID != null ? sessionUUID : UUID.randomUUID().toString();
+    final var sessionUUIDExists = sessionUUID != null && !sessionUUID.isEmpty();
+    return sessionUUIDExists ? sessionUUID : UUID.randomUUID().toString();
   }
 
   private static boolean isValidSessionId(final String sessionUUID) {

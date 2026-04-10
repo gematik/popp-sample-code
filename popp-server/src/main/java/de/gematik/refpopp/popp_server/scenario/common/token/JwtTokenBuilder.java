@@ -23,11 +23,13 @@ package de.gematik.refpopp.popp_server.scenario.common.token;
 import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Jwts.SIG;
+import io.jsonwebtoken.io.Serializer;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
 class JwtTokenBuilder {
+  private final Serializer<Map<String, ?>> jsonSerializer = new ToolsJacksonSerializer();
 
   String buildJwtToken(
       final Map<String, Object> headers,
@@ -38,6 +40,7 @@ class JwtTokenBuilder {
         .add(headers)
         .and()
         .claims(claims)
+        .json(jsonSerializer)
         .signWith(privateKey, SIG.ES256)
         .compact();
   }

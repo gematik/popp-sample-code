@@ -23,6 +23,7 @@ package de.gematik.refpopp.popp_client.connector;
 import de.gematik.refpopp.popp_client.client.ClientServerCommunicationService;
 import de.gematik.ws.conn.connectorcommon.v5.Status;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -39,8 +40,8 @@ public class ConnectorCommunicationServiceWrapper {
 
   private boolean isMock() {
     try {
-      final var sslSession = clientServerCommunicationService.getSSLSession();
-      return (boolean) sslSession.getValue(CONNECTOR_MOCK);
+      final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
+      return (boolean) sslSession.get(CONNECTOR_MOCK);
     } catch (Exception e) {
       // No SSL session or mock attribute not found
       return false;

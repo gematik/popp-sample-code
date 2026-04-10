@@ -21,9 +21,8 @@
 package de.gematik.refpopp.popp_client.client;
 
 import de.gematik.poppcommons.api.messages.PoPPMessage;
-import javax.net.ssl.SSLSession;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.java_websocket.client.WebSocketClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -34,11 +33,12 @@ import tools.jackson.databind.ObjectMapper;
 public class ClientServerCommunicationService {
 
   private final ObjectMapper objectMapper;
-  private WebSocketClient webSocketClient;
-  private final ObjectProvider<WebSocketClient> webSocketClientProvider;
+  private SecureWebSocketClient secureWebSocketClient;
+  private final ObjectProvider<SecureWebSocketClient> webSocketClientProvider;
 
   public ClientServerCommunicationService(
-      final ObjectMapper mapper, final ObjectProvider<WebSocketClient> webSocketClientProvider) {
+      final ObjectMapper mapper,
+      final ObjectProvider<SecureWebSocketClient> webSocketClientProvider) {
     this.objectMapper = mapper;
 
     this.webSocketClientProvider = webSocketClientProvider;
@@ -47,13 +47,13 @@ public class ClientServerCommunicationService {
   public void connect() {
     log.debug("| Entering connect()");
 
-    this.webSocketClient = createNewWebSocketClient();
+    this.secureWebSocketClient = createNewWebSocketClient();
 
-    if (webSocketClient.isClosed() || !webSocketClient.isOpen()) {
+    if (secureWebSocketClient.isClosed() || !secureWebSocketClient.isOpen()) {
       log.info("| Websocket client is closed");
       try {
-        webSocketClient.connectBlocking();
-      } catch (final InterruptedException e) {
+        secureWebSocketClient.connectBlocking();
+      } catch (final Exception e) {
         log.error("Error connecting to WebSocket server: {}", e.getMessage());
         Thread.currentThread().interrupt();
       }
@@ -66,11 +66,12 @@ public class ClientServerCommunicationService {
     log.debug("| Entering sendMessage()");
     try {
       final var messageAsString = objectMapper.writeValueAsString(poPPMessage);
-      if (webSocketClient == null || webSocketClient.isClosed()) {
+      if (secureWebSocketClient == null || secureWebSocketClient.isClosed()) {
         log.error("Websocket client is not connected");
         throw new IllegalStateException("Websocket client is not connected");
       }
-      webSocketClient.send(messageAsString);
+      log.info("Send message: {}", messageAsString);
+      secureWebSocketClient.send(messageAsString);
     } catch (final JacksonException ex) {
       log.error("Error converting message object to string: {}", ex.getMessage());
       throw new IllegalStateException("Error converting message object to string");
@@ -78,11 +79,11 @@ public class ClientServerCommunicationService {
     log.debug("| Exiting sendMessage()");
   }
 
-  public SSLSession getSSLSession() {
-    return webSocketClient.getSSLSession();
+  public Map<String, Object> getSSLSession() {
+    return secureWebSocketClient.getSSLSession();
   }
 
-  private WebSocketClient createNewWebSocketClient() {
+  private SecureWebSocketClient createNewWebSocketClient() {
     return webSocketClientProvider.getObject();
   }
 }

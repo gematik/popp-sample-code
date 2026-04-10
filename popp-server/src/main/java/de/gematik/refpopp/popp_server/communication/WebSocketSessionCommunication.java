@@ -20,13 +20,13 @@
 
 package de.gematik.refpopp.popp_server.communication;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import java.io.IOException;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import tools.jackson.databind.ObjectMapper;
 
 public class WebSocketSessionCommunication implements SessionCommunication {
 

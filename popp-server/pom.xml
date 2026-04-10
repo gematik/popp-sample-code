@@ -7,12 +7,12 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>2.0.0</version>
+    <version>2.1.4</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-server</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.4</version>
   <packaging>jar</packaging>
 
   <name>popp-server</name>
@@ -54,17 +54,23 @@
       <artifactId>spring-boot-starter-liquibase-test</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.bitbucket.b_c</groupId>
+      <artifactId>jose4j</artifactId>
+      <version>0.9.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>3.0.2</version>
+    </dependency>
+    <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.datatype</groupId>
-      <artifactId>jackson-datatype-jsr310</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.liquibase</groupId>
       <artifactId>liquibase-core</artifactId>
-      <version>5.0.1</version>
+      <version>5.0.2</version>
     </dependency>
     <dependency>
       <groupId>com.h2database</groupId>
@@ -74,7 +80,7 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
-      <version>2.0.3</version>
+      <version>2.0.4</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -93,11 +99,6 @@
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.jsonwebtoken</groupId>
-      <artifactId>jjwt-jackson</artifactId>
-      <version>${version.jjwt}</version>
     </dependency>
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
@@ -248,8 +249,12 @@
                   <VERSION>${project.version}</VERSION>
                 </args>
                 <dockerFile>${basedir}/target/tmpdocker/Dockerfile</dockerFile>
+                <tags>
+                  <tag>latest</tag>
+                  <tag>${project.version}</tag>
+                </tags>
               </build>
-              <name>${docker.image.name}:${project.version}</name>
+              <name>${docker.image.name}</name>
             </image>
           </images>
           <skip>${skip.dockerbuild}</skip>
@@ -358,6 +363,13 @@
           <source>${java.version}</source>
           <target>${java.version}</target>
           <debug>true</debug>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${version.lombok}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
 

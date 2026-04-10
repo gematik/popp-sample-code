@@ -21,9 +21,7 @@
 package de.gematik.refpopp.popp_client.services;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,9 +29,7 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
 import de.gematik.refpopp.popp_client.client.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.client.SecureWebSocketClient;
-import de.gematik.refpopp.popp_client.configuration.WebSocketConfig;
 import java.util.List;
-import org.java_websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,9 +45,7 @@ class ClientServerCommunicationServiceTest {
 
   @Mock private ObjectMapper objectMapperMock;
   @Mock private SecureWebSocketClient webSocketClientMock;
-  @Mock private ObjectProvider<WebSocketClient> webSocketClientProviderMock;
-
-  @Mock private WebSocketConfig webSocketConfig;
+  @Mock private ObjectProvider<SecureWebSocketClient> webSocketClientProviderMock;
 
   private AutoCloseable autoCloseable;
 
@@ -90,20 +84,6 @@ class ClientServerCommunicationServiceTest {
     // then
     verify(webSocketClientMock).connectBlocking();
     verify(webSocketClientProviderMock).getObject();
-  }
-
-  @Test
-  void connectHandlesInterruptedException() throws InterruptedException {
-    // given
-    when(webSocketClientMock.isClosed()).thenReturn(true);
-    doThrow(new InterruptedException("Test exception")).when(webSocketClientMock).connectBlocking();
-
-    // when
-    sut.connect();
-
-    // then
-    verify(webSocketClientMock).connectBlocking();
-    assertTrue(Thread.currentThread().isInterrupted());
   }
 
   @Test

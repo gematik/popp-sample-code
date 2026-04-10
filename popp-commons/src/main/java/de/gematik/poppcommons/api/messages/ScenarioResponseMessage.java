@@ -53,7 +53,7 @@ public final class ScenarioResponseMessage extends PoPPMessage implements Serial
    * Scenario does not contain any command APDU. Response from the smartcard encoded in hexadecimal
    * characters [0-9a-f]. Contains at least 4 characters (status word).
    */
-  @JsonProperty("responses")
+  @JsonProperty("steps")
   @NonNull
   private List<String> steps;
 

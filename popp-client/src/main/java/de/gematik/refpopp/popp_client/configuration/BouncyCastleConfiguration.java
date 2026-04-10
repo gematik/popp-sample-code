@@ -25,6 +25,8 @@ import de.gematik.refpopp.popp_client.configuration.helper.TrustAllTrustManager;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -95,8 +97,7 @@ public class BouncyCastleConfiguration {
             + " ffdhe8192, brainpoolP256r1, brainpoolP384r1, brainpoolP512r1");
 
     KeyStore keyStore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
-    try (InputStream keyStoreStream =
-        getClass().getClassLoader().getResourceAsStream(keystorePath)) {
+    try (InputStream keyStoreStream = openKeyStoreStream(keystorePath)) {
       keyStore.load(keyStoreStream, keystorePassword.toCharArray());
     }
 
@@ -106,8 +107,7 @@ public class BouncyCastleConfiguration {
     TrustManager[] trustManagers = new TrustManager[] {new TrustAllTrustManager()};
     if (!trustAll) {
       KeyStore trustStore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
-      try (InputStream trustStoreStream =
-          getClass().getClassLoader().getResourceAsStream(truststorePath)) {
+      try (InputStream trustStoreStream = openKeyStoreStream(truststorePath)) {
         trustStore.load(trustStoreStream, truststorePassword.toCharArray());
       }
 
@@ -150,5 +150,28 @@ public class BouncyCastleConfiguration {
         .addRequestInterceptorFirst(
             (httpRequest, entity, context) -> httpRequest.removeHeaders("Content-Length"))
         .build();
+  }
+
+  private InputStream openKeyStoreStream(String location) throws IOException {
+    String resolved = location == null ? "" : location.trim();
+    if (resolved.startsWith("classpath:")) {
+      String resourcePath = resolved.substring("classpath:".length());
+      InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath);
+      if (stream == null) {
+        throw new IOException("Classpath resource not found: " + resourcePath);
+      }
+      return stream;
+    }
+
+    Path path = Path.of(resolved);
+    if (Files.exists(path)) {
+      return Files.newInputStream(path);
+    }
+
+    InputStream stream = getClass().getClassLoader().getResourceAsStream(resolved);
+    if (stream == null) {
+      throw new IOException("Keystore not found at path or classpath: " + resolved);
+    }
+    return stream;
   }
 }

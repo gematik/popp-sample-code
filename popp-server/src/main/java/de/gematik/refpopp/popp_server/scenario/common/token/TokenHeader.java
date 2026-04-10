@@ -95,7 +95,7 @@ final class TokenHeader {
   private Map<String, Object> createHeadersForPoppToken(final ECPublicKey publicKey) {
     final var headers = new HashMap<String, Object>();
     headers.put(Header.TYP.value, poppTokenType);
-    headers.put(Header.KID.value, getKeyId(publicKey));
+    headers.put(Header.KID.value, "staticPublicKeyId");
 
     return headers;
   }

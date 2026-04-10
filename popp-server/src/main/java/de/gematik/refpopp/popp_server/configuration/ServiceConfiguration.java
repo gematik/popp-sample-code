@@ -20,8 +20,6 @@
 
 package de.gematik.refpopp.popp_server.configuration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import de.gematik.refpopp.popp_server.certificates.KeyStoreLoader;
 import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
@@ -34,6 +32,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 public class ServiceConfiguration {
@@ -41,7 +40,6 @@ public class ServiceConfiguration {
   @Bean
   public ObjectMapper objectMapper() {
     ObjectMapper mapper = new ObjectMapper();
-    mapper.registerModule(new JavaTimeModule());
     return mapper;
   }
 

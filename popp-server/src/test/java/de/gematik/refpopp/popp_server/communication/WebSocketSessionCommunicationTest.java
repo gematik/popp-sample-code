@@ -30,12 +30,14 @@ import static org.mockito.Mockito.verify;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import java.io.IOException;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import tools.jackson.databind.ObjectMapper;
 
 class WebSocketSessionCommunicationTest {
 
@@ -60,11 +62,12 @@ class WebSocketSessionCommunicationTest {
     // then
     verify(webSocketSessionMock).sendMessage(argumentCaptor.capture());
     final var textMessage = argumentCaptor.getValue();
-    assertThat(textMessage.getPayload())
-        .isEqualTo(
-            """
-            {"type":"Token","token":"token","pn":"pn"}\
-            """);
+    final var mapper = new ObjectMapper();
+    final Map<String, Object> payload = mapper.readValue(textMessage.getPayload(), Map.class);
+    assertThat(payload)
+        .containsEntry("type", "Token")
+        .containsEntry("token", "token")
+        .containsEntry("pn", "pn");
   }
 
   @Test
