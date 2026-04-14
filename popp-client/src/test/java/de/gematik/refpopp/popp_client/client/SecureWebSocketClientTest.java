@@ -21,16 +21,20 @@
 package de.gematik.refpopp.popp_client.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketCommunicationErrorEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
 import de.gematik.refpopp.popp_client.configuration.PathResolver;
+import de.gematik.zeta.sdk.WsClientExtension;
+import java.lang.reflect.Field;
 import java.net.URI;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.java_websocket.handshake.ServerHandshake;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,10 +44,12 @@ class SecureWebSocketClientTest {
 
   private SecureWebSocketClient sut;
   private CommunicationEventPublisher eventPublisherMock;
+  private WsClientWrapper wsClientWrapperMock;
 
   @BeforeEach
   void setUp() throws Exception {
     eventPublisherMock = mock(CommunicationEventPublisher.class);
+    wsClientWrapperMock = mock(WsClientWrapper.class);
     final var smcbPrivateP12Path =
         PathResolver.resolveAgainstWorkingDirectoryAncestors(
                 "docker/zeta/smcb-private/smcb_private.p12")
@@ -55,18 +61,19 @@ class SecureWebSocketClientTest {
             smcbPrivateP12Path,
             "alias",
             "00",
-            false);
+            false,
+            wsClientWrapperMock);
   }
 
   @Test
-  void initLoadsTrustStoreSuccessfully() throws Exception {
+  void initLoadsTrustStoreSuccessfully() {
     // given
 
     // when
     sut.init();
 
     // then
-    assertThat(sut.getReadyState()).isNotNull();
+    assertThat(sut.getReadyState()).isFalse();
   }
 
   @Test
@@ -118,5 +125,158 @@ class SecureWebSocketClientTest {
     final var captor = ArgumentCaptor.forClass(WebSocketCommunicationErrorEvent.class);
     verify(eventPublisherMock).publishEvent(captor.capture());
     assertThat(captor.getValue().getError()).isSameAs(ex);
+  }
+
+  @Test
+  void testConnectBlocking() {
+    // given
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+
+              WsClientExtension.WsSession sessionMock = mock(WsClientExtension.WsSession.class);
+              when(sessionMock.receiveNext()).thenReturn(null);
+
+              handler.handle(sessionMock);
+
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    // when
+    sut.connectBlocking();
+    sut.send("Hello, WebSocket!");
+
+    // then
+    verify(wsClientWrapperMock).ws(any(), anyString(), any(), anyMap(), any());
+    assertThat(sut.isOpen()).isTrue();
+    assertThat(sut.getSSLSession()).isEmpty();
+    assertThat(sut.isClosed()).isFalse();
+  }
+
+  @Test
+  void testConnectBlocking_timeout() throws Exception {
+    // given
+    var latchSpy = spy(new CountDownLatch(1));
+    setPrivateField(sut, "sessionReady", latchSpy);
+
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+              WsClientExtension.WsSession sessionMock = mock(WsClientExtension.WsSession.class);
+              when(sessionMock.receiveNext()).thenReturn(null);
+              handler.handle(sessionMock);
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    doReturn(false).when(latchSpy).await(anyLong(), any());
+
+    // when / then
+    RuntimeException ex = assertThrows(RuntimeException.class, () -> sut.connectBlocking());
+    assertThat(ex).hasMessage("Connection timeout");
+  }
+
+  @Test
+  void testConnectBlocking_interrupted() throws Exception {
+    // given
+    var latchSpy = spy(new CountDownLatch(1));
+    setPrivateField(sut, "sessionReady", latchSpy);
+
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+              WsClientExtension.WsSession sessionMock = mock(WsClientExtension.WsSession.class);
+              when(sessionMock.receiveNext()).thenReturn(null);
+              handler.handle(sessionMock);
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    doThrow(new InterruptedException()).when(latchSpy).await(anyLong(), any());
+
+    // when / then
+    var ex = assertThrows(RuntimeException.class, () -> sut.connectBlocking());
+    assertThat(ex.getCause()).isInstanceOf(InterruptedException.class);
+  }
+
+  @Test
+  void testConnectBlocking_handlesTextMessage() throws Exception {
+    // given
+    var sessionMock = mock(WsClientExtension.WsSession.class);
+    var textMsg = mock(WsClientExtension.WsMessage.Text.class);
+    when(textMsg.getText()).thenReturn("Hello WebSocket");
+    var closeMsg = mock(WsClientExtension.WsMessage.Close.class);
+    when(sessionMock.receiveNext()).thenReturn(textMsg, closeMsg);
+
+    SecureWebSocketClient sutSpy = spy(sut);
+
+    var onMessageLatch = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              onMessageLatch.countDown();
+              return null;
+            })
+        .when(sutSpy)
+        .onMessage(any());
+
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+              handler.handle(sessionMock);
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    // when
+    sutSpy.connectBlocking();
+
+    // then
+    assertThat(onMessageLatch.await(1, TimeUnit.SECONDS)).isTrue();
+    verify(sutSpy).onMessage("Hello WebSocket");
+    assertThat(sutSpy.isOpen()).isTrue();
+  }
+
+  @Test
+  void testConnectBlocking_handlesBinaryMessage() throws Exception {
+    // given
+    var sessionMock = mock(WsClientExtension.WsSession.class);
+    var bytes = new byte[] {1, 2, 3, 4};
+    var binaryMsg = mock(WsClientExtension.WsMessage.Binary.class);
+    when(binaryMsg.getBytes()).thenReturn(bytes);
+
+    var closeMsg = mock(WsClientExtension.WsMessage.Close.class);
+
+    when(sessionMock.receiveNext()).thenReturn(binaryMsg, closeMsg);
+
+    var latch = new CountDownLatch(1);
+    SecureWebSocketClient sutSpy = spy(sut);
+    setPrivateField(sutSpy, "sessionReady", latch);
+
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+              handler.handle(sessionMock);
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    // when
+    sutSpy.connectBlocking();
+
+    // then
+    verify(sutSpy, never()).onMessage(any());
+    assertThat(sutSpy.isOpen()).isTrue();
+  }
+
+  private void setPrivateField(Object target, String fieldName, Object value) throws Exception {
+    Field field = target.getClass().getDeclaredField(fieldName);
+    field.setAccessible(true);
+    field.set(target, value);
   }
 }
