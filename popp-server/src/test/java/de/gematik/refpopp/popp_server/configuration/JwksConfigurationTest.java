@@ -47,13 +47,13 @@ class JwksConfigurationTest {
     this.jsonWebKeySet = jwkConfiguration.jwkSource(keystore);
     assertThat(this.jsonWebKeySet.getJsonWebKeys()).hasSize(1);
     assertThat(this.jsonWebKeySet.getJsonWebKeys().getFirst().getKeyId())
-        .isEqualTo("staticPublicKeyId");
+        .isEqualTo("4IVYHy721K0rnjZ8_9fnsKofs0eKhGOcqEDVo0RBZFQ");
   }
 
   @Test
   void thatAValidJwkSetIsReturned() {
     final JwksController controller = new JwksController(this.jsonWebKeySet);
     final String jwks = controller.jwks();
-    assertThat(jwks).contains("staticPublicKeyId");
+    assertThat(jwks).contains("4IVYHy721K0rnjZ8_9fnsKofs0eKhGOcqEDVo0RBZFQ");
   }
 }

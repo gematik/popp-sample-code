@@ -23,6 +23,7 @@ package de.gematik.refpopp.popp_server.configuration;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PublicKey;
+import java.util.Base64;
 import java.util.Iterator;
 import lombok.extern.slf4j.Slf4j;
 import org.jose4j.jwk.JsonWebKey;
@@ -51,7 +52,11 @@ public class JwksConfiguration {
       final PublicKey publicKey = keystore.getCertificate(firstAlias).getPublicKey();
       log.info("Public key: {}", publicKey);
       final JsonWebKey jsonWebKey = JsonWebKey.Factory.newJwk(publicKey);
-      jsonWebKey.setKeyId("staticPublicKeyId");
+      String kid =
+          Base64.getUrlEncoder()
+              .withoutPadding()
+              .encodeToString(jsonWebKey.calculateThumbprint("SHA-256"));
+      jsonWebKey.setKeyId(kid);
       return new JsonWebKeySet(jsonWebKey);
     } catch (final GeneralSecurityException | JoseException e) {
       throw new IllegalStateException("Failed to initialize keystore", e);

@@ -2,7 +2,7 @@
 
 # Release Notes popp-sample-code
 
-## Release 2.1.4
+## Release 2.1.5
 
 ### Known Issues
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
@@ -10,8 +10,14 @@
 
 ### changed
 
-- Introduce static key id for signing PoPP token and JWKS endpoint
+- Updated ZETA version to 0.4.2
+- Removed static key id for signing PoPP token and JWKS endpoint, instead we calculate the correct key id now
 
+## Release 2.1.4
+
+### changed
+
+- Introduce static key id for signing PoPP token and JWKS endpoint
 
 ## Release 2.1.3
 
