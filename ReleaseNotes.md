@@ -2,11 +2,16 @@
 
 # Release Notes popp-sample-code
 
-## Release 2.1.5
+## Release 2.1.6
 
 ### Known Issues
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported in this release, we will fix this in an upcoming release
+
+### fixed
+- Tests in module popp-server are working again
+
+## Release 2.1.5
 
 ### changed
 
