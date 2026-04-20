@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import de.gematik.poppcommons.api.exceptions.ValidationException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import java.util.List;
@@ -47,12 +49,11 @@ class StatusWordValidatorTest {
     // given
     final List<StepDefinition> stepDefinitions =
         List.of(
-            new StepDefinition("name1", "Description1", "Command1", List.of("9000", "6A82")),
-            new StepDefinition("name2", "Description2", "Command2", List.of("6283", "6985")));
-    final var scenario = new Scenario("Scenario", stepDefinitions);
+            new StepDefinition(StepId.SELECT_MASTER_FILE), new StepDefinition(StepId.READ_VERSION));
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, stepDefinitions);
 
     final var resultStep = new ScenarioResultStep("description", "9000", "abcdef".getBytes());
-    final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
+    final var resultStep2 = new ScenarioResultStep("description2", "6281", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     // when / then
@@ -64,9 +65,8 @@ class StatusWordValidatorTest {
     // given
     final List<StepDefinition> stepDefinitions =
         List.of(
-            new StepDefinition("name1", "Description1", "Command1", List.of("9000", "6A82")),
-            new StepDefinition("name2", "Description2", "Command2", List.of("6283", "6985")));
-    final var scenario = new Scenario("Scenario", stepDefinitions);
+            new StepDefinition(StepId.SELECT_MASTER_FILE), new StepDefinition(StepId.READ_VERSION));
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, stepDefinitions);
 
     final var resultStep = new ScenarioResultStep("description", "9000", "abcdef".getBytes());
     final var resultStep2 = new ScenarioResultStep("description2", "1234", "abcdef".getBytes());
@@ -78,7 +78,7 @@ class StatusWordValidatorTest {
 
     // then
     assertThat(exception.getErrorCode()).isEqualTo("errorCode");
-    assertThat(exception.getMessage()).isEqualTo("Expected StatusWord [6283, 6985] but got 1234");
+    assertThat(exception.getMessage()).isEqualTo("Expected StatusWord [9000, 6281] but got 1234");
   }
 
   @Test
@@ -86,9 +86,8 @@ class StatusWordValidatorTest {
     // given
     final List<StepDefinition> stepDefinitions =
         List.of(
-            new StepDefinition("name1", "Description1", "Command1", List.of("9000", "6A82")),
-            new StepDefinition("name2", "Description2", "Command2", List.of("6283", "6985")));
-    final var scenario = new Scenario("Scenario", stepDefinitions);
+            new StepDefinition(StepId.SELECT_MASTER_FILE), new StepDefinition(StepId.READ_VERSION));
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, stepDefinitions);
 
     final var resultStep = new ScenarioResultStep("description", "9000", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep));

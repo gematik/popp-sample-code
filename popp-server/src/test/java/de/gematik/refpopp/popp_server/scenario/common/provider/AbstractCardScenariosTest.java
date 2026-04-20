@@ -21,25 +21,50 @@
 package de.gematik.refpopp.popp_server.scenario.common.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
-import java.util.List;
+import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition.InvalidStepDefinitionException;
 import org.junit.jupiter.api.Test;
 
 class AbstractCardScenariosTest {
 
   @Test
-  void createsStepDefinition() {
-    // given
-    final var name = "name";
-    final var description = "description";
-    final var commandApdu = "command Apdu 123";
-    final var expectedStatusWord = List.of("9000");
+  void createsStepDefinitionWithStepDefaults() {
+    final var sut = new StepDefinition(StepId.SELECT_MASTER_FILE);
 
-    // when
-    final var sut = new StepDefinition(name, description, commandApdu, expectedStatusWord);
+    assertThat(sut.expectedStatusWords())
+        .isEqualTo(StepId.SELECT_MASTER_FILE.expectedStatusWords());
+    assertThat(sut.commandData()).isNull();
+  }
 
-    // then
-    assertThat(sut.commandApdu()).isEqualTo("commandApdu123");
+  @Test
+  void createsStepDefinitionWithCommandData() {
+    final var commandData = "car".getBytes();
+
+    final var sut = new StepDefinition(StepId.MSE_APDU, commandData);
+
+    assertThat(sut.commandData()).isEqualTo(commandData);
+  }
+
+  @Test
+  void creatingDynamicStepDefinitionWithoutCommandDataThrows() {
+    assertThrows(InvalidStepDefinitionException.class, () -> new StepDefinition(StepId.MSE_APDU));
+  }
+
+  @Test
+  void creatingStaticStepDefinitionWithCommandDataThrows() {
+    final var commandData = "car".getBytes();
+
+    assertThrows(
+        InvalidStepDefinitionException.class,
+        () -> new StepDefinition(StepId.SELECT_MASTER_FILE, commandData));
+  }
+
+  @Test
+  void stepDefinitionToStringUsesArrayContent() {
+    final var sut = new StepDefinition(StepId.MSE_APDU, "car".getBytes());
+
+    assertThat(sut).hasToString("StepDefinition[stepId=MSE_APDU, commandData=[99, 97, 114]]");
   }
 }

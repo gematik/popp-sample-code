@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.CvcFactory;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
@@ -62,9 +63,9 @@ class CvcProcessorTest {
   void createAndValidateCvcSuccess() {
     // given
     final var sessionId = "sessionId";
-    final var scenarioResultStep = new ScenarioResultStep("step1", "9000", "data".getBytes());
+    final var scenarioResultStep =
+        new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var stepName = "step1";
     final var cvcMock = mock(Cvc.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
     final var certDateMoc = mock(CertificateDate.class);
@@ -73,7 +74,8 @@ class CvcProcessorTest {
     when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_VALID);
 
     // when
-    final var cvc = sut.createAndValidateCvc(sessionId, scenarioResult, stepName);
+    final var cvc =
+        sut.createAndValidateCvc(sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
 
     // then
     assertThat(cvc).isNotNull();
@@ -85,9 +87,9 @@ class CvcProcessorTest {
   void createAndValidateCvcCaSuccess() {
     // given
     final var sessionId = "sessionId";
-    final var scenarioResultStep = new ScenarioResultStep("step1", "9000", "data".getBytes());
+    final var scenarioResultStep =
+        new ScenarioResultStep(StepId.READ_SUB_CA_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var stepName = "step1";
     final var cvcMock = mock(Cvc.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
     final var certDateMoc = mock(CertificateDate.class);
@@ -96,7 +98,8 @@ class CvcProcessorTest {
     when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_VALID);
 
     // when
-    final var cvc = sut.createAndValidateCvcCa(sessionId, scenarioResult, stepName);
+    final var cvc =
+        sut.createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
 
     // then
     assertThat(cvc).isNotNull();
@@ -110,9 +113,9 @@ class CvcProcessorTest {
       final boolean isEndEntity, final String exceptionMessage) {
     // given
     final var sessionId = "sessionId";
-    final var scenarioResultStep = new ScenarioResultStep("step1", "9000", "data".getBytes());
+    final var scenarioResultStep =
+        new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var stepName = "step1";
     final var cvcMock = mock(Cvc.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
     final var certDateMoc = mock(CertificateDate.class);
@@ -121,7 +124,10 @@ class CvcProcessorTest {
     when(cvcMock.isEndEntity()).thenReturn(isEndEntity);
 
     // when
-    assertThatThrownBy(() -> sut.createAndValidateCvc(sessionId, scenarioResult, stepName))
+    assertThatThrownBy(
+            () ->
+                sut.createAndValidateCvc(
+                    sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .isInstanceOf(ScenarioException.class)
         .hasMessage(exceptionMessage);
 
@@ -138,9 +144,9 @@ class CvcProcessorTest {
       final boolean isEndEntity, final String exceptionMessage) {
     // given
     final var sessionId = "sessionId";
-    final var scenarioResultStep = new ScenarioResultStep("step1", "9000", "data".getBytes());
+    final var scenarioResultStep =
+        new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var stepName = "step1";
     final var cvcMock = mock(Cvc.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
     final var certDateMoc = mock(CertificateDate.class);
@@ -150,7 +156,10 @@ class CvcProcessorTest {
     when(cvcMock.isEndEntity()).thenReturn(isEndEntity);
 
     // when
-    assertThatThrownBy(() -> sut.createAndValidateCvc(sessionId, scenarioResult, stepName))
+    assertThatThrownBy(
+            () ->
+                sut.createAndValidateCvc(
+                    sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .isInstanceOf(ScenarioException.class)
         .hasMessage(exceptionMessage);
 

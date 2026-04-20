@@ -45,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +64,10 @@ import org.springframework.stereotype.Service;
 @Scope("prototype")
 @Slf4j
 public class SecureWebSocketClient {
+  static final String APPLE_PLATFORM_TYPE_MACOS = "macos";
+  static final String LINUX_PACKAGING_TYPE_JAR = "jar";
+  static final String PLATFORM_PRODUCT_APPLICATION_ID = "testhub";
+  static final String PLATFORM_PRODUCT_VERSION = "latest";
 
   private final CommunicationEventPublisher eventPublisher;
   private final Path keyfile;
@@ -107,12 +112,42 @@ public class SecureWebSocketClient {
                 new TpmConfig() {},
                 new AuthConfig(
                     List.of("popp"), 30L, true, getTokenProvider(), AttestationConfig.software()),
-                new PlatformProductId.AppleProductId("apple", "macos", List.of("bundleX")),
+                createPlatformProductId(),
                 new ZetaHttpClientBuilder("")
                     .disableServerValidation(disableServerValidation)
                     .logging(LogLevel.ALL, message -> log.info("Ktor HttpClient: {}", message)),
                 null,
                 null));
+  }
+
+  static PlatformProductId createPlatformProductId() {
+    return createPlatformProductId(System.getProperty("os.name", ""));
+  }
+
+  static PlatformProductId createPlatformProductId(final String osName) {
+    final var normalizedOsName = osName.toLowerCase(Locale.ROOT);
+
+    if (normalizedOsName.contains("mac")) {
+      return new PlatformProductId.AppleProductId(
+          PlatformProductId.PLATFORM_APPLE, APPLE_PLATFORM_TYPE_MACOS, List.of());
+    }
+
+    if (normalizedOsName.contains("win")) {
+      return new PlatformProductId.WindowsProductId(PlatformProductId.PLATFORM_WINDOWS, "", "");
+    }
+
+    if (normalizedOsName.contains("linux")
+        || normalizedOsName.contains("nux")
+        || normalizedOsName.contains("nix")) {
+      return new PlatformProductId.LinuxProductId(
+          PlatformProductId.PLATFORM_LINUX,
+          LINUX_PACKAGING_TYPE_JAR,
+          PLATFORM_PRODUCT_APPLICATION_ID,
+          PLATFORM_PRODUCT_VERSION);
+    }
+
+    throw new IllegalStateException(
+        "Unsupported operating system for ZETA platform product id: " + osName);
   }
 
   private SubjectTokenProvider getTokenProvider() {

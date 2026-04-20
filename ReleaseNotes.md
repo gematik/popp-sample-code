@@ -2,11 +2,24 @@
 
 # Release Notes popp-sample-code
 
-## Release 2.1.6
-
 ### Known Issues
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
-- Standard-Kartenleser with Docker is not supported in this release, we will fix this in an upcoming release
+- Standard-Kartenleser with Docker is not supported
+
+## Release 2.2.0
+
+### added
+- Added updated trusted CVC identity material for current card and CVCA chains
+
+### changed
+- Updated ZETA version to 0.5.1
+- Reworked contact-based and contactless scenario handling to use typed scenario and step definitions with centralized APDU resolution
+- Simplified server scenario configuration by removing obsolete YAML imports and unused settings
+
+### fixed
+- Improved robustness of command building and exception handling around card APDU generation
+
+## Release 2.1.6
 
 ### fixed
 - Tests in module popp-server are working again

@@ -18,16 +18,22 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
+package de.gematik.refpopp.popp_server.scenario.common.provider;
 
-import de.gematik.smartcards.sdcom.apdu.CommandApdu;
-import org.springframework.stereotype.Component;
+public enum ScenarioId {
+  OPEN_EGK("SCE_OPEN_EGK"),
+  READ_CVC("SCE_READ_CVC"),
+  TRUSTED_CHANNEL_STEP_1("SCE_TC_1"),
+  READ_X509("SCE_READ_X509"),
+  AUTH_G2("AUTH_G2");
 
-@Component
-public class CommandApduFactory {
+  private final String value;
 
-  public CommandApdu createCommandApdu(
-      final int cla, final int ins, final int p1, final int p2, final byte[] data) {
-    return new CommandApdu(cla, ins, p1, p2, data);
+  ScenarioId(final String value) {
+    this.value = value;
+  }
+
+  public String value() {
+    return value;
   }
 }

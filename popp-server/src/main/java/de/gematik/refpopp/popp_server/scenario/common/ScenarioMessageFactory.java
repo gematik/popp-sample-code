@@ -25,6 +25,7 @@ import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
+import de.gematik.refpopp.popp_server.scenario.common.card.ScenarioStepCommandResolver;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
@@ -37,11 +38,15 @@ public class ScenarioMessageFactory {
 
   private final SessionAccessor sessionAccessor;
   private final JwtTokenCreator tokenCreator;
+  private final ScenarioStepCommandResolver scenarioStepCommandResolver;
 
   public ScenarioMessageFactory(
-      final SessionAccessor sessionAccessor, final JwtTokenCreator tokenCreator) {
+      final SessionAccessor sessionAccessor,
+      final JwtTokenCreator tokenCreator,
+      final ScenarioStepCommandResolver scenarioStepCommandResolver) {
     this.sessionAccessor = sessionAccessor;
     this.tokenCreator = tokenCreator;
+    this.scenarioStepCommandResolver = scenarioStepCommandResolver;
   }
 
   public PoPPMessage create(
@@ -51,7 +56,8 @@ public class ScenarioMessageFactory {
       final int timeSpan,
       final String sessionId) {
     final var standardScenarioMessage =
-        createStandardScenarioMessage(scenario, clientSessionId, sequenceCounter, timeSpan);
+        createStandardScenarioMessage(
+            scenario, clientSessionId, sequenceCounter, timeSpan, sessionId);
     if (requiresConnectorMessage(sessionId)) {
       return createConnectorScenarioMessage(standardScenarioMessage, sessionId);
     }
@@ -69,10 +75,15 @@ public class ScenarioMessageFactory {
       final Scenario scenario,
       final String clientSessionId,
       final int sequenceCounter,
-      final int timeSpan) {
+      final int timeSpan,
+      final String sessionId) {
     final var scenarioSteps =
         scenario.stepDefinitions().stream()
-            .map(step -> new ScenarioStep(step.commandApdu(), step.expectedStatusWord()))
+            .map(
+                step ->
+                    new ScenarioStep(
+                        scenarioStepCommandResolver.serializeCommandApdu(sessionId, step),
+                        step.expectedStatusWords().values()))
             .toList();
 
     return StandardScenarioMessage.builder()

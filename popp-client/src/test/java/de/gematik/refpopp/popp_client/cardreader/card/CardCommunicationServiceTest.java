@@ -38,7 +38,6 @@ import de.gematik.refpopp.popp_client.cardreader.card.events.CardRemovedEvent;
 import java.util.HexFormat;
 import java.util.List;
 import javax.smartcardio.*;
-import kotlin.jvm.internal.DefaultConstructorMarker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -161,9 +160,12 @@ class CardCommunicationServiceTest {
   void processUsesSecureChannelWhenAvailable() throws Exception {
     final var scenarioStep = new ScenarioStep("00 A4 04 00 00", List.of("9000"));
     final var responseApduMock = mock(ResponseApdu.class);
+    cardCommunicationService = spy(new CardCommunicationService());
     cardCommunicationService.setSecureChannel(secureChannelMock);
     when(secureChannelMock.transmit(any(CommandApdu.class))).thenReturn(responseApduMock);
-    when(responseApduMock.toBytes()).thenReturn(new byte[] {(byte) 0x90, 0x00});
+    doReturn(new byte[] {(byte) 0x90, 0x00})
+        .when(cardCommunicationService)
+        .responseApduToBytes(responseApduMock);
 
     final var statusWordAndData = cardCommunicationService.process(scenarioStep);
 
@@ -230,7 +232,7 @@ class CardCommunicationServiceTest {
     cardCommunicationService = spy(new CardCommunicationService());
     doThrow(newTransportException("bad can"))
         .when(cardCommunicationService)
-        .createCardAccessNumberFromDigits(any());
+        .createCardAccessNumber();
 
     assertThrows(IllegalStateException.class, () -> cardCommunicationService.initializePACE());
   }
@@ -325,14 +327,6 @@ class CardCommunicationServiceTest {
   }
 
   private SecureChannelException newTransportException(final String message) {
-    try {
-      final var ctor =
-          Transport.class.getDeclaredConstructor(
-              int.class, String.class, DefaultConstructorMarker.class);
-      ctor.setAccessible(true);
-      return ctor.newInstance(1, message, null);
-    } catch (final Exception e) {
-      throw new IllegalStateException(e);
-    }
+    return mock(Transport.class);
   }
 }

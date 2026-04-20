@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
@@ -27,7 +28,6 @@ import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -36,9 +36,6 @@ public class CvcChainBuilder {
   private final SecureMessagingConverterSoftware secureMessagingConverterSoftware;
   private final ScenarioResultFinder scenarioResultFinder;
   private final KeyIdentifierExtractor keyIdentifierExtractor;
-
-  @Value("${step-names.retrieve-public-key-identifiers}")
-  private String retrievePublicKeyIdsStepName;
 
   public CvcChainBuilder(
       final SecureMessagingConverterSoftware secureMessagingConverterSoftware,
@@ -52,7 +49,8 @@ public class CvcChainBuilder {
   public List<Cvc> build(
       final String sessionId, final ScenarioResult scenarioResult, final Cvc endEntityCvc) {
     final var keyIdentifierSet =
-        extractKeyIdentifiers(sessionId, scenarioResult, retrievePublicKeyIdsStepName);
+        extractKeyIdentifiers(
+            sessionId, scenarioResult, StepId.RETRIEVE_PUBLIC_KEY_IDENTIFIERS.value());
 
     final var cvcChain = secureMessagingConverterSoftware.importCvc(endEntityCvc);
     return trimCvcChain(cvcChain, keyIdentifierSet);

@@ -23,6 +23,7 @@ package de.gematik.refpopp.popp_server.sessionmanagement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +126,7 @@ class SessionContainerTest {
   @Test
   void storeScenarioStoresScenarioCorrectly() {
     // given
-    final var scenario = new Scenario("scenario1", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
 
     // when
     sessionContainer.storeScenario("scenario1", scenario);
@@ -142,7 +143,7 @@ class SessionContainerTest {
   @Test
   void retrieveScenarioReturnsCorrectScenario() {
     // given
-    final var scenario = new Scenario("scenario1", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     sessionContainer.storeScenario("session1", scenario);
 
     // when
@@ -155,7 +156,7 @@ class SessionContainerTest {
   @Test
   void removeScenarioRemovesScenarioCorrectly() {
     // given
-    sessionContainer.storeScenario("session1", new Scenario("scenario1", List.of()));
+    sessionContainer.storeScenario("session1", new Scenario(ScenarioId.OPEN_EGK, List.of()));
 
     // when
     sessionContainer.removeScenario("session1");
@@ -181,7 +182,7 @@ class SessionContainerTest {
   void clearSessionRemovesAllSessions() {
     // given
     final var sessionId = "session1";
-    sessionContainer.storeScenario(sessionId, new Scenario("scenario1", List.of()));
+    sessionContainer.storeScenario(sessionId, new Scenario(ScenarioId.OPEN_EGK, List.of()));
     sessionContainer.storeSessionData(
         sessionId, SessionStorageKey.OPEN_CONTACT_ICC_CVC_LIST, List.of("value1", "value2"));
 

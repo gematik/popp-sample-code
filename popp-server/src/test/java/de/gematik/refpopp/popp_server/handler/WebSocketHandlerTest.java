@@ -34,12 +34,9 @@ import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageHandlerOrchestrator;
-import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
-import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.contactbased.ContactBasedScenariosProvider;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.io.IOException;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -63,7 +60,7 @@ class WebSocketHandlerTest {
     sessionContainerMock = mock(SessionContainer.class);
     messageHandlerOrchestratorMock = mock(MessageHandlerOrchestrator.class);
     objectMapper = new ObjectMapper();
-    contactBasedScenariosProvider = createScenarioProperties();
+    contactBasedScenariosProvider = new ContactBasedScenariosProvider();
     sut =
         new WebSocketHandler(
             sessionContainerMock,
@@ -186,19 +183,5 @@ class WebSocketHandlerTest {
 
     // then
     verify(sessionContainerMock).clearSession("session1");
-  }
-
-  private ContactBasedScenariosProvider createScenarioProperties() {
-    final var expectedStatusWord = List.of("9000", "6281");
-    final var state1 = new StepDefinition("name1", "scenario1 state1", "apdu1", expectedStatusWord);
-    final var state2 = new StepDefinition("name2", "scenario1 state2", "apdu2", expectedStatusWord);
-    final var scenario1 = new Scenario("scenario1", List.of(state1, state2));
-    final var scenario2State1 =
-        new StepDefinition("name21", "scenario2 state1", "apdu1", expectedStatusWord);
-    final var scenario2State2 =
-        new StepDefinition("name22", "scenario2 state2", "apdu2", expectedStatusWord);
-    final var scenario2 = new Scenario("scenario2", List.of(scenario2State1, scenario2State2));
-
-    return new ContactBasedScenariosProvider(List.of(scenario1, scenario2));
   }
 }

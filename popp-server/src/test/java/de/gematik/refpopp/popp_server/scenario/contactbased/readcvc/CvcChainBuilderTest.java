@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class CvcChainBuilderTest {
 
@@ -57,8 +57,6 @@ class CvcChainBuilderTest {
             secureMessagingConverterSoftwareMock,
             scenarioResultFinderMock,
             keyIdentifierExtractorMock);
-    ReflectionTestUtils.setField(
-        sut, "retrievePublicKeyIdsStepName", "retrieve-public-key-identifiers");
   }
 
   @Test
@@ -106,7 +104,10 @@ class CvcChainBuilderTest {
     // then
     assertThat(result).isEmpty();
     verify(scenarioResultFinderMock)
-        .find(sessionId, scenarioResult.scenarioResultSteps(), "retrieve-public-key-identifiers");
+        .find(
+            sessionId,
+            scenarioResult.scenarioResultSteps(),
+            StepId.RETRIEVE_PUBLIC_KEY_IDENTIFIERS.value());
     verify(keyIdentifierExtractorMock).extract("result".getBytes());
     verify(secureMessagingConverterSoftwareMock).importCvc(cvcMock);
   }
@@ -134,7 +135,10 @@ class CvcChainBuilderTest {
     // then
     assertThat(result).isNotEmpty();
     verify(scenarioResultFinderMock)
-        .find(sessionId, scenarioResult.scenarioResultSteps(), "retrieve-public-key-identifiers");
+        .find(
+            sessionId,
+            scenarioResult.scenarioResultSteps(),
+            StepId.RETRIEVE_PUBLIC_KEY_IDENTIFIERS.value());
     verify(keyIdentifierExtractorMock).extract("result".getBytes());
     verify(secureMessagingConverterSoftwareMock).importCvc(cvcMock);
   }

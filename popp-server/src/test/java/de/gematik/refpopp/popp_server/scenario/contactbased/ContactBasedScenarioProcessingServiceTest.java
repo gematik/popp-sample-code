@@ -38,15 +38,14 @@ import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
-import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class ContactBasedScenarioProcessingServiceTest {
 
@@ -68,14 +67,12 @@ class ContactBasedScenarioProcessingServiceTest {
             clientCommunicationServiceMock,
             sessionAccessorMock,
             scenarioTransitionServiceMock);
-    ReflectionTestUtils.setField(sut, "readX509ScenarioName", "READ_X509_CERTIFICATE");
-    ReflectionTestUtils.setField(sut, "readCvcScenarioName", "READ_CVC");
   }
 
   @Test
   void isLastScenario() {
     // given
-    final var scenario = new Scenario("READ_X509_CERTIFICATE", List.of());
+    final var scenario = new Scenario(ScenarioId.READ_X509, List.of());
 
     // when
     final var lastScenario = sut.isLastScenario(scenario);
@@ -87,7 +84,7 @@ class ContactBasedScenarioProcessingServiceTest {
   @Test
   void isNotLastScenario() {
     // given
-    final var scenario = new Scenario("scenario1", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
 
     // when
     final var lastScenario = sut.isLastScenario(scenario);
@@ -102,13 +99,11 @@ class ContactBasedScenarioProcessingServiceTest {
     final var standardScenarioMessageMock = mock(StandardScenarioMessage.class);
     final var sessionCommunicationMock = mock(SessionCommunication.class);
     final var cardScenarioProviderMock = mock(CardScenarioProvider.class);
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000"));
-    final var scenario = new Scenario("READ_CVC", List.of(stepDefinition1));
-    final var stepDefinition2 =
-        new StepDefinition("step2", "description2", "apdu2", List.of("9000"));
+    final var stepDefinition1 = new StepDefinition(StepId.READ_SUB_CA_CV_CERTIFICATE);
+    final var scenario = new Scenario(ScenarioId.READ_CVC, List.of(stepDefinition1));
+    final var stepDefinition2 = new StepDefinition(StepId.MSE_APDU, "car".getBytes());
     final var expectedScenario =
-        new Scenario("READ_CVC", List.of(stepDefinition1, stepDefinition2));
+        new Scenario(ScenarioId.READ_CVC, List.of(stepDefinition1, stepDefinition2));
     when(sessionAccessorMock.getOpenContactIccCvcList(anyString()))
         .thenReturn(Optional.of(List.of(stepDefinition2)));
     when(scenarioTransitionServiceMock.getNextScenario(anyString(), any(), any()))
@@ -135,13 +130,9 @@ class ContactBasedScenarioProcessingServiceTest {
     final var standardScenarioMessageMock = mock(StandardScenarioMessage.class);
     final var sessionCommunicationMock = mock(SessionCommunication.class);
     final var cardScenarioProviderMock = mock(CardScenarioProvider.class);
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000"));
-    final var scenario = new Scenario("READ_CVC", List.of(stepDefinition1));
-    final var sessionContainer = mock(SessionContainer.class);
-    when(sessionContainer.retrieveSessionData(
-            anyString(), eq(SessionStorageKey.OPEN_CONTACT_ICC_CVC_LIST), any()))
-        .thenReturn(Optional.empty());
+    final var stepDefinition1 = new StepDefinition(StepId.READ_SUB_CA_CV_CERTIFICATE);
+    final var scenario = new Scenario(ScenarioId.READ_CVC, List.of(stepDefinition1));
+    when(sessionAccessorMock.getOpenContactIccCvcList(anyString())).thenReturn(Optional.empty());
     when(scenarioTransitionServiceMock.getNextScenario(anyString(), any(), any()))
         .thenReturn(scenario);
     when(sessionCommunicationMock.getSessionId()).thenReturn("sessionId");
@@ -164,9 +155,8 @@ class ContactBasedScenarioProcessingServiceTest {
     // given
     final var sessionCommunicationMock = mock(SessionCommunication.class);
     final var cardScenarioProviderMock = mock(CardScenarioProvider.class);
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000"));
-    final var scenario = new Scenario("READ_X509_CERTIFICATE", List.of(stepDefinition1));
+    final var stepDefinition1 = new StepDefinition(StepId.READ_EF_C_CH_AUT_E256);
+    final var scenario = new Scenario(ScenarioId.READ_X509, List.of(stepDefinition1));
     when(sessionCommunicationMock.getSessionId()).thenReturn("sessionId");
     when(sessionAccessorMock.getPoppToken("sessionId")).thenReturn("poppToken");
     final var argumentCaptor = ArgumentCaptor.forClass(TokenMessage.class);

@@ -94,7 +94,6 @@ class AbstractScenarioProcessingServiceTest {
             .version("version")
             .steps(List.of())
             .sequenceCounter(0)
-            .timeSpan(100)
             .build();
     final var sessionCommunicationMock = mock(SessionCommunication.class);
 
@@ -159,7 +158,7 @@ class AbstractScenarioProcessingServiceTest {
   @Test
   void createScenarioMessage() {
     // given
-    final var nextScenario = new Scenario("scenario1", List.of());
+    final var nextScenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     final var clientSessionId = "clientSessionId";
     final var sequenceCounter = 0;
     final var timeSpan = 100;
@@ -177,7 +176,7 @@ class AbstractScenarioProcessingServiceTest {
   void createAndSendMessage() {
     // given
     final var sessionCommunicationMock = mock(SessionCommunication.class);
-    final var scenario = new Scenario("scenario1", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     final var clientSessionId = "clientSessionId";
     final var standardScenarioMessageMock = mock(StandardScenarioMessage.class);
     when(sessionCommunicationMock.getSessionId()).thenReturn("sessionId");
@@ -202,7 +201,7 @@ class AbstractScenarioProcessingServiceTest {
   void createAndSendMessageIsLast() {
     // given
     final var sessionCommunicationMock = mock(SessionCommunication.class);
-    final var scenario = new Scenario("scenario1", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     final var clientSessionId = "clientSessionId";
     final var standardScenarioMessageMock = mock(StandardScenarioMessage.class);
     when(sessionCommunicationMock.getSessionId()).thenReturn("sessionId");
@@ -211,6 +210,7 @@ class AbstractScenarioProcessingServiceTest {
     when(scenarioMessageFactoryMock.create(any(), anyString(), anyInt(), anyInt(), anyString()))
         .thenReturn(standardScenarioMessageMock);
     sut = createScenarioProcessingService(true);
+    ReflectionTestUtils.setField(sut, "timeSpan", 100);
 
     // when
     sut.createAndSendMessage(sessionCommunicationMock, scenario);

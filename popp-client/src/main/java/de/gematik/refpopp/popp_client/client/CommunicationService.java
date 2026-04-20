@@ -254,7 +254,7 @@ public class CommunicationService {
   private void stopConnectorSessionIfRequired() {
     final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();
     final var cardConnectionType = (CardConnectionType) sslSession.get(CARD_CONNECTION_TYPE);
-    if (CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)) {
+    if (usesConnectorSession(cardConnectionType)) {
       final var clientSessionId = (String) sslSession.get(CLIENT_SESSION_ID);
       try {
         connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
@@ -298,14 +298,17 @@ public class CommunicationService {
 
   private String resolveSessionId(
       final String sessionUUID, final CardConnectionType cardConnectionType) {
-    if (cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
-      final var connectorSessionId =
-          connectorCommunicationServiceWrapper.startCardSession(
-              connectorCommunicationServiceWrapper.getConnectedEgkCard());
-      return isValidSessionId(sessionUUID) ? sessionUUID : connectorSessionId;
+    if (usesConnectorSession(cardConnectionType)) {
+      return connectorCommunicationServiceWrapper.startCardSession(
+          connectorCommunicationServiceWrapper.getConnectedEgkCard());
     }
     final var sessionUUIDExists = sessionUUID != null && !sessionUUID.isEmpty();
     return sessionUUIDExists ? sessionUUID : UUID.randomUUID().toString();
+  }
+
+  private boolean usesConnectorSession(final CardConnectionType cardConnectionType) {
+    return CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)
+        || CardConnectionType.CONTACTLESS_CONNECTOR.equals(cardConnectionType);
   }
 
   private static boolean isValidSessionId(final String sessionUUID) {

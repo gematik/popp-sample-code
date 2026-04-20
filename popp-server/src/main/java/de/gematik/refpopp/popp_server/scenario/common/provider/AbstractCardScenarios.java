@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.scenario.common.provider;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -48,12 +49,24 @@ public abstract class AbstractCardScenarios implements CardScenarioProvider {
     return Optional.empty();
   }
 
-  public record Scenario(String name, List<StepDefinition> stepDefinitions) {
+  public record Scenario(ScenarioId scenarioId, List<StepDefinition> stepDefinitions) {
+
+    public static Scenario of(final ScenarioId scenarioId, final StepId... stepIds) {
+      return new Scenario(scenarioId, Arrays.stream(stepIds).map(StepDefinition::new).toList());
+    }
 
     public Scenario addAdditionalSteps(final List<StepDefinition> dynamicStepDefinitions) {
       final var updatedSteps = new ArrayList<>(this.stepDefinitions);
       updatedSteps.addAll(dynamicStepDefinitions);
-      return new Scenario(this.name, updatedSteps);
+      return new Scenario(this.scenarioId, updatedSteps);
+    }
+
+    public String name() {
+      return scenarioId.value();
+    }
+
+    public boolean is(final ScenarioId candidate) {
+      return scenarioId == candidate;
     }
 
     @Override
@@ -65,27 +78,85 @@ public abstract class AbstractCardScenarios implements CardScenarioProvider {
         return false;
       }
       final Scenario scenario = (Scenario) obj;
-      return Objects.equals(name, scenario.name);
+      return scenarioId == scenario.scenarioId;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(name);
+      return Objects.hash(scenarioId);
     }
   }
 
-  public record StepDefinition(
-      String name, String description, String commandApdu, List<String> expectedStatusWord) {
+  public record StepDefinition(StepId stepId, byte[] commandData) {
 
-    public StepDefinition(
-        final String name,
-        final String description,
-        final String commandApdu,
-        final List<String> expectedStatusWord) {
-      this.name = name;
-      this.description = description;
-      this.commandApdu = commandApdu != null ? commandApdu.replaceAll("\\s+", "") : null;
-      this.expectedStatusWord = expectedStatusWord;
+    public static final class InvalidStepDefinitionException extends IllegalArgumentException {
+
+      public InvalidStepDefinitionException(final String message) {
+        super(message);
+      }
+    }
+
+    public StepDefinition(final StepId stepId) {
+      this(stepId, null);
+    }
+
+    public StepDefinition(final StepId stepId, final byte[] commandData) {
+      this.stepId = Objects.requireNonNull(stepId, "stepId must not be null");
+      this.commandData = commandData == null ? null : commandData.clone();
+      validateCommandData(stepId, commandData);
+    }
+
+    private static void validateCommandData(final StepId stepId, final byte[] commandData) {
+      if (requiresCommandData(stepId) && (commandData == null || commandData.length == 0)) {
+        throw new InvalidStepDefinitionException(
+            "Step " + stepId.value() + " requires command data");
+      }
+      if (!requiresCommandData(stepId) && commandData != null) {
+        throw new InvalidStepDefinitionException(
+            "Step " + stepId.value() + " does not accept command data");
+      }
+    }
+
+    private static boolean requiresCommandData(final StepId stepId) {
+      return stepId == StepId.MSE_APDU || stepId == StepId.PSO_APDU;
+    }
+
+    public String name() {
+      return stepId.value();
+    }
+
+    public ExpectedStatusWords expectedStatusWords() {
+      return stepId.expectedStatusWords();
+    }
+
+    @Override
+    public byte[] commandData() {
+      return commandData == null ? null : commandData.clone();
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      return obj instanceof StepDefinition(final StepId otherStepId, final byte[] otherCommandData)
+          && stepId == otherStepId
+          && Arrays.equals(commandData, otherCommandData);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * stepId.hashCode() + Arrays.hashCode(commandData);
+    }
+
+    @Override
+    public String toString() {
+      return "StepDefinition[stepId="
+          + stepId
+          + ", commandData="
+          + Arrays.toString(commandData)
+          + "]";
+    }
+
+    public boolean is(final StepId candidate) {
+      return stepId == candidate;
     }
   }
 }

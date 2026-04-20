@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.validator.StatusWordValidator;
 import de.gematik.refpopp.popp_server.scenario.contactbased.readx509cert.ReadX509ScenarioResultProcessor;
@@ -49,8 +50,8 @@ class ScenarioResultManagerTest {
     scenarioResultFactoryMock = mock(ScenarioResultFactory.class);
     final List<ScenarioResultProcessor> scenarioResultProcessors =
         List.of(openEgkScenarioResultProcessorMock, readX509ScenarioResultProcessorMock);
-    when(openEgkScenarioResultProcessorMock.getScenarioName()).thenReturn("OPEN_CONTACT_ICC");
-    when(readX509ScenarioResultProcessorMock.getScenarioName()).thenReturn("READ_X509_CERTIFICATE");
+    when(openEgkScenarioResultProcessorMock.getScenarioId()).thenReturn(ScenarioId.OPEN_EGK);
+    when(readX509ScenarioResultProcessorMock.getScenarioId()).thenReturn(ScenarioId.READ_X509);
     sut =
         new ScenarioResultManager(
             scenarioResultProcessors, statusWordValidatorMock, scenarioResultFactoryMock);
@@ -60,7 +61,7 @@ class ScenarioResultManagerTest {
   void manageOpenContactIccScenario() {
     // given
     final var sessionId = "session1";
-    final var scenario = new Scenario("OPEN_CONTACT_ICC", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     final var resultStep = new ScenarioResultStep("description", "9000", "abcdef".getBytes());
     final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
@@ -80,7 +81,7 @@ class ScenarioResultManagerTest {
   void manageReadX509CertificateScenario() {
     // given
     final var sessionId = "session1";
-    final var scenario = new Scenario("READ_X509_CERTIFICATE", List.of());
+    final var scenario = new Scenario(ScenarioId.READ_X509, List.of());
     final var resultStep = new ScenarioResultStep("description", "9000", "abcdef".getBytes());
     final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));

@@ -32,6 +32,8 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey;
 import java.util.List;
 import java.util.Optional;
@@ -158,11 +160,7 @@ class SessionAccessorTest {
     final var sessionId = "sessionId";
     when(sessionContainerMock.retrieveSessionData(
             eq(sessionId), eq(SessionStorageKey.OPEN_CONTACT_ICC_CVC_LIST), any()))
-        .thenReturn(
-            Optional.of(
-                List.of(
-                    new StepDefinition(
-                        "name1", "description", "commandApdu", List.of("expectedStatusWord")))));
+        .thenReturn(Optional.of(List.of(new StepDefinition(StepId.MSE_APDU, "car".getBytes()))));
 
     // when
     final var openContactIccCvcList = sut.getOpenContactIccCvcList(sessionId);
@@ -252,8 +250,7 @@ class SessionAccessorTest {
   void storeAdditionalSteps() {
     // given
     final var sessionId = "sessionId";
-    final var cvcList =
-        List.of(new StepDefinition("name1", "description", "commandApdu", List.of("9000")));
+    final var cvcList = List.of(new StepDefinition(StepId.MSE_APDU, "car".getBytes()));
     // when
     sut.storeAdditionalSteps(sessionId, cvcList);
 
@@ -419,10 +416,7 @@ class SessionAccessorTest {
     final var sessionId = "sessionId";
     final var scenario =
         new Scenario(
-            "scenarioName",
-            List.of(
-                new StepDefinition(
-                    "name1", "description", "commandApdu", List.of("expectedStatusWord"))));
+            ScenarioId.OPEN_EGK, List.of(new StepDefinition(StepId.MSE_APDU, "car".getBytes())));
 
     // when
     sut.storeScenario(sessionId, scenario);

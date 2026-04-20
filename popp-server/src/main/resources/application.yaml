@@ -3,11 +3,6 @@ spring:
     default: dev
   application:
     name: popp-server
-  config:
-    import:
-      - "classpath:contact-based-scenarios.yaml"
-      - "classpath:open-egk-scenarios.yaml"
-      - "classpath:contact-less-scenarios.yaml"
   servlet:
     multipart:
       max-file-size: 2GB
@@ -48,3 +43,9 @@ jwt-token:
     authorization-details: "details"
   connector:
     typ: "JWT"
+
+scenario-vars:
+  # Connector sequences need a positive time-span for non-final scenario messages.
+  time-span: 5000
+  supported-g21-cards: 040400,040401,040500,040501,040502,040600,040700
+  supported-g3-cards: 050000

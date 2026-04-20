@@ -74,7 +74,8 @@ public final class StandardScenarioMessage extends PoPPMessage implements Serial
    * An integer in range [0, 32767] indicating the time span in milliseconds for the PoPP-Service
    * between receiving a "ScenarioResultMessage" till the (expected) send time of the next
    * "StandardScenarioMessage" or "ConnectorScenarioMessage". A Connector or client uses this
-   * information to detect a timeout. The special value "timeSpan=0" indicates that this is the last
+   * information to detect a timeout. Connector sequences rely on a value greater than 0 until the
+   * final message of the sequence. The special value "timeSpan=0" indicates that this is the last
    * "StandardScenarioMessage" in a sequence.
    */
   @JsonProperty("timeSpan")

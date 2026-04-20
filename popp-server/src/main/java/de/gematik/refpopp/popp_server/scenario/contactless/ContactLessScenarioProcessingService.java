@@ -25,30 +25,21 @@ import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioMessageFactory;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
-import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractScenarioProcessingService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.security.SecureRandom;
-import java.util.HexFormat;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 public class ContactLessScenarioProcessingService extends AbstractScenarioProcessingService {
 
-  public static final String PLACEHOLDER_FOR_NONCE = "nonce";
-
-  @Value("${scenario-names.auth-g2}")
-  private String scenarioName;
-
   private final SessionAccessor sessionAccessor;
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   protected ContactLessScenarioProcessingService(
       final SessionAccessor sessionAccessor,
@@ -70,7 +61,7 @@ public class ContactLessScenarioProcessingService extends AbstractScenarioProces
 
   @Override
   public boolean isLastScenario(final Scenario currentScenario) {
-    return currentScenario.name().equalsIgnoreCase(scenarioName);
+    return currentScenario.is(ScenarioId.AUTH_G2);
   }
 
   @Override
@@ -85,39 +76,15 @@ public class ContactLessScenarioProcessingService extends AbstractScenarioProces
     final var sessionId = session.getSessionId();
     final var nextScenario =
         getNextScenario(sessionId, lastScenarioSentToClient, cardScenarioProvider);
-    final var scenarioWithNonce = createScenarioWithNonce(sessionId, nextScenario);
-    sessionAccessor.storeScenario(sessionId, scenarioWithNonce);
-    createAndSendMessage(session, scenarioWithNonce);
+    storeNonce(sessionId);
+    sessionAccessor.storeScenario(sessionId, nextScenario);
+    createAndSendMessage(session, nextScenario);
   }
 
-  private Scenario createScenarioWithNonce(final String sessionId, final Scenario scenario) {
-    final String nonce = getNonce(sessionId);
-    log.info("| Generated nonce: {}", nonce);
-
-    final List<StepDefinition> stepDefinitions =
-        scenario.stepDefinitions().stream()
-            .map(
-                step -> {
-                  final String commandApdu = step.commandApdu();
-                  if (commandApdu.contains(PLACEHOLDER_FOR_NONCE)) {
-                    final var replacedCommand = commandApdu.replace(PLACEHOLDER_FOR_NONCE, nonce);
-                    return new StepDefinition(
-                        step.name(),
-                        step.description(),
-                        replacedCommand,
-                        step.expectedStatusWord());
-                  }
-                  return step;
-                })
-            .toList();
-
-    return new Scenario(scenario.name(), stepDefinitions);
-  }
-
-  private String getNonce(final String sessionId) {
+  private void storeNonce(final String sessionId) {
     final byte[] nonce = new byte[24];
     SECURE_RANDOM.nextBytes(nonce);
     sessionAccessor.storeNonce(sessionId, nonce);
-    return HEX_FORMAT.formatHex(nonce);
+    log.info("| Generated nonce for contactless INTERNAL AUTHENTICATE");
   }
 }

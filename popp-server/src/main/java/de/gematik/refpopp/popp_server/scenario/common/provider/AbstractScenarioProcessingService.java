@@ -39,6 +39,7 @@ public abstract class AbstractScenarioProcessingService {
   private final ClientCommunicationService clientCommunicationService;
   private final ScenarioTransitionService scenarioTransitionService;
 
+  // Connector sequences must use a positive timeSpan until the last message.
   @Value("${scenario-vars.time-span:5000}")
   private int timeSpan;
 
@@ -130,6 +131,7 @@ public abstract class AbstractScenarioProcessingService {
   private int determineTimeSpan(final Scenario scenario) {
     int currentTimeSpan = this.timeSpan;
     if (isLastScenario(scenario)) {
+      // timeSpan=0 signals end-of-sequence to connector-based clients.
       currentTimeSpan = 0;
     }
     return currentTimeSpan;

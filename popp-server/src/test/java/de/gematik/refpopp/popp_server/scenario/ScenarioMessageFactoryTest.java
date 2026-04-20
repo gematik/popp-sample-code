@@ -31,8 +31,11 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioMessageFactory;
+import de.gematik.refpopp.popp_server.scenario.common.card.ScenarioStepCommandResolver;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
@@ -44,26 +47,31 @@ class ScenarioMessageFactoryTest {
   private ScenarioMessageFactory sut;
   private SessionAccessor sessionAccessorMock;
   private JwtTokenCreator tokenCreatorMock;
+  private ScenarioStepCommandResolver scenarioStepCommandResolverMock;
 
   @BeforeEach
   void setUp() {
     sessionAccessorMock = mock(SessionAccessor.class);
     tokenCreatorMock = mock(JwtTokenCreator.class);
-    sut = new ScenarioMessageFactory(sessionAccessorMock, tokenCreatorMock);
+    scenarioStepCommandResolverMock = mock(ScenarioStepCommandResolver.class);
+    sut =
+        new ScenarioMessageFactory(
+            sessionAccessorMock, tokenCreatorMock, scenarioStepCommandResolverMock);
   }
 
   @Test
   void createCreatesStandardScenarioMessage() {
     // given
     final var sessionId = "sessionId";
-    final var state =
-        new StepDefinition("name1", "description", "commandApdu", List.of("expectedStatusWord"));
-    final var scenario = new Scenario("scenarioName", List.of(state));
+    final var state = new StepDefinition(StepId.SELECT_MASTER_FILE);
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of(state));
     final var clientSessionId = "clientSessionId";
     final int sequenceCounter = 1;
-    final int timeSpan = 1;
+    final int timeSpan = 5000;
     when(sessionAccessorMock.getCardConnectionType(sessionId))
         .thenReturn(CardConnectionType.CONTACT_STANDARD);
+    when(scenarioStepCommandResolverMock.serializeCommandApdu(sessionId, state))
+        .thenReturn("commandApdu");
 
     // when
     final var actual =
@@ -74,23 +82,26 @@ class ScenarioMessageFactoryTest {
     assertThat(actual.getVersion()).isEqualTo("1.0.0");
     assertThat(actual.getClientSessionId()).isEqualTo(clientSessionId);
     assertThat(actual.getSequenceCounter()).isEqualTo(1);
-    assertThat(actual.getTimeSpan()).isEqualTo(1);
+    assertThat(actual.getTimeSpan()).isEqualTo(timeSpan);
     assertThat(actual.getSteps()).hasSize(1);
+    assertThat(actual.getSteps().getFirst().getCommandApdu()).isEqualTo("commandApdu");
     verify(sessionAccessorMock).getCardConnectionType(sessionId);
+    verify(scenarioStepCommandResolverMock).serializeCommandApdu(sessionId, state);
   }
 
   @Test
   void createCreatesConnectorScenarioMessage() {
     // given
     final var sessionId = "sessionId";
-    final var state =
-        new StepDefinition("name1", "description", "commandApdu", List.of("expectedStatusWord"));
-    final var scenario = new Scenario("scenarioName", List.of(state));
+    final var state = new StepDefinition(StepId.SELECT_MASTER_FILE);
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of(state));
     final var clientSessionId = "clientSessionId";
     final int sequenceCounter = 1;
-    final int timeSpan = 1;
+    final int timeSpan = 5000;
     when(sessionAccessorMock.getCardConnectionType(sessionId))
         .thenReturn(CardConnectionType.CONTACT_CONNECTOR);
+    when(scenarioStepCommandResolverMock.serializeCommandApdu(sessionId, state))
+        .thenReturn("commandApdu");
 
     // when
     final var actual = sut.create(scenario, clientSessionId, sequenceCounter, timeSpan, sessionId);
@@ -98,6 +109,7 @@ class ScenarioMessageFactoryTest {
     // then
     assertThat(actual).isInstanceOf(ConnectorScenarioMessage.class);
     verify(sessionAccessorMock).getCardConnectionType(sessionId);
+    verify(scenarioStepCommandResolverMock).serializeCommandApdu(sessionId, state);
     verify(tokenCreatorMock)
         .createConnectorToken(any(StandardScenarioMessage.class), eq(sessionId));
   }

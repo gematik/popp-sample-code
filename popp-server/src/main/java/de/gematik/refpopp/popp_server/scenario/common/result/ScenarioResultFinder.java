@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -39,5 +40,12 @@ public class ScenarioResultFinder {
             () ->
                 new ScenarioException(
                     sessionId, "APDU Result of " + name + " not found", "errorCode"));
+  }
+
+  public ScenarioResultStep find(
+      final String sessionId,
+      final List<ScenarioResultStep> scenarioResultSteps,
+      final StepId stepId) {
+    return find(sessionId, scenarioResultSteps, stepId.value());
   }
 }

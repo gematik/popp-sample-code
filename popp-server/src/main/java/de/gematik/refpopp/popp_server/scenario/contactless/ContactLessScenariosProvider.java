@@ -22,16 +22,25 @@ package de.gematik.refpopp.popp_server.scenario.contactless;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Component;
 
-@ConfigurationProperties(prefix = "contact-less-scenarios")
-@PropertySource("classpath:contact-less-scenarios.yaml")
+@Component
 public class ContactLessScenariosProvider extends AbstractCardScenarios {
 
-  public ContactLessScenariosProvider(final List<Scenario> scenarios) {
-    super(scenarios);
+  public ContactLessScenariosProvider() {
+    super(
+        List.of(
+            Scenario.of(
+                ScenarioId.AUTH_G2,
+                StepId.READ_SUB_CA_CV_CERTIFICATE,
+                StepId.READ_END_ENTITY_CV_CERTIFICATE,
+                StepId.SELECT_DF_ESIGN,
+                StepId.SELECT_PRIVATE_KEY,
+                StepId.READ_X509,
+                StepId.INTERNAL_AUTHENTICATION)));
   }
 
   @Override
