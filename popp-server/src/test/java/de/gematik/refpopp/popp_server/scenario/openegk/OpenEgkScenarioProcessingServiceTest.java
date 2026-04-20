@@ -36,6 +36,7 @@ import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,7 @@ class OpenEgkScenarioProcessingServiceTest {
             scenarioMessageFactoryMock,
             clientCommunicationServiceMock,
             scenarioTransitionServiceMock);
-    ReflectionTestUtils.setField(sut, "timeSpan", 1000);
+    ReflectionTestUtils.setField(sut, "timeSpan", 5000);
   }
 
   @Test
@@ -78,10 +79,10 @@ class OpenEgkScenarioProcessingServiceTest {
   @Test
   void processScenario() {
     // given
-    final var lastScenario = new Scenario("scenarioName", null);
+    final var lastScenario = new Scenario(ScenarioId.READ_CVC, List.of());
     final var cardScenarioProviderMock = mock(CardScenarioProvider.class);
     final var sessionCommunicationMock = mock(SessionCommunication.class);
-    final var nextScenario = new Scenario("nextScenario", null);
+    final var nextScenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
     when(cardScenarioProviderMock.getScenarios()).thenReturn(List.of(nextScenario));
     when(sessionCommunicationMock.getSessionId()).thenReturn("session1");
     when(sessionAccessorMock.getSequenceCounter(anyString())).thenReturn(0);
@@ -94,7 +95,7 @@ class OpenEgkScenarioProcessingServiceTest {
     sut.processScenario(sessionCommunicationMock, lastScenario, cardScenarioProviderMock);
 
     // then
-    verify(scenarioMessageFactoryMock).create(nextScenario, "clientSessionId", 0, 1000, "session1");
+    verify(scenarioMessageFactoryMock).create(nextScenario, "clientSessionId", 0, 5000, "session1");
     verify(clientCommunicationServiceMock)
         .sendMessage(standardScenarioMessage, sessionCommunicationMock);
   }

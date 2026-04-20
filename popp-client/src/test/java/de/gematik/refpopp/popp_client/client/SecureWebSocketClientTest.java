@@ -31,8 +31,10 @@ import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEve
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
 import de.gematik.refpopp.popp_client.configuration.PathResolver;
 import de.gematik.zeta.sdk.WsClientExtension;
+import de.gematik.zeta.sdk.attestation.model.PlatformProductId;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.java_websocket.handshake.ServerHandshake;
@@ -74,6 +76,58 @@ class SecureWebSocketClientTest {
 
     // then
     assertThat(sut.getReadyState()).isFalse();
+  }
+
+  @Test
+  void createPlatformProductIdReturnsAppleProductIdForMacOs() {
+    // when
+    final var productId = SecureWebSocketClient.createPlatformProductId("Mac OS X");
+
+    // then
+    assertThat(productId).isInstanceOf(PlatformProductId.AppleProductId.class);
+    final var appleProductId = (PlatformProductId.AppleProductId) productId;
+    assertThat(appleProductId.getPlatform()).isEqualTo(PlatformProductId.PLATFORM_APPLE);
+    assertThat(appleProductId.getPlatformType())
+        .isEqualTo(SecureWebSocketClient.APPLE_PLATFORM_TYPE_MACOS);
+    assertThat(appleProductId.getAppBundleIds()).isEqualTo(List.of());
+  }
+
+  @Test
+  void createPlatformProductIdReturnsLinuxProductIdForLinux() {
+    // when
+    final var productId = SecureWebSocketClient.createPlatformProductId("Linux");
+
+    // then
+    assertThat(productId).isInstanceOf(PlatformProductId.LinuxProductId.class);
+    final var linuxProductId = (PlatformProductId.LinuxProductId) productId;
+    assertThat(linuxProductId.getPlatform()).isEqualTo(PlatformProductId.PLATFORM_LINUX);
+    assertThat(linuxProductId.getPackagingType())
+        .isEqualTo(SecureWebSocketClient.LINUX_PACKAGING_TYPE_JAR);
+    assertThat(linuxProductId.getApplicationId())
+        .isEqualTo(SecureWebSocketClient.PLATFORM_PRODUCT_APPLICATION_ID);
+    assertThat(linuxProductId.getVersion())
+        .isEqualTo(SecureWebSocketClient.PLATFORM_PRODUCT_VERSION);
+  }
+
+  @Test
+  void createPlatformProductIdReturnsWindowsProductIdForWindows() {
+    // when
+    final var productId = SecureWebSocketClient.createPlatformProductId("Windows 11");
+
+    // then
+    assertThat(productId).isInstanceOf(PlatformProductId.WindowsProductId.class);
+    final var windowsProductId = (PlatformProductId.WindowsProductId) productId;
+    assertThat(windowsProductId.getPlatform()).isEqualTo(PlatformProductId.PLATFORM_WINDOWS);
+    assertThat(windowsProductId.getStoreId()).isEmpty();
+    assertThat(windowsProductId.getPackageFamilyName()).isEmpty();
+  }
+
+  @Test
+  void createPlatformProductIdThrowsForUnsupportedOperatingSystems() {
+    // when / then
+    assertThrows(
+        IllegalStateException.class,
+        () -> SecureWebSocketClient.createPlatformProductId("FreeBSD"));
   }
 
   @Test

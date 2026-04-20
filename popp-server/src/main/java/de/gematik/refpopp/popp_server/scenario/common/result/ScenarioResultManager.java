@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.validator.StatusWordValidator;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,7 @@ import org.springframework.stereotype.Component;
 public class ScenarioResultManager {
 
   private final StatusWordValidator statusWordValidator;
-  private final Map<String, ScenarioResultProcessor> scenarioResultProcessorMap;
+  private final Map<ScenarioId, ScenarioResultProcessor> scenarioResultProcessorMap;
   private final ScenarioResultFactory scenarioResultFactory;
 
   public ScenarioResultManager(
@@ -43,7 +44,7 @@ public class ScenarioResultManager {
     this.statusWordValidator = statusWordValidator;
     this.scenarioResultProcessorMap =
         scenarioResultProcessors.stream()
-            .collect(Collectors.toMap(ScenarioResultProcessor::getScenarioName, p -> p));
+            .collect(Collectors.toMap(ScenarioResultProcessor::getScenarioId, p -> p));
     this.scenarioResultFactory = scenarioResultFactory;
   }
 
@@ -56,7 +57,7 @@ public class ScenarioResultManager {
 
   private void processScenarioResults(
       final String sessionId, final Scenario scenario, final ScenarioResult scenarioResult) {
-    final var resultProcessor = scenarioResultProcessorMap.get(scenario.name());
+    final var resultProcessor = scenarioResultProcessorMap.get(scenario.scenarioId());
     if (resultProcessor != null) {
       resultProcessor.process(sessionId, scenarioResult);
     }

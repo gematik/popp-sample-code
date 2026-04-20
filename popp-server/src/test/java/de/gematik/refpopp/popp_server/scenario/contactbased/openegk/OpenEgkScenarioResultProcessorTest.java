@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
@@ -59,7 +60,6 @@ class OpenEgkScenarioResultProcessorTest {
     sessionAccessorMock = Mockito.mock(SessionAccessor.class);
     scenarioResultFinderMock = Mockito.mock(ScenarioResultFinder.class);
     sut = new OpenEgkScenarioResultProcessor(sessionAccessorMock, scenarioResultFinderMock);
-    ReflectionTestUtils.setField(sut, "readVersion", "read-version");
     ReflectionTestUtils.setField(sut, "supportedG21Cards", List.of("040502"));
     ReflectionTestUtils.setField(sut, "supportedG3Cards", List.of("050000"));
     sessionAccessorMock.storeSessionData(
@@ -76,7 +76,7 @@ class OpenEgkScenarioResultProcessorTest {
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenReturn(CardConnectionType.CONTACT_STANDARD);
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
     final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
@@ -106,7 +106,7 @@ class OpenEgkScenarioResultProcessorTest {
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep);
     final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
     final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
@@ -135,7 +135,7 @@ class OpenEgkScenarioResultProcessorTest {
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep);
     final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
     final var primitiveBerTlvMock = Mockito.mock(PrimitiveBerTlv.class);
@@ -162,7 +162,7 @@ class OpenEgkScenarioResultProcessorTest {
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
     final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
@@ -196,7 +196,7 @@ class OpenEgkScenarioResultProcessorTest {
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenReturn(CardConnectionType.CONTACTLESS_STANDARD);
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
     final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
@@ -225,7 +225,7 @@ class OpenEgkScenarioResultProcessorTest {
     final var resultStep2 = new ScenarioResultStep("description2", "6985", byteArray);
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
     when(scenarioResultFinderMock.find(
-            SESSION_ID, scenarioResult.scenarioResultSteps(), "read-version"))
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenThrow(new ScenarioException("", "", ""));

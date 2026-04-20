@@ -22,18 +22,19 @@ package de.gematik.refpopp.popp_server.scenario.openegk;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Component;
 
-@ConfigurationProperties(prefix = "open-egk-scenarios")
-@PropertySource("classpath:open-egk-scenarios.yaml")
+@Component
 @Primary
 public class OpenEgkScenariosProvider extends AbstractCardScenarios {
 
-  public OpenEgkScenariosProvider(final List<Scenario> scenarios) {
-    super(scenarios);
+  public OpenEgkScenariosProvider() {
+    super(
+        List.of(Scenario.of(ScenarioId.OPEN_EGK, StepId.SELECT_MASTER_FILE, StepId.READ_VERSION)));
   }
 
   @Override

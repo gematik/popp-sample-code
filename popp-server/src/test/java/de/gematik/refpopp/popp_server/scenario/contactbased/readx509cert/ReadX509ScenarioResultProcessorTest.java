@@ -32,6 +32,7 @@ import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
@@ -43,7 +44,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class ReadX509ScenarioResultProcessorTest {
 
@@ -68,7 +68,6 @@ class ReadX509ScenarioResultProcessorTest {
             tokenCreatorMock,
             sessionAccessorMock,
             egkHashValidationServiceMock);
-    ReflectionTestUtils.setField(sut, "contentOfEfCChAutE256", "read-ef-c-ch-aut-e256");
   }
 
   @Test
@@ -79,7 +78,7 @@ class ReadX509ScenarioResultProcessorTest {
     final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
-    when(scenarioResultFinderMock.find(anyString(), anyList(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), anyList(), any(StepId.class)))
         .thenReturn(resultStep2);
     final var x509DataMock = mock(X509Data.class);
     when(x509CertificateProcessorMock.extractCertificateData(anyString(), any()))
@@ -95,7 +94,7 @@ class ReadX509ScenarioResultProcessorTest {
 
     // then
     verify(scenarioResultFinderMock)
-        .find(sessionId, scenarioResult.scenarioResultSteps(), "read-ef-c-ch-aut-e256");
+        .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.READ_EF_C_CH_AUT_E256);
     verify(x509CertificateProcessorMock).extractCertificateData(sessionId, resultStep2.data());
     verify(egkHashValidationServiceMock)
         .validateAndProcess(
@@ -115,7 +114,7 @@ class ReadX509ScenarioResultProcessorTest {
     final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
-    when(scenarioResultFinderMock.find(anyString(), anyList(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), anyList(), any(StepId.class)))
         .thenReturn(resultStep2);
     when(sessionAccessorMock.getCvc(sessionId)).thenReturn(resultStep2.data());
     when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), anyString()))

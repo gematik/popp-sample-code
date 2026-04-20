@@ -20,19 +20,10 @@
 
 package de.gematik.refpopp.popp_server;
 
-import de.gematik.refpopp.popp_server.scenario.contactbased.ContactBasedScenariosProvider;
-import de.gematik.refpopp.popp_server.scenario.contactless.ContactLessScenariosProvider;
-import de.gematik.refpopp.popp_server.scenario.openegk.OpenEgkScenariosProvider;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({
-  ContactBasedScenariosProvider.class,
-  OpenEgkScenariosProvider.class,
-  ContactLessScenariosProvider.class
-})
 public class PoppServerApplication {
 
   public static void main(final String[] args) {

@@ -22,6 +22,7 @@ package de.gematik.refpopp.popp_server.scenario.common.cvc;
 
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.CvcFactory;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
@@ -47,34 +48,34 @@ public class CvcProcessor {
   }
 
   public Cvc createAndValidateCvc(
-      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
-    final var cvc = createCvc(sessionId, scenarioResult, stepName);
+      final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
+    final var cvc = createCvc(sessionId, scenarioResult, stepId);
     checkExpirationDate(sessionId, cvc);
     validateCvcSignature(sessionId, cvc);
     return cvc;
   }
 
   public Cvc createAndValidateCvcCa(
-      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
-    final var cvc = createCvcCa(sessionId, scenarioResult, stepName);
+      final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
+    final var cvc = createCvcCa(sessionId, scenarioResult, stepId);
     checkExpirationDate(sessionId, cvc);
     validateCvcSignature(sessionId, cvc);
     return cvc;
   }
 
   private Cvc createCvc(
-      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
+      final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var result =
-        scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepName);
+        scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepId);
     sessionAccessor.storeCvc(sessionId, result.data());
 
     return cvcFactory.create(result.data());
   }
 
   private Cvc createCvcCa(
-      final String sessionId, final ScenarioResult scenarioResult, final String stepName) {
+      final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var result =
-        scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepName);
+        scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepId);
     sessionAccessor.storeCvcCA(sessionId, result.data());
 
     return cvcFactory.create(result.data());

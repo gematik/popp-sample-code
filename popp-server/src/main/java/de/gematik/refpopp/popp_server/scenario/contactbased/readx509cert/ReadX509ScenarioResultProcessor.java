@@ -24,6 +24,8 @@ import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
@@ -31,7 +33,6 @@ import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,12 +44,6 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
   private final JwtTokenCreator tokenCreator;
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
-
-  @Value("${scenario-names.sce-read-x509}")
-  private String readX509ScenarioName;
-
-  @Value("${step-names.read-ef-c-ch-aut-e256}")
-  private String contentOfEfCChAutE256;
 
   public ReadX509ScenarioResultProcessor(
       final ScenarioResultFinder scenarioResultFinder,
@@ -67,7 +62,7 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     final var aut =
         scenarioResultFinder
-            .find(sessionId, scenarioResult.scenarioResultSteps(), contentOfEfCChAutE256)
+            .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.READ_EF_C_CH_AUT_E256)
             .data();
     final byte[] cvc = sessionAccessor.getCvc(sessionId);
     checkCertificatePair(sessionId, cvc, aut);
@@ -78,8 +73,8 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
   }
 
   @Override
-  public String getScenarioName() {
-    return readX509ScenarioName;
+  public ScenarioId getScenarioId() {
+    return ScenarioId.READ_X509;
   }
 
   private void checkCertificatePair(final String sessionId, final byte[] cvc, final byte[] aut) {

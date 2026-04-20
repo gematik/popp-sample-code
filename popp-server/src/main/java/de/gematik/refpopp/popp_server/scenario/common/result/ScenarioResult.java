@@ -20,13 +20,28 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 public record ScenarioResult(String name, List<ScenarioResultStep> scenarioResultSteps) {
 
+  public ScenarioResult(
+      final ScenarioId scenarioId, final List<ScenarioResultStep> scenarioResultSteps) {
+    this(scenarioId.value(), scenarioResultSteps);
+  }
+
   public record ScenarioResultStep(String name, String statusWord, byte[] data) {
+
+    public ScenarioResultStep(final StepId stepId, final String statusWord, final byte[] data) {
+      this(stepId.value(), statusWord, data);
+    }
+
+    public boolean is(final StepId stepId) {
+      return name.equalsIgnoreCase(stepId.value());
+    }
 
     @Override
     public boolean equals(final Object o) {

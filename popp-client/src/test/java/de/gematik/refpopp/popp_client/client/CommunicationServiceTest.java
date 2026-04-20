@@ -130,10 +130,13 @@ class CommunicationServiceTest {
   }
 
   @Test
-  void startConnectsToWebSocketAndSendsStartMessageWithContactConnectorAndClientSessionId() {
+  void startConnectsToWebSocketAndSendsStartMessageWithConnectorSessionId() {
     String clientSessionId = UUID.randomUUID().toString();
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard()).thenReturn("egk");
+    when(connectorCommunicationServiceWrapper.startCardSession("egk"))
+        .thenReturn("connector-session");
     Map<String, Object> ssl =
-        prepareMockSslSession(clientSessionId, CardConnectionType.CONTACT_CONNECTOR);
+        prepareMockSslSession("connector-session", CardConnectionType.CONTACT_CONNECTOR);
     when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(ssl);
 
     mockImmediateTokenResponse();
@@ -145,13 +148,15 @@ class CommunicationServiceTest {
     verify(clientServerCommunicationServiceMock).connect();
     verify(clientServerCommunicationServiceMock).sendMessage(captor.capture());
     assertThat(captor.getValue()).isInstanceOf(StartMessage.class);
-    assertThat(((StartMessage) captor.getValue()).getClientSessionId()).isEqualTo(clientSessionId);
+    assertThat(((StartMessage) captor.getValue()).getClientSessionId())
+        .isEqualTo("connector-session");
   }
 
   @Test
   void startConnectsToWebSocketAndSendsStartMessageWithEmptyClientSessionId() {
     final String clientSessionId = "";
-    when(connectorCommunicationServiceWrapper.startCardSession(any())).thenReturn("connectorUUID");
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard()).thenReturn("egk");
+    when(connectorCommunicationServiceWrapper.startCardSession("egk")).thenReturn("connectorUUID");
     Map<String, Object> ssl =
         prepareMockSslSession("connectorUUID", CardConnectionType.CONTACT_CONNECTOR);
     when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(ssl);
@@ -460,6 +465,28 @@ class CommunicationServiceTest {
     String token = sut.start(CardConnectionType.CONTACT_CONNECTOR, "not-a-uuid");
 
     assertThat(token).isEqualTo("dummy-token");
+  }
+
+  @Test
+  void whenContactlessConnector_thenConnectorSessionIsUsed() {
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard()).thenReturn("egk");
+    when(connectorCommunicationServiceWrapper.startCardSession("egk"))
+        .thenReturn("connector-session");
+
+    Map<String, Object> ssl =
+        prepareMockSslSession("connector-session", CardConnectionType.CONTACTLESS_CONNECTOR);
+    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(ssl);
+    when(cardCommunicationServiceMock.getSecureChannel())
+        .thenReturn(Optional.of(mock(SecureChannel.class)));
+
+    mockImmediateTokenResponse();
+
+    String token =
+        sut.start(CardConnectionType.CONTACTLESS_CONNECTOR, UUID.randomUUID().toString());
+
+    assertThat(token).isEqualTo("dummy-token");
+    verify(connectorCommunicationServiceWrapper).startCardSession("egk");
+    verify(connectorCommunicationServiceWrapper).stopCardSession("connector-session");
   }
 
   //  @Test

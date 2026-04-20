@@ -20,9 +20,11 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+
 public interface ScenarioResultProcessor {
 
   void process(final String sessionId, final ScenarioResult scenarioResult);
 
-  String getScenarioName();
+  ScenarioId getScenarioId();
 }

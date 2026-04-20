@@ -46,9 +46,12 @@ public class StatusWordValidator {
       final StepDefinition stepDefinition = currentStepDefinitions.get(i);
       final var response = scenarioResult.scenarioResultSteps().get(i);
       final var statusWord = response.statusWord();
-      if (!stepDefinition.expectedStatusWord().contains(statusWord)) {
+      if (!stepDefinition.expectedStatusWords().contains(statusWord)) {
         throw new ValidationException(
-            "Expected StatusWord " + stepDefinition.expectedStatusWord() + " but got " + statusWord,
+            "Expected StatusWord "
+                + stepDefinition.expectedStatusWords()
+                + " but got "
+                + statusWord,
             "errorCode");
       }
     }

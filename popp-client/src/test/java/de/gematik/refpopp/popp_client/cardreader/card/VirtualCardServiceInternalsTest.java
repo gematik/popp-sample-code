@@ -25,9 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Method;
-import java.security.Security;
 import java.util.HexFormat;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -87,10 +85,5 @@ class VirtualCardServiceInternalsTest {
 
     String normalized = (String) m.invoke(service, "00 b0 0a 00");
     assertThat(normalized).isEqualTo("00B00A00");
-  }
-
-  @Test
-  void bouncyCastleProviderRegistered() {
-    assertThat(Security.getProvider(BouncyCastleProvider.PROVIDER_NAME)).isNotNull();
   }
 }

@@ -47,7 +47,7 @@ services:
 
   popp-zeta-ingress:
     container_name: popp-zeta-ingress
-    image: "nginx:1.29.4"
+    image: "nginx:1.29.7"
     ports:
       - "443:443"
     volumes:
@@ -59,7 +59,7 @@ services:
       - popp-zeta-pep
 
   popp-zeta-pep:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:0.2.4
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:0.5.1
     environment:
       - POPP_SERVER_HOST=popp-server:8443
       - HTTP_PROXY=
@@ -84,7 +84,7 @@ services:
       popp-server:
         condition: service_started # TODO: change to "service_healthy" when healthcheck is available
   popp-zeta-pdp:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:0.2.4
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:0.5.1
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
@@ -107,6 +107,9 @@ services:
       KC_LOG_LEVEL: INFO
       SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb/truststore.p12
       SMCB_KEYSTORE_PASSWORD: "changeit"
+      SMCB_HASHING_PEPPER: "-085c1245-dc0d-4d39-95b4-97496bec6182"
+      TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm/tpm-certificates.p12
+      TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_BASE_URL: http://popp-zeta-pdp-opa:8181
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/zeta/authz/decision"
@@ -127,6 +130,7 @@ services:
     volumes:
       - ./zeta/realm:/opt/keycloak/data/import
       - ./zeta/smcb:/opt/keycloak/conf/smcb
+      - ./zeta/tpm/:/opt/keycloak/conf/tpm
     networks:
       - popp-network
     healthcheck:
@@ -157,7 +161,7 @@ services:
 
   popp-zeta-pdp-opa:
     container_name: popp-zeta-pdp-opa
-    image: openpolicyagent/opa:1.11.0-static
+    image: openpolicyagent/opa:1.15.2-static
     environment:
       HTTP_PROXY: ""
       HTTPS_PROXY: ""

@@ -31,6 +31,7 @@ import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioProcessingProviderStrategyService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioProviderStrategyService;
 import de.gematik.refpopp.popp_server.scenario.openegk.OpenEgkScenarioProcessingService;
@@ -85,7 +86,7 @@ class StartMessageHandlerTest {
     final var openEgkScenarioProviderServiceMock = mock(OpenEgkScenariosProvider.class);
     when(scenarioProviderStrategyServiceMock.getProvider(any()))
         .thenReturn(openEgkScenarioProviderServiceMock);
-    final var scenario = new Scenario("scenarioName", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
 
     when(scenarioTransitionServiceMock.getCurrentScenario("session1")).thenReturn(scenario);
 

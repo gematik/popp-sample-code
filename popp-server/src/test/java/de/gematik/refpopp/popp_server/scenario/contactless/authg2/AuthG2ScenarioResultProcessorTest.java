@@ -35,6 +35,8 @@ import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
@@ -50,7 +52,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class AuthG2ScenarioResultProcessorTest {
 
@@ -78,19 +79,11 @@ class AuthG2ScenarioResultProcessorTest {
             tokenCreatorMock,
             sessionAccessorMock,
             egkHashValidationServiceMock);
-    ReflectionTestUtils.setField(sut, "authG2ScenarioName", "authG2ScenarioName");
-    ReflectionTestUtils.setField(
-        sut, "readEndEntityCvCertificateStepName", "readEndEntityCvCertificateStepName");
-    ReflectionTestUtils.setField(
-        sut, "readSubCaCvCertificateStepName", "readSubCaCvCertificateStepName");
-    ReflectionTestUtils.setField(sut, "readX509StepName", "readX509StepName");
-    ReflectionTestUtils.setField(
-        sut, "internalAuthenticationStepName", "internalAuthenticationStepName");
   }
 
   @Test
-  void getScenarioName() {
-    assertThat(sut.getScenarioName()).isEqualTo("authG2ScenarioName");
+  void getScenarioId() {
+    assertThat(sut.getScenarioId()).isEqualTo(ScenarioId.AUTH_G2);
   }
 
   @Test
@@ -103,16 +96,16 @@ class AuthG2ScenarioResultProcessorTest {
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
     when(cvcProcessorMock.createAndValidateCvcCa(
-            sessionId, scenarioResult, "readSubCaCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
-            sessionId, scenarioResult, "readEndEntityCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     final var certificateDate = mock(CertificateDate.class);
     when(cvcMock.getCed()).thenReturn(certificateDate);
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
     when(certificateDate.getDate()).thenReturn(LocalDate.now());
-    when(scenarioResultFinderMock.find(anyString(), any(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
         .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(tokenCreatorMock.createPoppToken(any(), any())).thenReturn("poppToken");
     when(sessionAccessorMock.getCvc(sessionId)).thenReturn("cvc".getBytes());
@@ -139,7 +132,7 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    when(scenarioResultFinderMock.find(anyString(), any(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
         .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
     final var cvcMock = mock(Cvc.class);
@@ -147,7 +140,7 @@ class AuthG2ScenarioResultProcessorTest {
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
     when(cvcProcessorMock.createAndValidateCvc(
-            sessionId, scenarioResult, "readEndEntityCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), any()))
         .thenReturn(checkResult);
@@ -163,7 +156,7 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    when(scenarioResultFinderMock.find(anyString(), any(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
         .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
     final var cvcMock = mock(Cvc.class);
@@ -171,7 +164,7 @@ class AuthG2ScenarioResultProcessorTest {
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
     when(cvcProcessorMock.createAndValidateCvc(
-            sessionId, scenarioResult, "readEndEntityCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), any()))
         .thenReturn(CheckResult.UNKNOWN);
@@ -192,15 +185,15 @@ class AuthG2ScenarioResultProcessorTest {
     when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
     when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(false);
     when(cvcProcessorMock.createAndValidateCvcCa(
-            sessionId, scenarioResult, "readSubCaCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
-            sessionId, scenarioResult, "readEndEntityCvCertificateStepName"))
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     final var certificateDate = mock(CertificateDate.class);
     when(cvcMock.getCed()).thenReturn(certificateDate);
     when(certificateDate.getDate()).thenReturn(LocalDate.now());
-    when(scenarioResultFinderMock.find(anyString(), any(), anyString()))
+    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
         .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
 
@@ -214,11 +207,11 @@ class AuthG2ScenarioResultProcessorTest {
 
   private static ScenarioResult createScenarioResult() {
     final var scenarioResultStep1 =
-        new ScenarioResultStep("readSubCaCvCertificateStepName", "9000", "data".getBytes());
+        new ScenarioResultStep(StepId.READ_SUB_CA_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResultStep2 =
-        new ScenarioResultStep("readEndEntityCvCertificateStepName", "9000", "data".getBytes());
+        new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResultStep3 =
-        new ScenarioResultStep("internalAuthenticationStepName", "9000", "data".getBytes());
+        new ScenarioResultStep(StepId.INTERNAL_AUTHENTICATION, "9000", "data".getBytes());
     return new ScenarioResult(
         "scenarioName", List.of(scenarioResultStep1, scenarioResultStep2, scenarioResultStep3));
   }

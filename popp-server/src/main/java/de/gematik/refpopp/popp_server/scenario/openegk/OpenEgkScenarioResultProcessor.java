@@ -27,6 +27,8 @@ import static de.gematik.refpopp.popp_server.scenario.common.provider.Communicat
 import static de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode.G3;
 
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
@@ -45,12 +47,6 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
 
   private final SessionAccessor sessionAccessor;
   private final ScenarioResultFinder scenarioResultFinder;
-
-  @Value("${scenario-names.sce-open-egk}")
-  private String openEgkScenarioName;
-
-  @Value("${step-names.read-version}")
-  private String readVersion;
 
   @Value("${scenario-vars.supported-g21-cards}")
   private List<String> supportedG21Cards;
@@ -76,8 +72,8 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   @Override
-  public String getScenarioName() {
-    return openEgkScenarioName;
+  public ScenarioId getScenarioId() {
+    return ScenarioId.OPEN_EGK;
   }
 
   private void processPtvObjSys(final String sessionId, final String ptvObjSys) {
@@ -117,7 +113,7 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
   private EfVersion readVersion(final String sessionId, final ScenarioResult scenarioResult) {
     final var rspEfVersion2 =
         scenarioResultFinder
-            .find(sessionId, scenarioResult.scenarioResultSteps(), readVersion)
+            .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION)
             .data();
     final var efV2 = (ConstructedBerTlv) BerTlv.getInstance(rspEfVersion2);
     final var versionFilling =

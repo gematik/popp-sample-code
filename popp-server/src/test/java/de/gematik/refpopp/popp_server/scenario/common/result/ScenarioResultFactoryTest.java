@@ -26,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import de.gematik.poppcommons.api.exceptions.ValidationException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,11 +44,10 @@ class ScenarioResultFactoryTest {
   @Test
   void createScenarioResult() {
     // given
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000", "6A88"));
-    final var stepDefinition2 =
-        new StepDefinition("step2", "description2", "apdu2", List.of("9000", "6A88"));
-    final var scenario = new Scenario("scenario1", List.of(stepDefinition1, stepDefinition2));
+    final var stepDefinition1 = new StepDefinition(StepId.SELECT_MASTER_FILE);
+    final var stepDefinition2 = new StepDefinition(StepId.READ_VERSION);
+    final var scenario =
+        new Scenario(ScenarioId.OPEN_EGK, List.of(stepDefinition1, stepDefinition2));
     final var responses = List.of("9000", "abcdef");
 
     // when
@@ -54,7 +55,9 @@ class ScenarioResultFactoryTest {
 
     // then
     assertThat(scenarioResult.scenarioResultSteps()).hasSize(2);
-    assertThat(scenarioResult.name()).isEqualTo("scenario1");
+    assertThat(scenarioResult.name()).isEqualTo(ScenarioId.OPEN_EGK.value());
+    assertThat(scenarioResult.scenarioResultSteps().get(0).is(StepId.SELECT_MASTER_FILE)).isTrue();
+    assertThat(scenarioResult.scenarioResultSteps().get(1).is(StepId.READ_VERSION)).isTrue();
     assertThat(scenarioResult.scenarioResultSteps().get(0).statusWord()).isEqualTo("9000");
     assertThat(scenarioResult.scenarioResultSteps().get(0).data()).isEmpty();
     assertThat(scenarioResult.scenarioResultSteps().get(1).statusWord()).isEqualTo("cdef");
@@ -64,11 +67,12 @@ class ScenarioResultFactoryTest {
   @Test
   void createScenarioResultWithExtraStepsThrowsException() {
     // given
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000", "6A88"));
-    final var stepDefinition2 =
-        new StepDefinition("step2", "description2", "apdu2", List.of("9000", "6A88"));
-    final var scenario = new Scenario("scenario1", List.of(stepDefinition1, stepDefinition2));
+    final var scenario =
+        new Scenario(
+            ScenarioId.OPEN_EGK,
+            List.of(
+                new StepDefinition(StepId.SELECT_MASTER_FILE),
+                new StepDefinition(StepId.READ_VERSION)));
     final var responses = List.of("9000");
 
     // when / then
@@ -78,9 +82,8 @@ class ScenarioResultFactoryTest {
   @Test
   void createScenarioResultWithExtraResponseStepsThrowsException() {
     // given
-    final var stepDefinition1 =
-        new StepDefinition("step1", "description1", "apdu1", List.of("9000", "6A88"));
-    final var scenario = new Scenario("scenario1", List.of(stepDefinition1));
+    final var scenario =
+        new Scenario(ScenarioId.OPEN_EGK, List.of(new StepDefinition(StepId.SELECT_MASTER_FILE)));
     final var responses = List.of("9000", "abcdef", "6A88");
 
     // when / then

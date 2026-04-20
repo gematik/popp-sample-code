@@ -25,6 +25,8 @@ import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
@@ -36,7 +38,6 @@ import de.gematik.smartcards.crypto.EcPublicKeyImpl;
 import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.math.BigInteger;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -50,21 +51,6 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
 
-  @Value("${scenario-names.auth-g2}")
-  private String authG2ScenarioName;
-
-  @Value("${step-names.read-end-entity-cv-certificate}")
-  private String readEndEntityCvCertificateStepName;
-
-  @Value("${step-names.read-sub-ca-cv-certificate}")
-  private String readSubCaCvCertificateStepName;
-
-  @Value("${step-names.read-x509}")
-  private String readX509StepName;
-
-  @Value("${step-names.internal-authentication}")
-  private String internalAuthenticationStepName;
-
   public AuthG2ScenarioResultProcessor(
       final CvcProcessor cvcProcessor,
       final ScenarioResultFinder scenarioResultFinder,
@@ -74,7 +60,6 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       final EgkHashValidationService egkHashValidationService) {
     this.cvcProcessor = cvcProcessor;
     this.scenarioResultFinder = scenarioResultFinder;
-
     this.x509CertificateProcessor = x509CertificateProcessor;
     this.tokenCreator = tokenCreator;
     this.sessionAccessor = sessionAccessor;
@@ -82,16 +67,17 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   @Override
-  public String getScenarioName() {
-    return authG2ScenarioName;
+  public ScenarioId getScenarioId() {
+    return ScenarioId.AUTH_G2;
   }
 
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     final var endEntityCvc =
         cvcProcessor.createAndValidateCvc(
-            sessionId, scenarioResult, readEndEntityCvCertificateStepName);
-    cvcProcessor.createAndValidateCvcCa(sessionId, scenarioResult, readSubCaCvCertificateStepName);
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
+    cvcProcessor.createAndValidateCvcCa(
+        sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
     verifySignatureOfNonce(sessionId, scenarioResult, endEntityCvc);
     final var x509Data = extractDataFromX509(sessionId, scenarioResult);
     checkCertificatePair(sessionId);
@@ -104,7 +90,7 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       final String sessionId, final ScenarioResult scenarioResult) {
     final var x509ResultStep =
         scenarioResultFinder.find(
-            sessionId, scenarioResult.scenarioResultSteps(), readX509StepName);
+            sessionId, scenarioResult.scenarioResultSteps(), StepId.READ_X509);
     sessionAccessor.storeAut(sessionId, x509ResultStep.data());
     return x509CertificateProcessor.extractCertificateData(sessionId, x509ResultStep.data());
   }
@@ -126,7 +112,7 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       final String sessionId, final ScenarioResult scenarioResult, final Cvc endEntityCvc) {
     final var signature =
         scenarioResultFinder
-            .find(sessionId, scenarioResult.scenarioResultSteps(), internalAuthenticationStepName)
+            .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.INTERNAL_AUTHENTICATION)
             .data();
     final var nonce = sessionAccessor.getNonce(sessionId);
     final var verified = verify(endEntityCvc.getPublicKey(), nonce, signature);

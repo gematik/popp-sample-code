@@ -1,10 +1,3 @@
-spring:
-  config:
-    import:
-      - "classpath:contact-based-scenarios.yaml"
-      - "classpath:open-egk-scenarios.yaml"
-      - "classpath:contact-less-scenarios.yaml"
-
 server:
   port: 8081
   tomcat:

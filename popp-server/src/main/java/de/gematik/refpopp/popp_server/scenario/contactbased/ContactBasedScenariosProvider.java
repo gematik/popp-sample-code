@@ -22,16 +22,32 @@ package de.gematik.refpopp.popp_server.scenario.contactbased;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.stereotype.Component;
 
-@ConfigurationProperties(prefix = "contact-based-scenarios")
-@PropertySource("classpath:contact-based-scenarios.yaml")
+@Component
 public class ContactBasedScenariosProvider extends AbstractCardScenarios {
 
-  public ContactBasedScenariosProvider(final List<Scenario> scenarios) {
+  ContactBasedScenariosProvider(final List<Scenario> scenarios) {
     super(scenarios);
+  }
+
+  public ContactBasedScenariosProvider() {
+    this(
+        List.of(
+            Scenario.of(
+                ScenarioId.READ_CVC,
+                StepId.READ_SUB_CA_CV_CERTIFICATE,
+                StepId.READ_END_ENTITY_CV_CERTIFICATE,
+                StepId.RETRIEVE_PUBLIC_KEY_IDENTIFIERS),
+            Scenario.of(ScenarioId.TRUSTED_CHANNEL_STEP_1, StepId.SELECT_PRIVATE_KEY),
+            Scenario.of(
+                ScenarioId.READ_X509,
+                StepId.MUTUAL_AUTHENTICATION_STEP_2,
+                StepId.SELECT_DF_ESIGN,
+                StepId.READ_EF_C_CH_AUT_E256)));
   }
 
   @Override

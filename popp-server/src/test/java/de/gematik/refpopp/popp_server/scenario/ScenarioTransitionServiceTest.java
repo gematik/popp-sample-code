@@ -31,6 +31,8 @@ import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.util.List;
 import java.util.Optional;
@@ -54,19 +56,16 @@ class ScenarioTransitionServiceTest {
   void getCurrentScenarioReturnsScenario() {
     // given
     final var sessionId = "sessionId";
-    final var expectedStatusWord = List.of("9000", "6281");
-    final var state =
-        new StepDefinition("name1", "description1", "commandApdu1", expectedStatusWord);
-    final var state2 =
-        new StepDefinition("name2", "description2", "commandApdu2", expectedStatusWord);
-    sessionContainer.storeScenario(sessionId, new Scenario("scenario", List.of(state, state2)));
+    final var step1 = new StepDefinition(StepId.SELECT_MASTER_FILE);
+    final var step2 = new StepDefinition(StepId.READ_VERSION);
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of(step1, step2));
+    sessionContainer.storeScenario(sessionId, scenario);
 
     // when
     final var actual = sut.getCurrentScenario(sessionId);
 
     // then
-    assertThat(actual.name()).isEqualTo("scenario");
-    assertThat(actual.stepDefinitions()).isEqualTo(List.of(state, state2));
+    assertThat(actual).isEqualTo(scenario);
   }
 
   @Test
@@ -86,14 +85,14 @@ class ScenarioTransitionServiceTest {
   @Test
   void getNextScenarioReturnsNextScenario() {
     // given
-    final var expectedStatusWord = List.of("9000", "6281");
     final var sessionId = "sessionId";
-    final var state =
-        new StepDefinition("name1", "description1", "commandApdu1", expectedStatusWord);
-    final var state2 =
-        new StepDefinition("name2", "description2", "commandApdu2", expectedStatusWord);
-    final var scenario1 = new Scenario("scenario", List.of(state));
-    final var scenario2 = new Scenario("scenario", List.of(state2));
+    final var scenario1 =
+        new Scenario(
+            ScenarioId.READ_CVC, List.of(new StepDefinition(StepId.READ_SUB_CA_CV_CERTIFICATE)));
+    final var scenario2 =
+        new Scenario(
+            ScenarioId.TRUSTED_CHANNEL_STEP_1,
+            List.of(new StepDefinition(StepId.SELECT_PRIVATE_KEY)));
     when(cardScenarioProviderMock.getNextScenario(scenario1)).thenReturn(Optional.of(scenario2));
 
     // when
@@ -108,8 +107,9 @@ class ScenarioTransitionServiceTest {
   void getNextScenarioThrowsExceptionWhenNoNextScenarioFound() {
     // given
     final var sessionId = "sessionId";
-    final var state = new StepDefinition("name1", "description1", "commandApdu1", List.of());
-    final var scenario1 = new Scenario("scenario", List.of(state));
+    final var scenario1 =
+        new Scenario(
+            ScenarioId.READ_X509, List.of(new StepDefinition(StepId.READ_EF_C_CH_AUT_E256)));
 
     // when
     final var actual =

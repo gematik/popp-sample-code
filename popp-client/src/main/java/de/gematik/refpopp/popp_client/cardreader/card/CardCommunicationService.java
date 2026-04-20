@@ -162,7 +162,7 @@ public class CardCommunicationService {
     try {
       final var cmd = CommandApdu.Companion.fromBytes(commandAPDU.getBytes());
       final var response = secureChannel.transmit(cmd);
-      return new ResponseAPDU(response.toBytes());
+      return new ResponseAPDU(responseApduToBytes(response));
     } catch (final ApduException | SecureChannelException e) {
       throw new IllegalStateException(e);
     }
@@ -215,11 +215,15 @@ public class CardCommunicationService {
       final de.gematik.openhealth.healthcard.CardChannel cardChannel,
       final CardAccessNumber cardAccessNumber)
       throws SecureChannelException {
-    return HealthcardKt.establishSecureChannel(cardChannel, cardAccessNumber);
+    return Openhealth_healthcardKt.establishSecureChannel(cardChannel, cardAccessNumber);
   }
 
   protected byte[] commandApduToBytes(final CommandApdu commandApdu) {
-    return commandApdu.toBytes();
+    return commandApdu.toVec().cloneAsNonzeroizingVec();
+  }
+
+  protected byte[] responseApduToBytes(final ResponseApdu responseApdu) {
+    return responseApdu.toVec().cloneAsNonzeroizingVec();
   }
 
   protected ResponseApdu responseApduFromBytes(final byte[] bytes) throws ApduException {
@@ -228,7 +232,7 @@ public class CardCommunicationService {
 
   protected boolean isContactless() {
     // perform some card operation that is only allowed with PACE on contactless readers
-    final CommandAPDU commandAPDU = new CommandAPDU(0x00, 0xB0, 0x87, 0x00, 0x100);
+    final CommandAPDU commandAPDU = createContactlessDetectionApdu();
     final ResponseAPDU responseAPDU;
     try {
       responseAPDU =
@@ -243,6 +247,15 @@ public class CardCommunicationService {
       return false;
     } else {
       return responseAPDU.getSW() == APDU_RESPONSE_CODE_SECURITY_CONDITION_NOT_SATISFIED;
+    }
+  }
+
+  protected CommandAPDU createContactlessDetectionApdu() {
+    try {
+      final var command = HealthCardCommand.Companion.readSfiWithOffsetAndLength(0x07, 0, 256);
+      return new CommandAPDU(command.toApdu(false).toVec().cloneAsNonzeroizingVec());
+    } catch (final ApduException | CommandBuilderException e) {
+      throw new IllegalStateException(e);
     }
   }
 }

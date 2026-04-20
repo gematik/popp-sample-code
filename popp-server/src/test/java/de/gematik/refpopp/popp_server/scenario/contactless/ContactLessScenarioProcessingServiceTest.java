@@ -23,7 +23,7 @@ package de.gematik.refpopp.popp_server.scenario.contactless;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,12 +37,13 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScena
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
 
 class ContactLessScenarioProcessingServiceTest {
 
@@ -67,7 +68,6 @@ class ContactLessScenarioProcessingServiceTest {
             scenarioMessageFactoryMock,
             clientCommunicationServiceMock,
             scenarioTransitionServiceMock);
-    ReflectionTestUtils.setField(sut, "scenarioName", "auth-g2");
   }
 
   @Test
@@ -82,7 +82,7 @@ class ContactLessScenarioProcessingServiceTest {
   @Test
   void isLastScenarioReturnsTrueForAuthG2() {
     // given
-    final var scenario = new Scenario("auth-g2", List.of());
+    final var scenario = new Scenario(ScenarioId.AUTH_G2, List.of());
 
     // when
     final var actual = sut.isLastScenario(scenario);
@@ -94,7 +94,7 @@ class ContactLessScenarioProcessingServiceTest {
   @Test
   void isLastScenarioReturnsFalseForDifferentScenario() {
     // given
-    final var scenario = new Scenario("different", List.of());
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of());
 
     // when
     final var actual = sut.isLastScenario(scenario);
@@ -104,38 +104,34 @@ class ContactLessScenarioProcessingServiceTest {
   }
 
   @Test
-  void processScenarioCreatesApduWithNonce() {
+  void processScenarioStoresNonceAndStoresTypedScenario() {
     // given
-    final var stepDefinition1 =
-        new StepDefinition("step1", "test1", "apdu1", List.of("9000", "6281"));
-    final var stepDefinition2 =
-        new StepDefinition("step2", "test2", "apdu2", List.of("9000", "6281"));
-    final var stepDefinition3 =
-        new StepDefinition("step3", "test3", "apdu3 nonce 00", List.of("9000"));
-    final var lastScenario = new Scenario("scenario", List.of(stepDefinition1));
+    final var stepDefinition1 = new StepDefinition(StepId.READ_VERSION);
+    final var stepDefinition2 = new StepDefinition(StepId.READ_X509);
+    final var stepDefinition3 = new StepDefinition(StepId.INTERNAL_AUTHENTICATION);
+    final var lastScenario = new Scenario(ScenarioId.OPEN_EGK, List.of(stepDefinition1));
     final var nextScenario =
-        new Scenario("nextScenario", List.of(stepDefinition2, stepDefinition3));
+        new Scenario(ScenarioId.AUTH_G2, List.of(stepDefinition2, stepDefinition3));
 
     when(scenarioTransitionServiceMock.getNextScenario(anyString(), any(), any()))
         .thenReturn(nextScenario);
     final var sessionId = "sessionId";
     when(sessionCommunicationMock.getSessionId()).thenReturn(sessionId);
-    final var scenarioArgumentCaptor = ArgumentCaptor.forClass(Scenario.class);
 
     // when
     sut.processScenario(sessionCommunicationMock, lastScenario, cardScenarioProviderMock);
 
     // then
-    verify(sessionAccessorMock).storeScenario(eq(sessionId), scenarioArgumentCaptor.capture());
-    final var actualScenario = scenarioArgumentCaptor.getValue();
-    assertThat(actualScenario.stepDefinitions()).hasSize(2);
-    assertThat(actualScenario.stepDefinitions().get(1).commandApdu()).doesNotContain("nonce");
+    final ArgumentCaptor<byte[]> nonceCaptor = ArgumentCaptor.forClass(byte[].class);
+    verify(sessionAccessorMock).storeNonce(same(sessionId), nonceCaptor.capture());
+    assertThat(nonceCaptor.getValue()).isNotNull();
+    verify(sessionAccessorMock).storeScenario(sessionId, nextScenario);
   }
 
   @Test
   void processScenarioIsLastScenario() {
     // given
-    final var lastScenario = new Scenario("auth-g2", List.of());
+    final var lastScenario = new Scenario(ScenarioId.AUTH_G2, List.of());
     when(sessionCommunicationMock.getSessionId()).thenReturn("sessionId");
     when(sessionAccessorMock.getPoppToken(anyString())).thenReturn("poppToken");
 
@@ -143,8 +139,10 @@ class ContactLessScenarioProcessingServiceTest {
     sut.processScenario(sessionCommunicationMock, lastScenario, cardScenarioProviderMock);
 
     // then
+    final ArgumentCaptor<TokenMessage> messageCaptor = ArgumentCaptor.forClass(TokenMessage.class);
     verify(clientCommunicationServiceMock)
-        .sendMessage(any(TokenMessage.class), eq(sessionCommunicationMock));
+        .sendMessage(messageCaptor.capture(), same(sessionCommunicationMock));
+    assertThat(messageCaptor.getValue()).isNotNull();
     verify(sessionCommunicationMock).closeSession();
   }
 }

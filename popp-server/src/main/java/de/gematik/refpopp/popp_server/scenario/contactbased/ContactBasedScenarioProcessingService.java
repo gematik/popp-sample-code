@@ -28,20 +28,14 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScena
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractScenarioProcessingService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 public class ContactBasedScenarioProcessingService extends AbstractScenarioProcessingService {
-
-  @Value("${scenario-names.sce-read-x509}")
-  private String readX509ScenarioName;
-
-  @Value("${scenario-names.sce-read-cvc}")
-  private String readCvcScenarioName;
 
   private final SessionAccessor sessionAccessor;
 
@@ -65,7 +59,7 @@ public class ContactBasedScenarioProcessingService extends AbstractScenarioProce
 
   @Override
   public boolean isLastScenario(final Scenario currentScenario) {
-    return readX509ScenarioName.equalsIgnoreCase(currentScenario.name());
+    return currentScenario.is(ScenarioId.READ_X509);
   }
 
   @Override
@@ -82,7 +76,7 @@ public class ContactBasedScenarioProcessingService extends AbstractScenarioProce
     var nextScenario =
         getNextScenario(session.getSessionId(), lastScenarioSentToClient, cardScenarioProvider);
 
-    if (readCvcScenarioName.equalsIgnoreCase(lastScenarioSentToClient.name())) {
+    if (lastScenarioSentToClient.is(ScenarioId.READ_CVC)) {
       nextScenario = addAdditionalStepsWhenPresent(session.getSessionId(), nextScenario);
     }
     sessionAccessor.storeScenario(session.getSessionId(), nextScenario);
@@ -91,12 +85,11 @@ public class ContactBasedScenarioProcessingService extends AbstractScenarioProce
 
   private Scenario addAdditionalStepsWhenPresent(
       final String sessionId, final Scenario nextScenario) {
-    final var newScenario = new Scenario(nextScenario.name(), nextScenario.stepDefinitions());
     final var cvcListToImport = sessionAccessor.getOpenContactIccCvcList(sessionId);
     if (cvcListToImport.isPresent()) {
       final var steps = cvcListToImport.get();
-      return newScenario.addAdditionalSteps(steps);
+      return nextScenario.addAdditionalSteps(steps);
     }
-    return newScenario;
+    return nextScenario;
   }
 }

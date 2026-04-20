@@ -20,18 +20,19 @@
 
 package de.gematik.refpopp.popp_client.cardreader.card;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
+import de.gematik.openhealth.asn1.Asn1TagClass;
+import de.gematik.openhealth.asn1.Asn1TagForm;
+import de.gematik.openhealth.asn1.Openhealth_asn1Kt;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
-import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import de.gematik.smartcards.g2icc.cvc.TrustCenter;
-import de.gematik.smartcards.sdcom.apdu.CommandApdu;
-import de.gematik.smartcards.sdcom.apdu.ResponseApdu;
-import de.gematik.smartcards.utils.Hex;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import org.assertj.core.api.Assertions;
@@ -41,10 +42,11 @@ import org.mockito.Mockito;
 import org.springframework.context.ApplicationEventPublisher;
 
 class VirtualCardServiceTest {
-  private static final Path REPO_ROOT =
-      Path.of(System.getProperty("user.dir")).toAbsolutePath().getParent();
-  private static final Path POPP_SERVER_RESOURCES =
-      REPO_ROOT.resolve("popp-server/src/main/resources");
+  private static final String GENERAL_AUTHENTICATE_STEP_1 =
+      "10 86 0000107c0ec30c000a8027600101169990210100";
+  private static final String GENERAL_AUTHENTICATE_STEP_2 =
+      "00 86 0000    45"
+          + " 7c43854104987fce93bfc191e4db006b56f8fd5f749d256fc5842f0f3f31becf613ce146f66318f77ff7ee51c10b6b6a0f349896400c7601bfc07608ff08fe0ce1d921ca42";
 
   private VirtualCardService virtualCardService;
 
@@ -62,9 +64,8 @@ class VirtualCardServiceTest {
             "00 b0 8600    00",
             "80 ca 0100    00   0000",
             "00 22 41A4    06   840109  800154",
-            "10 86 0000107c0ec30c000a8027600101169990210100",
-            "00 86 0000    45"
-                + " 7c43854104987fce93bfc191e4db006b56f8fd5f749d256fc5842f0f3f31becf613ce146f66318f77ff7ee51c10b6b6a0f349896400c7601bfc07608ff08fe0ce1d921ca42",
+            GENERAL_AUTHENTICATE_STEP_1,
+            GENERAL_AUTHENTICATE_STEP_2,
             "00 a4 040c   0a   a000000167455349474e",
             "00 b0 8400   00   0000");
   }
@@ -88,11 +89,10 @@ class VirtualCardServiceTest {
     ScenarioStep step3 = Mockito.mock(ScenarioStep.class);
     ScenarioStep step4 = Mockito.mock(ScenarioStep.class);
 
-    when(step1.getCommandApdu()).thenReturn("00b0860000"); // read-end-entity-cv-certificate
-    when(step2.getCommandApdu())
-        .thenReturn("10860000107c0ec30c000a8027600101169990210100"); // mutual-authentication-step-1
-    when(step3.getCommandApdu()).thenReturn("00b08400000000"); // read-ef-c-ch-aut-e256
-    when(step4.getCommandApdu()).thenReturn("00a4040c07D2760001448000"); // select-master-file
+    when(step1.getCommandApdu()).thenReturn("00b0860000");
+    when(step2.getCommandApdu()).thenReturn(GENERAL_AUTHENTICATE_STEP_1);
+    when(step3.getCommandApdu()).thenReturn("00b08400000000");
+    when(step4.getCommandApdu()).thenReturn("00a4040c07D2760001448000");
 
     List<String> responses = virtualCardService.process(List.of(step1, step2, step3, step4));
 
@@ -100,17 +100,17 @@ class VirtualCardServiceTest {
 
     assertEquals(
         virtualCardService.getCvcCertificate() + VirtualCardService.APDU_RESPONSE_OK,
-        responses.get(0)); // read-end-entity-cv-certificate
+        responses.get(0));
     assertEquals(
         VirtualCardService.APDU_RESPONSE_OK,
         responses
             .get(1)
             .substring(responses.get(1).length() - VirtualCardService.APDU_RESPONSE_OK.length()));
-    assertTrue(responses.get(1).startsWith("7C")); // mutual-authentication-step-1
+    assertTrue(responses.get(1).startsWith("7C"));
     assertEquals(
         virtualCardService.getAuthCertificate() + VirtualCardService.APDU_RESPONSE_OK,
-        responses.get(2)); // read-ef-c-ch-aut-e256
-    assertEquals(VirtualCardService.APDU_RESPONSE_OK, responses.get(3)); // select-master-file
+        responses.get(2));
+    assertEquals(VirtualCardService.APDU_RESPONSE_OK, responses.get(3));
 
     verify(step1).getCommandApdu();
     verify(step2).getCommandApdu();
@@ -172,6 +172,53 @@ class VirtualCardServiceTest {
   }
 
   @Test
+  void processSupportsOpenHealthDefaultsWithoutConfiguredCommandApdus() {
+    final var eventPublisher = mock(ApplicationEventPublisher.class);
+    final var service =
+        new VirtualCardService(eventPublisher, "", "", "", "", "", "", "", "", "", "", "");
+    service.setCvcCertificate("CVC_CERT");
+    service.setAuthCertificate("AUTH_CERT");
+
+    final var responses =
+        service.process(
+            List.of(
+                new ScenarioStep("00 A4 04 0C 07 D2760001448000", List.of("9000")),
+                new ScenarioStep("00 B0 91 00 00", List.of("9000")),
+                new ScenarioStep("00 B0 87 00 00", List.of("9000")),
+                new ScenarioStep("80 CA 01 00 00 00 00", List.of("9000")),
+                new ScenarioStep("00 B0 86 00 00", List.of("9000")),
+                new ScenarioStep(GENERAL_AUTHENTICATE_STEP_1, List.of("9000")),
+                new ScenarioStep("00 86 0000", List.of("9000")),
+                new ScenarioStep("00 B0 84 00 00 00 00", List.of("9000")),
+                new ScenarioStep("0C B0 84 00 00", List.of("9000")),
+                new ScenarioStep("0C A4 04 0C 0A A000000167455349474E", List.of("9000"))));
+
+    Assertions.assertThat(responses.get(0)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(1))
+        .isEqualTo(
+            VirtualCardService.APDU_RESPONSE_READ_VERSION + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(2))
+        .isEqualTo(
+            VirtualCardService.APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE
+                + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(3))
+        .isEqualTo(
+            VirtualCardService.APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS
+                + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(4))
+        .isEqualTo("CVC_CERT" + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(5))
+        .startsWith("7C")
+        .endsWith(VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(6)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(7))
+        .isEqualTo("AUTH_CERT" + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(8))
+        .isEqualTo("AUTH_CERT" + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(responses.get(9)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+  }
+
+  @Test
   void processReturnsOkForUnknownApdu() {
     final var eventPublisher = mock(ApplicationEventPublisher.class);
     final var service =
@@ -196,7 +243,7 @@ class VirtualCardServiceTest {
   }
 
   @Test
-  void processReturnsProtectedResponseForSecureMessagingRead() throws Exception {
+  void processReturnsProtectedResponseForSecureMessagingRead() {
     final var eventPublisher = mock(ApplicationEventPublisher.class);
     final var service =
         new VirtualCardService(
@@ -208,89 +255,51 @@ class VirtualCardServiceTest {
             "00 b0 8600    00",
             "80 ca 0100    00   0000",
             "00 22 41A4    06   840109  800154",
-            "10 86 0000107c0ec30c000a8027600101169990210100",
-            "00 86 0000    45"
-                + " 7c43854104987fce93bfc191e4db006b56f8fd5f749d256fc5842f0f3f31becf613ce146f66318f77ff7ee51c10b6b6a0f349896400c7601bfc07608ff08fe0ce1d921ca42",
+            GENERAL_AUTHENTICATE_STEP_1,
+            GENERAL_AUTHENTICATE_STEP_2,
             "00 a4 040c   0a   a000000167455349474e",
             "00 b0 8400   00   0000");
 
-    final var serverConverter = newServerSecureMessagingConverter();
-    serverConverter.importCvc(new Cvc(HexFormat.of().parseHex(service.getCvcCertificate())));
-
     final var step1Response =
-        service.process(
-            List.of(
-                new ScenarioStep(
-                    "10 86 0000107c0ec30c000a8027600101169990210100", List.of("9000"))));
-    final var generalAuthenticateStep2 =
-        serverConverter.getGeneralAuthenticateStep2(new ResponseApdu(step1Response.getFirst()));
+        service.process(List.of(new ScenarioStep(GENERAL_AUTHENTICATE_STEP_1, List.of("9000"))));
+
+    Assertions.assertThat(step1Response.getFirst())
+        .startsWith("7C")
+        .endsWith(VirtualCardService.APDU_RESPONSE_OK);
 
     final var handshakeResponses =
         service.process(
             List.of(
-                new ScenarioStep(
-                    Hex.toHexDigits(generalAuthenticateStep2.getBytes()), List.of("9000")),
-                new ScenarioStep(
-                    Hex.toHexDigits(
-                        serverConverter
-                            .secureCommand(new CommandApdu("00 A4 04 0C 0A A000000167455349474E"))
-                            .getBytes()),
-                    List.of("9000")),
-                new ScenarioStep(
-                    Hex.toHexDigits(
-                        serverConverter
-                            .secureCommand(new CommandApdu("00 B0 84 00 00"))
-                            .getBytes()),
-                    List.of("9000"))));
+                new ScenarioStep(GENERAL_AUTHENTICATE_STEP_2, List.of("9000")),
+                new ScenarioStep("0C A4 04 0C 0A A000000167455349474E", List.of("9000")),
+                new ScenarioStep("0C B0 84 00 00", List.of("9000"))));
 
     Assertions.assertThat(handshakeResponses.get(0)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(handshakeResponses.get(1)).endsWith(VirtualCardService.APDU_RESPONSE_OK);
-    Assertions.assertThat(handshakeResponses.get(2)).startsWith("8182");
+    Assertions.assertThat(handshakeResponses.get(2)).startsWith("81");
 
-    final var unprotectedSelectResponse =
-        serverConverter.unsecureResponse(new ResponseApdu(handshakeResponses.get(1)));
-    Assertions.assertThat(Integer.toHexString(unprotectedSelectResponse.getSw())).isEqualTo("9000");
+    final byte[] selectStatusWord = readProtectedField(handshakeResponses.get(1), 0x19);
+    final byte[] selectMac = readProtectedField(handshakeResponses.get(1), 0x0E);
+    final byte[] responseData = readProtectedField(handshakeResponses.get(2), 0x01);
+    final byte[] responseStatusWord = readProtectedField(handshakeResponses.get(2), 0x19);
+    final byte[] responseMac = readProtectedField(handshakeResponses.get(2), 0x0E);
 
-    final var unprotectedResponse =
-        serverConverter.unsecureResponse(new ResponseApdu(handshakeResponses.get(2)));
-
-    Assertions.assertThat(Hex.toHexDigits(unprotectedResponse.getData()))
-        .isEqualToIgnoringCase(service.getAuthCertificate());
-    Assertions.assertThat(Integer.toHexString(unprotectedResponse.getSw())).isEqualTo("9000");
+    Assertions.assertThat(selectStatusWord).containsExactly((byte) 0x90, 0x00);
+    Assertions.assertThat(selectMac).hasSize(8);
+    Assertions.assertThat(responseData)
+        .isEqualTo(HexFormat.of().parseHex(service.getAuthCertificate()));
+    Assertions.assertThat(responseStatusWord).containsExactly((byte) 0x90, 0x00);
+    Assertions.assertThat(responseMac).hasSize(8);
   }
 
-  private SecureMessagingConverterSoftware newServerSecureMessagingConverter() throws Exception {
-    TrustCenter.initializeCache(POPP_SERVER_RESOURCES.resolve("identities/PKI_CVC.G2"));
-    final var subCaCvc = loadSubCaCvc();
-    final var endEntityCvc = loadPoppServiceEndEntityCvc();
-    final var privateKeyBytes =
-        Files.readAllBytes(
-            POPP_SERVER_RESOURCES.resolve(
-                "identities/PoPP26-Server/80276001011699902101-cvc-flag0/80276001011699902101-cvc-flag0.prv"));
-    final var privateKey =
-        (java.security.interfaces.ECPrivateKey)
-            java.security.KeyFactory.getInstance("EC", "BC")
-                .generatePrivate(new java.security.spec.PKCS8EncodedKeySpec(privateKeyBytes));
-    return new SecureMessagingConverterSoftware(subCaCvc, endEntityCvc, privateKey);
-  }
-
-  private Cvc loadSubCaCvc() throws Exception {
-    final String text =
-        Files.readString(
-            POPP_SERVER_RESOURCES.resolve(
-                "identities/PKI_CVC.G2/trusted/DEGXX_8-7-02-22/DEGXX_1-2-02-23/DEGXX_1-2-02-23_CV-Certificate.txt"));
-    final var start = text.indexOf('\'');
-    final var end = text.indexOf('\'', start + 1);
-    return new Cvc(HexFormat.of().parseHex(text.substring(start + 1, end)));
-  }
-
-  private Cvc loadPoppServiceEndEntityCvc() throws Exception {
-    final String text =
-        Files.readString(
-            POPP_SERVER_RESOURCES.resolve(
-                "identities/PKI_CVC.G2/trusted/DEGXX_8-7-02-22/DEGXX_1-2-02-23/000a_80-276-00101-1699902101/000a_80-276-00101-1699902101_CV-Certificate.txt"));
-    final var start = text.indexOf('\'');
-    final var end = text.indexOf('\'', start + 1);
-    return new Cvc(HexFormat.of().parseHex(text.substring(start + 1, end)));
+  private byte[] readProtectedField(final String responseHex, final int tagNumber) {
+    try {
+      final byte[] responseBytes = HexFormat.of().parseHex(responseHex);
+      final byte[] payload = Arrays.copyOf(responseBytes, responseBytes.length - 2);
+      return Openhealth_asn1Kt.readTaggedObjectValue(
+          payload, Asn1TagClass.CONTEXT_SPECIFIC, Asn1TagForm.PRIMITIVE, tagNumber);
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to read protected response field", e);
+    }
   }
 }

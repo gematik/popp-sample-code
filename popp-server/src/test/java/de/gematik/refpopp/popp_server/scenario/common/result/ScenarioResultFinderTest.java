@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.stereotype.Component;
@@ -35,19 +36,20 @@ class ScenarioResultFinderTest {
   void testFindScenarioResultStepSuccess() {
     // given
     final var sessionId = "testSessionId";
-    final var name = "Step1";
     final var steps =
         List.of(
-            new ScenarioResult.ScenarioResultStep("Step1", "9000", new byte[] {1, 2, 3}),
-            new ScenarioResult.ScenarioResultStep("Step2", "6831", new byte[] {4, 5, 6}));
+            new ScenarioResult.ScenarioResultStep(
+                StepId.SELECT_MASTER_FILE, "9000", new byte[] {1, 2, 3}),
+            new ScenarioResult.ScenarioResultStep(
+                StepId.READ_VERSION, "6831", new byte[] {4, 5, 6}));
     final var finder = new ScenarioResultFinder();
 
     // when
-    final var result = finder.find(sessionId, steps, name);
+    final var result = finder.find(sessionId, steps, StepId.SELECT_MASTER_FILE);
 
     // then
     assertThat(result).isNotNull();
-    assertThat(result.name()).isEqualTo(name);
+    assertThat(result.is(StepId.SELECT_MASTER_FILE)).isTrue();
   }
 
   @Test
