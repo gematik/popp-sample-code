@@ -39,8 +39,7 @@ public class ServiceConfiguration {
 
   @Bean
   public ObjectMapper objectMapper() {
-    ObjectMapper mapper = new ObjectMapper();
-    return mapper;
+    return new ObjectMapper();
   }
 
   @Bean
@@ -76,6 +75,13 @@ public class ServiceConfiguration {
     return new KeyStoreLoader(location, password);
   }
 
+  @Bean("federationKeyStoreLoader")
+  public KeyStoreLoader federationKeyStoreLoader(
+      @Value("${certificates.federation-keystore}") final Resource location,
+      @Value("${certificates.federation-keystore-password}") final String password) {
+    return new KeyStoreLoader(location, password);
+  }
+
   @Bean("connectorKeyStoreLoader")
   public KeyStoreLoader connectorKeyStoreLoader(
       @Value("${certificates.connector-keystore}") final Resource location,
@@ -96,6 +102,12 @@ public class ServiceConfiguration {
 
   @Bean("poppKeyStore")
   public KeyStore poppKeyStore(@Qualifier("poppKeyStoreLoader") final KeyStoreLoader loader) {
+    return loader.load();
+  }
+
+  @Bean("federationKeyStore")
+  public KeyStore federationKeyStore(
+      @Qualifier("federationKeyStoreLoader") final KeyStoreLoader loader) {
     return loader.load();
   }
 }

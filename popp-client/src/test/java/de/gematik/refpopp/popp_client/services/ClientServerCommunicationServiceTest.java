@@ -20,11 +20,9 @@
 
 package de.gematik.refpopp.popp_client.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
 import de.gematik.refpopp.popp_client.client.ClientServerCommunicationService;
@@ -62,7 +60,7 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
-  void alreadyConnected() throws InterruptedException {
+  void alreadyConnected() {
     // given
     when(webSocketClientMock.isOpen()).thenReturn(true);
 
@@ -74,7 +72,7 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
-  void connectSuccessfully() throws InterruptedException {
+  void connectSuccessfully() {
     // given
     when(webSocketClientMock.isClosed()).thenReturn(true);
 
@@ -140,5 +138,79 @@ class ClientServerCommunicationServiceTest {
 
     // then
     verify(webSocketClientMock).getSSLSession();
+  }
+
+  @Test
+  void connectDoesNotCallConnectBlockingWhenSocketIsNotClosed() {
+    // given
+    when(webSocketClientMock.isClosed()).thenReturn(false);
+    when(webSocketClientMock.isOpen()).thenReturn(true);
+
+    // when
+    sut.connect();
+
+    // then
+    verify(webSocketClientMock, never()).connectBlocking();
+  }
+
+  @Test
+  void sendMessageThrowsExceptionWhenSocketBecomesClosed() {
+    // given
+    when(webSocketClientMock.isClosed()).thenReturn(false);
+    when(objectMapperMock.writeValueAsString(any())).thenReturn("message");
+    sut.connect();
+    when(webSocketClientMock.isClosed()).thenReturn(true);
+    final var responseMessage = new ScenarioResponseMessage(List.of("9000", "abcdef"));
+
+    // when & then
+    assertThrows(IllegalStateException.class, () -> sut.sendMessage(responseMessage));
+  }
+
+  @Test
+  void connectBothIsClosedAndIsOpenFalseBehavior() {
+    // given
+    when(webSocketClientMock.isClosed()).thenReturn(false);
+    when(webSocketClientMock.isOpen()).thenReturn(false);
+
+    // when
+    sut.connect();
+
+    // then
+    verify(webSocketClientMock).connectBlocking();
+  }
+
+  @Test
+  void sendMessageRequiresEstablishedConnection() {
+    // given
+    when(webSocketClientMock.isClosed()).thenReturn(true);
+    when(objectMapperMock.writeValueAsString(any())).thenReturn("message");
+    sut.connect();
+    final var responseMessage = new ScenarioResponseMessage(List.of("9000", "abcdef"));
+
+    // when & then
+    assertThrows(IllegalStateException.class, () -> sut.sendMessage(responseMessage));
+    verify(webSocketClientMock, never()).send(any());
+  }
+
+  @Test
+  void connect_interruptsThread_whenConnectBlockingThrows() {
+    // given
+    var clientMock = mock(SecureWebSocketClient.class);
+
+    when(clientMock.isClosed()).thenReturn(true);
+    when(clientMock.isOpen()).thenReturn(false);
+    doThrow(new RuntimeException("boom")).when(clientMock).connectBlocking();
+    when(webSocketClientProviderMock.getObject()).thenReturn(clientMock);
+
+    Thread.interrupted();
+
+    // when
+    sut.connect();
+
+    // then
+    verify(clientMock).connectBlocking();
+    assertThat(Thread.currentThread().isInterrupted()).isTrue();
+
+    Thread.interrupted();
   }
 }

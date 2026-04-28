@@ -7,9 +7,8 @@ springdoc:
   api-docs:
     enabled: true
 
-# obtain the Rise URL via the "Gematik-Anfrageportal" and configure it here
 popp-server:
-  url: wss://popp-zeta-ingress:443/ws
+  url: wss://popp.dev.poppservice.de:443/popp/practitioner/api/v1/token-generation-ehc
 connector:
   end-point-url: ${CONNECTOR_END_POINT_URL:http://ti-konnektor/cardservice}
 

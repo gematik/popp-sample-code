@@ -44,6 +44,15 @@ jwt-token:
   connector:
     typ: "JWT"
 
+federation:
+  base-url: "http://popp-server:8443"
+  org-name: "gematik GmbH"
+  issuer: "http://popp-server:8443"
+  subject: "http://popp-server:8443"
+  master-issuer: "https://app-ref.federationmaster.de"
+  entity-signing-alias: "entity-signing"
+  popp-token-signing-alias: "popp-token-server-nist-komp61"
+
 scenario-vars:
   # Connector sequences need a positive time-span for non-final scenario messages.
   time-span: 5000

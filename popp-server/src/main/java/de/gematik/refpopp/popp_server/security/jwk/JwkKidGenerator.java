@@ -18,18 +18,21 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server;
+package de.gematik.refpopp.popp_server.security.jwk;
 
-import de.gematik.refpopp.popp_server.federation.FederationProperties;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import java.security.interfaces.ECPublicKey;
+import java.util.Base64;
+import org.jose4j.jwk.JsonWebKey;
+import org.jose4j.lang.JoseException;
+import org.springframework.stereotype.Component;
 
-@SpringBootApplication
-@EnableConfigurationProperties({FederationProperties.class})
-public class PoppServerApplication {
+@Component
+public class JwkKidGenerator {
 
-  public static void main(final String[] args) {
-    SpringApplication.run(PoppServerApplication.class, args);
+  public String generate(final ECPublicKey publicKey) throws JoseException {
+    final var jsonWebKey = JsonWebKey.Factory.newJwk(publicKey);
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(jsonWebKey.calculateThumbprint("SHA-256"));
   }
 }

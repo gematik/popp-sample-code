@@ -22,16 +22,14 @@ package de.gematik.refpopp.popp_server.scenario.common.token;
 
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import de.gematik.refpopp.popp_server.security.jwk.JwkKidGenerator;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.util.Base64;
-import java.util.Base64.Encoder;
 import java.util.HashMap;
 import java.util.Map;
+import org.jose4j.lang.JoseException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -48,17 +46,11 @@ final class TokenHeader {
   @Value("${certificates.ocsp-response:}")
   private String ocspResponsePath;
 
-  private static final ThreadLocal<MessageDigest> THREAD_LOCAL_DIGEST =
-      ThreadLocal.withInitial(
-          () -> {
-            try {
-              return MessageDigest.getInstance("SHA-256");
-            } catch (NoSuchAlgorithmException e) {
-              throw new IllegalStateException("SHA-256 algorithm not available", e);
-            }
-          });
+  private final JwkKidGenerator jwkKidGenerator;
 
-  private static final Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
+  TokenHeader(JwkKidGenerator jwkKidGenerator) {
+    this.jwkKidGenerator = jwkKidGenerator;
+  }
 
   Map<String, Object> createHeader(
       final X509Certificate signerCertificate,
@@ -68,7 +60,11 @@ final class TokenHeader {
     final Map<String, Object> headers;
 
     if (tokenType == TokenType.POPP) {
-      headers = createHeadersForPoppToken(publicKey);
+      try {
+        headers = createHeadersForPoppToken(publicKey);
+      } catch (JoseException e) {
+        throw new ScenarioException(sessionId, "Could not create kid", "errorCode");
+      }
     } else {
       headers = createHeadersForConnectorToken(signerCertificate, sessionId);
     }
@@ -92,10 +88,11 @@ final class TokenHeader {
     return headers;
   }
 
-  private Map<String, Object> createHeadersForPoppToken(final ECPublicKey publicKey) {
+  private Map<String, Object> createHeadersForPoppToken(final ECPublicKey publicKey)
+      throws JoseException {
     final var headers = new HashMap<String, Object>();
     headers.put(Header.TYP.value, poppTokenType);
-    headers.put(Header.KID.value, getKeyId(publicKey));
+    headers.put(Header.KID.value, jwkKidGenerator.generate(publicKey));
 
     return headers;
   }
@@ -106,26 +103,6 @@ final class TokenHeader {
       return Base64.getEncoder().encodeToString(inputStream.readAllBytes());
     } catch (final Exception e) {
       throw new ScenarioException(sessionId, "Could not read OCSP response", "errorCode");
-    }
-  }
-
-  private String getKeyId(final ECPublicKey publicKey) {
-    final var messageDigest = THREAD_LOCAL_DIGEST.get();
-    try {
-      final byte[] x = publicKey.getW().getAffineX().toByteArray();
-      final byte[] y = publicKey.getW().getAffineY().toByteArray();
-      final var jwkBytes =
-          ("{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\""
-                  + BASE64_URL_ENCODER.encodeToString(x)
-                  + "\",\"y\":\""
-                  + BASE64_URL_ENCODER.encodeToString(y)
-                  + "\"}")
-              .getBytes(StandardCharsets.UTF_8);
-      final byte[] hash = messageDigest.digest(jwkBytes);
-      return BASE64_URL_ENCODER.encodeToString(hash);
-    } finally {
-      messageDigest.reset();
-      THREAD_LOCAL_DIGEST.remove();
     }
   }
 

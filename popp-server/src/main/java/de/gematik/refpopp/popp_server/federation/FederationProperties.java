@@ -18,18 +18,21 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server;
+package de.gematik.refpopp.popp_server.federation;
 
-import de.gematik.refpopp.popp_server.federation.FederationProperties;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
-@SpringBootApplication
-@EnableConfigurationProperties({FederationProperties.class})
-public class PoppServerApplication {
-
-  public static void main(final String[] args) {
-    SpringApplication.run(PoppServerApplication.class, args);
-  }
+@Component
+@ConfigurationProperties(prefix = "federation")
+@Data
+public class FederationProperties {
+  private String baseUrl;
+  private String orgName;
+  private String issuer;
+  private String subject;
+  private String masterIssuer;
+  private String entitySigningAlias;
+  private String poppTokenSigningAlias;
 }

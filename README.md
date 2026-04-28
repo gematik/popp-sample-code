@@ -363,22 +363,19 @@ For an IDE start:
 
 #### Prerequisites:
 
-Connecting to the RISE PoPP Server only works if you’ve been granted access. To get onto the allowlist, please visit the [gematik Anfrageportal](https://service.gematik.de/servicedesk/customer/portal/37).
-You will get the correct endpoint with your request.
+Configure the `application.yaml` to match your setup. The correct endpoint
+```
+wss://popp.dev.poppservice.de:443/popp/practitioner/api/v1/token-generation-ehc
+```
+is already included.
 
-#### 1. Choose the profile
-
-External customers use no Spring profile. Configure the RISE endpoint you received via the [gematik Anfrageportal](https://service.gematik.de/servicedesk/customer/portal/37) in `application.yaml`.
-
-#### 2. Start the PoPP-Client locally
-
-External customers:
+#### 1a. Start the PoPP-Client locally
 
 ```bash
 ./mvnw -pl popp-client spring-boot:run
 ```
 
-#### 3. Start the PoPP-Client via Docker
+#### 1b. Start the PoPP-Client via Docker
 
 ```bash
 docker run --rm -p 8081:8081 -p 9001:9001 \

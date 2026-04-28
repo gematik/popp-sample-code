@@ -7,6 +7,8 @@ certificates:
   connector-keystore-password: "gematik"
   popp-keystore: "classpath:certificates/signer/popp-token-Server-nist-komp61.jks"
   popp-keystore-password: "gematik"
+  federation-keystore: "classpath:certificates/signer/federation-keystore.jks"
+  federation-keystore-password: "gematik"
   hash-import-keystore: "classpath:certificates/TEST_EE_2025-05_de.gematik.TKK.eContentSigner.p12"
   hash-import-keystore-password: "01234567"
   ocsp-response: "certificates/ocsp/resp.der"

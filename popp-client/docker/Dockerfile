@@ -7,7 +7,7 @@ ARG VERSION
 LABEL de.gematik.vendor="gematik GmbH" \
       maintainer="software-development@gematik.de" \
       de.gematik.app="Gematik POPP-Client Example" \
-      de.gematik.git-repo-name="...popp-example-impl-global.git" \
+      de.gematik.git-repo-name="https://github.com/gematik/popp-sample-code.git" \
       de.gematik.commit-sha=$COMMIT_HASH \
       de.gematik.version=$VERSION
 
@@ -30,7 +30,8 @@ ARG GROUPID=10000
 # Run as User (not root)
 USER $USERID:$GROUPID
 
-COPY --chown=$USERID:$GROUPID popp-client*.jar /app/popp-client.jar
+ARG JAR_PATH=popp-client*.jar
+COPY --chown=$USERID:$GROUPID ${JAR_PATH} /app/popp-client.jar
 
 # Expose the port that the application runs on
 EXPOSE 8081

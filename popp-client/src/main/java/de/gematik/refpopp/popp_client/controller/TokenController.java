@@ -131,27 +131,27 @@ public class TokenController {
   public ResponseEntity<PoppClientResponse> createToken(
       @Valid @RequestBody PoppClientRequest request) {
     String clientSessionId = request.clientSessionId();
+    log.info(
+        "| Started 'generate PoPP Token' with clientSessionId '{}' and communicationType" + " '{}'",
+        clientSessionId,
+        request.communicationType().getType());
     try {
       if (request.communicationType().requiresCardReader()) {
         cardReaderService.startCheckForCardReader();
       }
       String token = startCommunication(request.communicationType(), clientSessionId);
-
+      log.info("| Finished 'generate PoPP Token' successfully");
       return ResponseEntity.ok(PoppClientResponse.ok(token));
     } catch (UnsupportedOperationException e) {
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-          .body(PoppClientResponse.error(e.getMessage()));
+      return buildErrorResponse(HttpStatus.BAD_REQUEST, e.getMessage(), e);
     } catch (RuntimeException e) {
       if (e.getCause() instanceof java.util.concurrent.TimeoutException) {
-        return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT)
-            .body(PoppClientResponse.error("Token generation timed out"));
+        return buildErrorResponse(HttpStatus.GATEWAY_TIMEOUT, "Token generation timed out", e);
       }
-
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(PoppClientResponse.error("Unexpected error: " + e.getMessage()));
+      return buildErrorResponse(
+          HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage(), e);
     } catch (Exception e) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(PoppClientResponse.error(e.getMessage()));
+      return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), e);
     }
   }
 
@@ -168,5 +168,17 @@ public class TokenController {
       case G3 -> throw new UnsupportedOperationException("G3 not yet implemented");
       default -> throw new UnsupportedOperationException("Unsupported type: " + type);
     };
+  }
+
+  private ResponseEntity<PoppClientResponse> buildErrorResponse(
+      HttpStatus status, String errorMessage, Exception exception) {
+    log.error(
+        "| Finished 'generate PoPP Token' with HTTP status '{}', error message '{}' and stack trace"
+            + " '{}'",
+        status.getReasonPhrase(),
+        exception.getMessage(),
+        exception.getStackTrace());
+
+    return ResponseEntity.status(status).body(PoppClientResponse.error(errorMessage));
   }
 }
