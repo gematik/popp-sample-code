@@ -6,6 +6,17 @@
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.3.0
+
+### added
+- Added Well-Known endpoints for OpenID Federation and signed JWKS:
+  - /.well-known/openid-federation (entity statement JWT)
+  - /.well-known/signed-jwks (signed JWK set)
+- URL for RISE PoPP Service is now public in README and application.yaml
+
+### fixed
+- PoPP server health check
+
 ## Release 2.2.0
 
 ### added

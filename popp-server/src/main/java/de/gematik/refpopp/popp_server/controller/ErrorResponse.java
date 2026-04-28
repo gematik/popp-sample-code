@@ -18,18 +18,15 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server;
+package de.gematik.refpopp.popp_server.controller;
 
-import de.gematik.refpopp.popp_server.federation.FederationProperties;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-@SpringBootApplication
-@EnableConfigurationProperties({FederationProperties.class})
-public class PoppServerApplication {
-
-  public static void main(final String[] args) {
-    SpringApplication.run(PoppServerApplication.class, args);
+@Schema(name = "ErrorResponse")
+public record ErrorResponse(
+    @Schema(example = "INTERNAL_ERROR") String code,
+    @Schema(example = "Failed to create federation entity statement") String message) {
+  public static ErrorResponse of(String code, String message) {
+    return new ErrorResponse(code, message);
   }
 }

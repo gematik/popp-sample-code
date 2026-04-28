@@ -22,15 +22,17 @@ package de.gematik.refpopp.popp_server.scenario.common.token;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.security.jwk.JwkKidGenerator;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
 import java.util.Map;
+import org.jose4j.lang.JoseException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,12 +52,14 @@ class TokenHeaderTest {
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
   private ECPoint mockEcPoint;
 
+  @Mock private JwkKidGenerator jwkKidGenerator;
+
   private AutoCloseable autoCloseable;
 
   @BeforeEach
   void setUp() {
     autoCloseable = MockitoAnnotations.openMocks(this);
-    sut = new TokenHeader();
+    sut = new TokenHeader(jwkKidGenerator);
     ReflectionTestUtils.setField(sut, "poppTokenType", "vnd.telematik.popp+jwt");
     ReflectionTestUtils.setField(sut, "connectorTokenType", "JWT");
     ReflectionTestUtils.setField(sut, "ocspResponsePath", "ocsp-response.txt");
@@ -69,7 +73,7 @@ class TokenHeaderTest {
   }
 
   @Test
-  void createHeaderForPoppToken() throws CertificateEncodingException {
+  void createHeaderForPoppToken() throws CertificateEncodingException, JoseException {
     // given
     final byte[] dummyCertBytes = "dummy-cert".getBytes();
     when(mockCertificate.getEncoded()).thenReturn(dummyCertBytes);
@@ -77,6 +81,7 @@ class TokenHeaderTest {
     final byte[] yBytes = "dummy-y".getBytes();
     when(mockEcPoint.getAffineX().toByteArray()).thenReturn(xBytes);
     when(mockEcPoint.getAffineY().toByteArray()).thenReturn(yBytes);
+    when(jwkKidGenerator.generate(any())).thenReturn("my_kid");
 
     final var sessionId = "test-session";
 
@@ -89,7 +94,8 @@ class TokenHeaderTest {
         .isNotNull()
         .hasSize(2)
         .containsEntry("typ", "vnd.telematik.popp+jwt")
-        .containsKey("kid");
+        .containsEntry("kid", "my_kid");
+    verify(jwkKidGenerator).generate(mockPublicKey);
   }
 
   @Test
@@ -114,6 +120,7 @@ class TokenHeaderTest {
         .containsEntry("typ", "JWT")
         .containsEntry("stpl", "dmFsaWQ=")
         .containsKey("x5c");
+    verifyNoInteractions(jwkKidGenerator);
   }
 
   @Test
@@ -135,6 +142,7 @@ class TokenHeaderTest {
             ScenarioException.class,
             () -> sut.createHeader(mockCertificate, mockPublicKey, sessionId, TokenType.CONNECTOR));
     assertThat(exception.getMessage()).isEqualTo("Could not read OCSP response");
+    verifyNoInteractions(jwkKidGenerator);
   }
 
   @Test
@@ -154,5 +162,6 @@ class TokenHeaderTest {
             CertificateParserException.class,
             () -> sut.createHeader(mockCertificate, mockPublicKey, sessionId, TokenType.CONNECTOR));
     assertThat(exception.getMessage()).isEqualTo("Could not encode certificate");
+    verifyNoInteractions(jwkKidGenerator);
   }
 }

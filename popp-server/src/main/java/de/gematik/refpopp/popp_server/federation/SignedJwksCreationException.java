@@ -18,18 +18,10 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server;
+package de.gematik.refpopp.popp_server.federation;
 
-import de.gematik.refpopp.popp_server.federation.FederationProperties;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-
-@SpringBootApplication
-@EnableConfigurationProperties({FederationProperties.class})
-public class PoppServerApplication {
-
-  public static void main(final String[] args) {
-    SpringApplication.run(PoppServerApplication.class, args);
+public class SignedJwksCreationException extends RuntimeException {
+  public SignedJwksCreationException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

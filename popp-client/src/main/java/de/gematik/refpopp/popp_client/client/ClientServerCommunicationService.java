@@ -54,7 +54,7 @@ public class ClientServerCommunicationService {
       try {
         secureWebSocketClient.connectBlocking();
       } catch (final Exception e) {
-        log.error("Error connecting to WebSocket server: {}", e.getMessage());
+        log.error("Error connecting to WebSocket server: {}", e.getMessage(), e);
         Thread.currentThread().interrupt();
       }
     }

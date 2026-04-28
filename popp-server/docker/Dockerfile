@@ -7,7 +7,7 @@ ARG VERSION
 LABEL de.gematik.vendor="gematik GmbH" \
       maintainer="software-development@gematik.de" \
       de.gematik.app="Gematik POPP-Server Example" \
-      de.gematik.git-repo-name="...popp-example-impl-global.git" \
+      de.gematik.git-repo-name="https://github.com/gematik/popp-sample-code.git" \
       de.gematik.commit-sha=$COMMIT_HASH \
       de.gematik.version=$VERSION
 
@@ -18,7 +18,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD curl -fs http://localhost:8443/ || exit 1
+  CMD curl -fs http://localhost:8443/actuator/health || exit 1
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -30,7 +30,8 @@ ARG GROUPID=10000
 # Run as User (not root)
 USER $USERID:$GROUPID
 
-COPY --chown=$USERID:$GROUPID popp-server*.jar /app/popp-server.jar
+ARG JAR_PATH=popp-server*.jar
+COPY --chown=$USERID:$GROUPID ${JAR_PATH} /app/popp-server.jar
 
 ENV IDENTITIES_LOCATION=/app/identities
 ENV SERVER_SSL_KEY_STORE=classpath:mykeystore.p12

@@ -21,19 +21,20 @@
 package de.gematik.refpopp.popp_server.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.certificates.KeyStoreLoader;
 import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
 import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
 import de.gematik.smartcards.g2icc.cvc.Cvc;
+import java.security.KeyStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
+import org.springframework.core.io.Resource;
 
 class ServiceConfigurationTest {
 
@@ -94,5 +95,52 @@ class ServiceConfigurationTest {
     assertThat(entityManagerFactory.getDataSource()).isEqualTo(dataSource);
     assertThat(entityManagerFactory.getJpaVendorAdapter())
         .isInstanceOf(org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter.class);
+  }
+
+  @Test
+  void shouldGetConnectorKeyStoreLoader() {
+    // given
+    final var location = mock(Resource.class);
+    final var password = "connectorPassword";
+
+    // when
+    final var keyStoreLoader = sut.connectorKeyStoreLoader(location, password);
+
+    // then
+    assertThat(keyStoreLoader)
+        .isNotNull()
+        .hasFieldOrPropertyWithValue("truststoreLocation", location)
+        .hasFieldOrPropertyWithValue("truststorePassword", password);
+  }
+
+  @Test
+  void shouldGetFederationKeyStore() {
+    // given
+    final var keyStoreLoader = mock(KeyStoreLoader.class);
+    final var keyStore = mock(KeyStore.class);
+    when(keyStoreLoader.load()).thenReturn(keyStore);
+
+    // when
+    final var result = sut.federationKeyStore(keyStoreLoader);
+
+    // then
+    assertThat(result).isSameAs(keyStore);
+    verify(keyStoreLoader).load();
+  }
+
+  @Test
+  void shouldGetFederationKeyStoreLoader() {
+    // given
+    final var location = mock(Resource.class);
+    final var password = "password";
+
+    // when
+    var keyStoreLoader = sut.federationKeyStoreLoader(location, password);
+
+    // then
+    assertThat(keyStoreLoader)
+        .isNotNull()
+        .hasFieldOrPropertyWithValue("truststoreLocation", location)
+        .hasFieldOrPropertyWithValue("truststorePassword", password);
   }
 }

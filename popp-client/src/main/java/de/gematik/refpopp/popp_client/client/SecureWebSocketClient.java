@@ -237,7 +237,8 @@ public class SecureWebSocketClient {
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new RuntimeException(e);
+      throw new IllegalStateException(
+          "Thread was interrupted while waiting for WebSocket connection", e);
     }
   }
 

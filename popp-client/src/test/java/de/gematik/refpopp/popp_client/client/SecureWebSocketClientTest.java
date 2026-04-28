@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_client.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -210,7 +211,7 @@ class SecureWebSocketClientTest {
   }
 
   @Test
-  void testConnectBlocking_timeout() throws Exception {
+  void testConnectBlockingTimeout() throws Exception {
     // given
     var latchSpy = spy(new CountDownLatch(1));
     setPrivateField(sut, "sessionReady", latchSpy);
@@ -234,7 +235,7 @@ class SecureWebSocketClientTest {
   }
 
   @Test
-  void testConnectBlocking_interrupted() throws Exception {
+  void testConnectBlockingInterrupted() throws Exception {
     // given
     var latchSpy = spy(new CountDownLatch(1));
     setPrivateField(sut, "sessionReady", latchSpy);
@@ -258,7 +259,7 @@ class SecureWebSocketClientTest {
   }
 
   @Test
-  void testConnectBlocking_handlesTextMessage() throws Exception {
+  void testConnectBlockingHandlesTextMessage() throws Exception {
     // given
     var sessionMock = mock(WsClientExtension.WsSession.class);
     var textMsg = mock(WsClientExtension.WsMessage.Text.class);
@@ -296,7 +297,7 @@ class SecureWebSocketClientTest {
   }
 
   @Test
-  void testConnectBlocking_handlesBinaryMessage() throws Exception {
+  void testConnectBlockingHandlesBinaryMessage() throws Exception {
     // given
     var sessionMock = mock(WsClientExtension.WsSession.class);
     var bytes = new byte[] {1, 2, 3, 4};
@@ -326,6 +327,31 @@ class SecureWebSocketClientTest {
     // then
     verify(sutSpy, never()).onMessage(any());
     assertThat(sutSpy.isOpen()).isTrue();
+  }
+
+  @Test
+  void connectBlockingThrowsIllegalStateExceptionAndInterruptsThreadWhenAwaitIsInterrupted()
+      throws Exception {
+    // given
+    var latchSpy = spy(new CountDownLatch(1));
+    setPrivateField(sut, "sessionReady", latchSpy);
+
+    doThrow(new InterruptedException("interrupted"))
+        .when(latchSpy)
+        .await(anyLong(), any(TimeUnit.class));
+
+    // clear interrupted flag before test
+    Thread.interrupted();
+
+    // when / then
+    assertThatThrownBy(() -> sut.connectBlocking())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Thread was interrupted while waiting for WebSocket connection")
+        .hasCauseInstanceOf(InterruptedException.class);
+
+    assertThat(Thread.currentThread().isInterrupted()).isTrue();
+
+    Thread.interrupted();
   }
 
   private void setPrivateField(Object target, String fieldName, Object value) throws Exception {
