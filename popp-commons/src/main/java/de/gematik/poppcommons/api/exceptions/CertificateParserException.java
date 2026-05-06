@@ -32,7 +32,17 @@ public class CertificateParserException extends ScenarioException {
     this.exceptionTypeName = this.getClass().getTypeName();
   }
 
+  public CertificateParserException(
+      final String sessionId, final String message, final String errorCode, Throwable cause) {
+    super(sessionId, message, errorCode, cause);
+    this.exceptionTypeName = this.getClass().getTypeName();
+  }
+
   public CertificateParserException(final String message, final String errorCode) {
     super("N/A", message, errorCode);
+  }
+
+  public CertificateParserException(final String message, final String errorCode, Throwable cause) {
+    super("N/A", message, errorCode, cause);
   }
 }

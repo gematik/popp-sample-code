@@ -23,6 +23,7 @@ package de.gematik.refpopp.popp_server.certificates;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -30,10 +31,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
-import de.gematik.smartcards.g2icc.cvc.TrustCenter;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -45,23 +47,24 @@ class CertificateProviderServiceTest {
 
   private CertificateProviderService sut;
   private X509CertificateParser x509CertificateParserMock;
-  private CVCertificateParser cvCertificateParserMock;
-  private PrivateKeyParser privateKeyParserMock;
+  private CvCertificateParser cvCertificateParserMock;
+  private ConfiguredTrustedChannelIdentityValidator configuredTrustedChannelIdentityValidatorMock;
   private KeyStoreService keyStoreServiceMock;
   private ResourceLoader resourceLoaderMock;
 
   @BeforeEach
   void setUp() {
     x509CertificateParserMock = mock(X509CertificateParser.class);
-    cvCertificateParserMock = mock(CVCertificateParser.class);
-    privateKeyParserMock = mock(PrivateKeyParser.class);
+    cvCertificateParserMock = mock(CvCertificateParser.class);
+    configuredTrustedChannelIdentityValidatorMock =
+        mock(ConfiguredTrustedChannelIdentityValidator.class);
     keyStoreServiceMock = mock(KeyStoreService.class);
     resourceLoaderMock = mock(ResourceLoader.class);
     sut =
         new CertificateProviderService(
             x509CertificateParserMock,
             cvCertificateParserMock,
-            privateKeyParserMock,
+            configuredTrustedChannelIdentityValidatorMock,
             keyStoreServiceMock,
             resourceLoaderMock);
   }
@@ -84,6 +87,8 @@ class CertificateProviderServiceTest {
     ReflectionTestUtils.setField(
         sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
     ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
     final var classPathResourceMock = mock(ClassPathResource.class);
     when(resourceLoaderMock.getResource(anyString())).thenReturn(classPathResourceMock);
     final var urlMock = mock(URL.class);
@@ -120,26 +125,41 @@ class CertificateProviderServiceTest {
     ReflectionTestUtils.setField(
         sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
     ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
     final var classPathResourceMock = mock(ClassPathResource.class);
     when(resourceLoaderMock.getResource(anyString())).thenReturn(classPathResourceMock);
     final var urlMock = mock(URL.class);
     when(classPathResourceMock.getURL()).thenReturn(urlMock);
     when(urlMock.getProtocol()).thenReturn("classpath");
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+    final var cvcSubCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final var cvcEndEntityCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final byte[] privateKeyDer = new ClassPathResource("pk.prv").getInputStream().readAllBytes();
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcSubCertificatePath")))
+        .thenReturn(cvcSubCertificateMock);
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcEndEntityCertificatePath")))
+        .thenReturn(cvcEndEntityCertificateMock);
 
-    try (final var trustCenterMock = mockStatic(TrustCenter.class)) {
-      trustCenterMock
-          .when(() -> TrustCenter.initializeCache(any()))
-          .thenAnswer(invocationOnMock -> null);
+    try (final var cvcDirectoryLoaderMock = mockStatic(CvcDirectory.class)) {
+      cvcDirectoryLoaderMock
+          .when(() -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)))
+          .thenReturn(cvcDirectoryMock);
 
       // when
       sut.loadCertificates();
 
       // then
-      trustCenterMock.verify(() -> TrustCenter.initializeCache(any()));
+      cvcDirectoryLoaderMock.verify(
+          () -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)));
       verify(x509CertificateParserMock).parse(new ClassPathResource("rootCertificatePath"));
       verify(cvCertificateParserMock).parse(new ClassPathResource("cvcSubCertificatePath"));
       verify(cvCertificateParserMock).parse(new ClassPathResource("cvcEndEntityCertificatePath"));
-      verify(privateKeyParserMock).parse(any());
+      verify(configuredTrustedChannelIdentityValidatorMock)
+          .validate(
+              eq(cvcSubCertificateMock),
+              eq(cvcEndEntityCertificateMock),
+              argThat(bytes -> Arrays.equals(bytes, privateKeyDer)));
       verify(keyStoreServiceMock)
           .getPoppKeyStoreData(any(ClassPathResource.class), eq("poppKeyStorePassword"));
       verify(keyStoreServiceMock)
@@ -148,7 +168,7 @@ class CertificateProviderServiceTest {
   }
 
   @Test
-  void loadCertificatesResolvesIdentitiesPathFromFileSystem() {
+  void loadCertificatesResolvesIdentitiesPathFromFileSystem() throws IOException {
     // given
     ReflectionTestUtils.setField(sut, "identitiesLocation", "identitiesLocation");
     ReflectionTestUtils.setField(
@@ -165,24 +185,39 @@ class CertificateProviderServiceTest {
     ReflectionTestUtils.setField(
         sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
     ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
 
     when(resourceLoaderMock.getResource(anyString()))
         .thenReturn(new FileSystemResource("identitiesLocation"));
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+    final var cvcSubCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final var cvcEndEntityCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final byte[] privateKeyDer = new ClassPathResource("pk.prv").getInputStream().readAllBytes();
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcSubCertificatePath")))
+        .thenReturn(cvcSubCertificateMock);
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcEndEntityCertificatePath")))
+        .thenReturn(cvcEndEntityCertificateMock);
 
-    try (final var trustCenterMock = mockStatic(TrustCenter.class)) {
-      trustCenterMock
-          .when(() -> TrustCenter.initializeCache(any()))
-          .thenAnswer(invocationOnMock -> null);
+    try (final var cvcDirectoryLoaderMock = mockStatic(CvcDirectory.class)) {
+      cvcDirectoryLoaderMock
+          .when(() -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)))
+          .thenReturn(cvcDirectoryMock);
 
       // when
       sut.loadCertificates();
 
       // then
-      trustCenterMock.verify(() -> TrustCenter.initializeCache(any()));
+      cvcDirectoryLoaderMock.verify(
+          () -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)));
       verify(x509CertificateParserMock).parse(new ClassPathResource("rootCertificatePath"));
       verify(cvCertificateParserMock).parse(new ClassPathResource("cvcSubCertificatePath"));
       verify(cvCertificateParserMock).parse(new ClassPathResource("cvcEndEntityCertificatePath"));
-      verify(privateKeyParserMock).parse(any());
+      verify(configuredTrustedChannelIdentityValidatorMock)
+          .validate(
+              eq(cvcSubCertificateMock),
+              eq(cvcEndEntityCertificateMock),
+              argThat(bytes -> Arrays.equals(bytes, privateKeyDer)));
       verify(keyStoreServiceMock)
           .getPoppKeyStoreData(any(ClassPathResource.class), eq("poppKeyStorePassword"));
       verify(keyStoreServiceMock)

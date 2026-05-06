@@ -20,10 +20,10 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.token;
 
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Jwts.SIG;
 import io.jsonwebtoken.io.Serializer;
+import java.security.interfaces.ECPrivateKey;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +34,7 @@ class JwtTokenBuilder {
   String buildJwtToken(
       final Map<String, Object> headers,
       final Map<String, Object> claims,
-      final EcPrivateKeyImpl privateKey) {
+      final ECPrivateKey privateKey) {
     return Jwts.builder()
         .header()
         .add(headers)

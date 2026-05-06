@@ -20,19 +20,31 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
-import de.gematik.openhealth.asn1.Asn1FfiException;
 import de.gematik.openhealth.asn1.CvCertificate;
-import de.gematik.openhealth.asn1.Openhealth_asn1Kt;
+import de.gematik.openhealth.crypto.CryptoException;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CvcFactory {
+public class ConfiguredTrustedChannelIdentityValidator {
 
-  public CvCertificate create(final byte[] cvc) {
+  private final CvcChainValidator cvcChainValidator;
+
+  public ConfiguredTrustedChannelIdentityValidator(final CvcChainValidator cvcChainValidator) {
+    this.cvcChainValidator = cvcChainValidator;
+  }
+
+  public void validate(
+      final CvCertificate subCaCertificate,
+      final CvCertificate endEntityCertificate,
+      final byte[] privateKeyDer) {
+    if (privateKeyDer == null || privateKeyDer.length == 0) {
+      throw new IllegalStateException("Configured service private key is not encoded as PKCS#8");
+    }
+
     try {
-      return Openhealth_asn1Kt.parseCvCertificate(cvc);
-    } catch (final Asn1FfiException e) {
-      throw new IllegalArgumentException("Failed to parse CVC", e);
+      cvcChainValidator.validate(endEntityCertificate, subCaCertificate);
+    } catch (final CryptoException e) {
+      throw new IllegalStateException("Failed to validate configured trusted-channel identity", e);
     }
   }
 }

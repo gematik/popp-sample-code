@@ -396,10 +396,55 @@ class CommunicationServiceTest {
         {"type":"Error","errorCode":"errorCode","errorDetail":"errorDetail"}
         """;
     final var event = new TextMessageReceivedEvent(givenMessage);
+    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(Map.of());
 
     sut.handleServerEvent(event);
 
-    verifyNoInteractions(clientServerCommunicationServiceMock);
+    verify(clientServerCommunicationServiceMock).getSSLSession();
+    verifyNoInteractions(cardCommunicationServiceMock);
+  }
+
+  @Test
+  void startCompletesWithServerErrorMessage() {
+    final String clientSessionId = "session-with-server-error";
+    Map<String, Object> ssl =
+        prepareMockSslSession(clientSessionId, CardConnectionType.CONTACT_STANDARD);
+    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(ssl);
+    doAnswer(
+            inv -> {
+              String errorMsg =
+                  """
+                  {"type":"Error","errorCode":"errorCode","errorDetail":"UnknownCertificates"}
+                  """;
+              sut.handleServerEvent(new TextMessageReceivedEvent(errorMsg));
+              return null;
+            })
+        .when(clientServerCommunicationServiceMock)
+        .sendMessage(any(PoPPMessage.class));
+
+    assertThatThrownBy(() -> sut.start(CardConnectionType.CONTACT_STANDARD, clientSessionId))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("Server error errorCode")
+        .hasMessageContaining("UnknownCertificates");
+
+    assertThat(tokenQueue).doesNotContainKey(clientSessionId);
+  }
+
+  @Test
+  void handleServerEventProcessesErrorMessageWithoutQueuedToken() {
+    final String clientSessionId = "session-without-token-future";
+    when(clientServerCommunicationServiceMock.getSSLSession())
+        .thenReturn(prepareMockSslSession(clientSessionId, CardConnectionType.CONTACT_STANDARD));
+    final var event =
+        new TextMessageReceivedEvent(
+            """
+            {"type":"Error","errorCode":"errorCode","errorDetail":"errorDetail"}
+            """);
+
+    sut.handleServerEvent(event);
+
+    assertThat(tokenQueue).doesNotContainKey(clientSessionId);
+    verify(clientServerCommunicationServiceMock).getSSLSession();
     verifyNoInteractions(cardCommunicationServiceMock);
   }
 

@@ -21,13 +21,26 @@
 package de.gematik.poppcommons.api.exceptions;
 
 import java.io.Serial;
+import lombok.Getter;
 
-public class PrivateKeyParserException extends ScenarioException {
+@Getter
+public class PrivateKeyLoadingException extends GeneralPoPPServerException {
 
   @Serial private static final long serialVersionUID = -1708140975212087711L;
 
-  public PrivateKeyParserException(
+  private final String sessionId;
+
+  public PrivateKeyLoadingException(
       final String sessionId, final String message, final String errorCode) {
-    super(sessionId, message, errorCode);
+    super(message, errorCode);
+    this.sessionId = sessionId;
+    this.exceptionTypeName = this.getClass().getTypeName();
+  }
+
+  public PrivateKeyLoadingException(
+      final String sessionId, final String message, final String errorCode, final Throwable cause) {
+    super(message, errorCode, cause);
+    this.sessionId = sessionId;
+    this.exceptionTypeName = this.getClass().getTypeName();
   }
 }

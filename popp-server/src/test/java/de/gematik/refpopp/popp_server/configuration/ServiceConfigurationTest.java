@@ -23,28 +23,18 @@ package de.gematik.refpopp.popp_server.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import de.gematik.refpopp.popp_server.certificates.KeyStoreLoader;
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
-import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.security.KeyStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import org.springframework.core.io.Resource;
 
 class ServiceConfigurationTest {
-
-  @Mock private CertificateProviderService certificateProviderServiceMock;
 
   private ServiceConfiguration sut;
 
   @BeforeEach
   void setUp() {
-    certificateProviderServiceMock = mock(CertificateProviderService.class);
     sut = new ServiceConfiguration();
   }
 
@@ -58,34 +48,9 @@ class ServiceConfigurationTest {
   }
 
   @Test
-  void shouldGetSecureMessagingConverterSoftwareBean() {
-    try (final MockedConstruction<SecureMessagingConverterSoftware> mocked =
-        Mockito.mockConstruction(SecureMessagingConverterSoftware.class)) {
-      // given
-      final var cvcMock = mock(Cvc.class);
-      final var ecPrivateKeyImplMock = mock(EcPrivateKeyImpl.class);
-      when(certificateProviderServiceMock.getCvcSubCertificate()).thenReturn(cvcMock);
-      when(certificateProviderServiceMock.getCvEndEntityCertificate()).thenReturn(cvcMock);
-      when(certificateProviderServiceMock.getCvcPoppServicePrk()).thenReturn(ecPrivateKeyImplMock);
-
-      // when
-      final var secureMessagingConverterSoftware =
-          sut.secureMessagingConverterSoftware(certificateProviderServiceMock);
-
-      // then
-      assertThat(secureMessagingConverterSoftware).isNotNull();
-      assertThat(mocked).isNotNull();
-      assertThat(mocked.constructed()).hasSize(1);
-      verify(certificateProviderServiceMock).getCvcSubCertificate();
-      verify(certificateProviderServiceMock).getCvEndEntityCertificate();
-      verify(certificateProviderServiceMock).getCvcPoppServicePrk();
-    }
-  }
-
-  @Test
   void shouldGetEntityManagerFactoryBean() {
     // given
-    final var dataSource = mock(javax.sql.DataSource.class);
+    final var dataSource = org.mockito.Mockito.mock(javax.sql.DataSource.class);
 
     // when
     final var entityManagerFactory = sut.entityManagerFactory(dataSource);

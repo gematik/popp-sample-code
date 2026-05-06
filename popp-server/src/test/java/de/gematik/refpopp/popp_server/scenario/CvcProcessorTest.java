@@ -24,10 +24,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.openhealth.crypto.CryptoException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
+import de.gematik.refpopp.popp_server.certificates.CvcChainValidator;
 import de.gematik.refpopp.popp_server.certificates.CvcFactory;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
@@ -35,133 +41,115 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.g2icc.cvc.CertificateDate;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import de.gematik.smartcards.g2icc.cvc.Cvc.SignatureStatus;
-import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 class CvcProcessorTest {
 
   private CvcProcessor sut;
   private CvcFactory cvcFactoryMock;
   private SessionAccessor sessionAccessorMock;
+  private CertificateProviderService certificateProviderServiceMock;
+  private CvcChainValidator cvcChainValidatorMock;
 
   @BeforeEach
   void setUp() {
     cvcFactoryMock = mock(CvcFactory.class);
     final var scenarioResultFinder = new ScenarioResultFinder();
     sessionAccessorMock = mock(SessionAccessor.class);
-    sut = new CvcProcessor(cvcFactoryMock, scenarioResultFinder, sessionAccessorMock);
+    certificateProviderServiceMock = mock(CertificateProviderService.class);
+    cvcChainValidatorMock = mock(CvcChainValidator.class);
+    sut =
+        new CvcProcessor(
+            cvcFactoryMock,
+            scenarioResultFinder,
+            sessionAccessorMock,
+            certificateProviderServiceMock,
+            cvcChainValidatorMock);
   }
 
   @Test
-  void createAndValidateCvcSuccess() {
+  void createAndValidateCvcSuccess() throws CryptoException {
     // given
     final var sessionId = "sessionId";
     final var scenarioResultStep =
         new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var cvcMock = mock(Cvc.class);
+    final var cvcMock = mock(CvCertificate.class);
+    final var issuerMock = mock(CvCertificate.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
-    final var certDateMoc = mock(CertificateDate.class);
-    when(cvcMock.getCxd()).thenReturn(certDateMoc);
-    when(certDateMoc.getDate()).thenReturn(LocalDate.now().plusYears(1));
-    when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_VALID);
+    when(certificateProviderServiceMock.findIdentityCvcByChr("issuer")).thenReturn(issuerMock);
 
-    // when
-    final var cvc =
-        sut.createAndValidateCvc(sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
+    try (final var cvcSupportMock = mockStatic(CvCertificateSupport.class)) {
+      cvcSupportMock.when(() -> CvCertificateSupport.car(cvcMock)).thenReturn("issuer");
 
-    // then
-    assertThat(cvc).isNotNull();
-    verify(cvcFactoryMock).create("data".getBytes());
-    verify(sessionAccessorMock).storeCvc(sessionId, "data".getBytes());
+      // when
+      final var cvc =
+          sut.createAndValidateCvc(
+              sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
+
+      // then
+      assertThat(cvc).isNotNull();
+      verify(cvcFactoryMock).create("data".getBytes());
+      verify(sessionAccessorMock).storeCvc(sessionId, "data".getBytes());
+      verify(cvcChainValidatorMock).validate(cvcMock, issuerMock);
+    }
   }
 
   @Test
-  void createAndValidateCvcCaSuccess() {
+  void createAndValidateCvcCaSuccess() throws CryptoException {
     // given
     final var sessionId = "sessionId";
     final var scenarioResultStep =
         new ScenarioResultStep(StepId.READ_SUB_CA_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var cvcMock = mock(Cvc.class);
+    final var cvcMock = mock(CvCertificate.class);
+    final var issuerMock = mock(CvCertificate.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
-    final var certDateMoc = mock(CertificateDate.class);
-    when(cvcMock.getCxd()).thenReturn(certDateMoc);
-    when(certDateMoc.getDate()).thenReturn(LocalDate.now().plusYears(1));
-    when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_VALID);
+    when(certificateProviderServiceMock.findIdentityCvcByChr("issuer")).thenReturn(issuerMock);
 
-    // when
-    final var cvc =
-        sut.createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
+    try (final var cvcSupportMock = mockStatic(CvCertificateSupport.class)) {
+      cvcSupportMock.when(() -> CvCertificateSupport.car(cvcMock)).thenReturn("issuer");
 
-    // then
-    assertThat(cvc).isNotNull();
-    verify(cvcFactoryMock).create("data".getBytes());
-    verify(sessionAccessorMock).storeCvcCA(sessionId, "data".getBytes());
+      // when
+      final var cvc =
+          sut.createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
+
+      // then
+      assertThat(cvc).isNotNull();
+      verify(cvcFactoryMock).create("data".getBytes());
+      verify(sessionAccessorMock).storeCvcCA(sessionId, "data".getBytes());
+      verify(cvcChainValidatorMock).validate(cvcMock, issuerMock);
+    }
   }
 
-  @ParameterizedTest
-  @CsvSource({"true, 'End-Entity CVC is expired'", "false, 'SubCA CVC is expired'"})
-  void createAndValidateCvcFailedWithExpiredDate(
-      final boolean isEndEntity, final String exceptionMessage) {
+  @Test
+  void createAndValidateCvcFailedWhenChainValidationRejectsChain() throws CryptoException {
     // given
     final var sessionId = "sessionId";
     final var scenarioResultStep =
         new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var cvcMock = mock(Cvc.class);
+    final var cvcMock = mock(CvCertificate.class);
+    final var issuerMock = mock(CvCertificate.class);
     when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
-    final var certDateMoc = mock(CertificateDate.class);
-    when(cvcMock.getCxd()).thenReturn(certDateMoc);
-    when(certDateMoc.getDate()).thenReturn(LocalDate.now().minusMonths(1));
-    when(cvcMock.isEndEntity()).thenReturn(isEndEntity);
+    when(certificateProviderServiceMock.findIdentityCvcByChr("issuer")).thenReturn(issuerMock);
 
-    // when
-    assertThatThrownBy(
-            () ->
-                sut.createAndValidateCvc(
-                    sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
-        .isInstanceOf(ScenarioException.class)
-        .hasMessage(exceptionMessage);
+    try (final var cvcSupportMock = mockStatic(CvCertificateSupport.class)) {
+      cvcSupportMock.when(() -> CvCertificateSupport.car(cvcMock)).thenReturn("issuer");
+      org.mockito.Mockito.doThrow(new CryptoException.Crypto("signature invalid"))
+          .when(cvcChainValidatorMock)
+          .validate(cvcMock, issuerMock);
 
-    // then
-    verify(cvcFactoryMock).create("data".getBytes());
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-    "true, 'Signature of End-Entity CVC is not valid'",
-    "false, 'Signature of SubCA CVC is not valid'"
-  })
-  void createAndValidateCvcFailedWithWrongSignature(
-      final boolean isEndEntity, final String exceptionMessage) {
-    // given
-    final var sessionId = "sessionId";
-    final var scenarioResultStep =
-        new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
-    final var scenarioResult = new ScenarioResult("firstResult", List.of(scenarioResultStep));
-    final var cvcMock = mock(Cvc.class);
-    when(cvcFactoryMock.create(any())).thenReturn(cvcMock);
-    final var certDateMoc = mock(CertificateDate.class);
-    when(cvcMock.getCxd()).thenReturn(certDateMoc);
-    when(certDateMoc.getDate()).thenReturn(LocalDate.now().plusYears(1));
-    when(cvcMock.getSignatureStatus()).thenReturn(SignatureStatus.SIGNATURE_INVALID);
-    when(cvcMock.isEndEntity()).thenReturn(isEndEntity);
-
-    // when
-    assertThatThrownBy(
-            () ->
-                sut.createAndValidateCvc(
-                    sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
-        .isInstanceOf(ScenarioException.class)
-        .hasMessage(exceptionMessage);
+      // when
+      assertThatThrownBy(
+              () ->
+                  sut.createAndValidateCvc(
+                      sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
+          .isInstanceOf(ScenarioException.class)
+          .hasMessageContaining("Failed to validate CVC chain");
+    }
 
     // then
     verify(cvcFactoryMock).create("data".getBytes());

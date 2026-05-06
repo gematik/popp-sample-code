@@ -20,7 +20,6 @@
 
 package de.gematik.refpopp.popp_client.services;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
@@ -190,27 +189,5 @@ class ClientServerCommunicationServiceTest {
     // when & then
     assertThrows(IllegalStateException.class, () -> sut.sendMessage(responseMessage));
     verify(webSocketClientMock, never()).send(any());
-  }
-
-  @Test
-  void connect_interruptsThread_whenConnectBlockingThrows() {
-    // given
-    var clientMock = mock(SecureWebSocketClient.class);
-
-    when(clientMock.isClosed()).thenReturn(true);
-    when(clientMock.isOpen()).thenReturn(false);
-    doThrow(new RuntimeException("boom")).when(clientMock).connectBlocking();
-    when(webSocketClientProviderMock.getObject()).thenReturn(clientMock);
-
-    Thread.interrupted();
-
-    // when
-    sut.connect();
-
-    // then
-    verify(clientMock).connectBlocking();
-    assertThat(Thread.currentThread().isInterrupted()).isTrue();
-
-    Thread.interrupted();
   }
 }

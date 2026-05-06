@@ -100,6 +100,14 @@ public class TokenController {
                                 }
                                 """),
                         @ExampleObject(
+                            name = "Contactless Virtual",
+                            value =
+                                """
+                                {
+                                  "communicationType": "contactless-virtual"
+                                }
+                                """),
+                        @ExampleObject(
                             name = "Contact Connector",
                             value =
                                 """
@@ -164,6 +172,9 @@ public class TokenController {
       case CONTACT_VIRTUAL ->
           communicationService.startVirtualCard(
               CardConnectionType.CONTACT_STANDARD, clientSessionId);
+      case CONTACTLESS_VIRTUAL ->
+          communicationService.startVirtualCard(
+              CardConnectionType.CONTACTLESS_STANDARD, clientSessionId);
 
       case G3 -> throw new UnsupportedOperationException("G3 not yet implemented");
       default -> throw new UnsupportedOperationException("Unsupported type: " + type);

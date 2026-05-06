@@ -63,7 +63,7 @@ final class TokenHeader {
       try {
         headers = createHeadersForPoppToken(publicKey);
       } catch (JoseException e) {
-        throw new ScenarioException(sessionId, "Could not create kid", "errorCode");
+        throw new ScenarioException(sessionId, "Could not create kid", "errorCode", e);
       }
     } else {
       headers = createHeadersForConnectorToken(signerCertificate, sessionId);
@@ -79,7 +79,8 @@ final class TokenHeader {
     try {
       x5c = Base64.getEncoder().encodeToString(signerCertificate.getEncoded());
     } catch (final CertificateEncodingException e) {
-      throw new CertificateParserException(sessionId, "Could not encode certificate", "errorCode");
+      throw new CertificateParserException(
+          sessionId, "Could not encode certificate", "errorCode", e);
     }
     headers.put(Header.X5C.value, x5c);
     final var ocspResponse = readOcspResponse(sessionId);

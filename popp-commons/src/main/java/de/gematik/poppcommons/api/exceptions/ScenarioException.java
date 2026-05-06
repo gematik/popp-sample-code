@@ -37,4 +37,11 @@ public class ScenarioException extends GeneralPoPPServerException {
     this.sessionId = sessionId;
     this.exceptionTypeName = this.getClass().getTypeName();
   }
+
+  public ScenarioException(
+      final String sessionId, final String message, final String errorCode, Throwable cause) {
+    super(message, errorCode, cause);
+    this.errorCode = errorCode;
+    this.sessionId = sessionId;
+  }
 }

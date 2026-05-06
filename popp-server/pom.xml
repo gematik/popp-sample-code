@@ -7,12 +7,11 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>2.3.0</version>
+    <version>2.4.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-server</artifactId>
-  <version>2.3.0</version>
   <packaging>jar</packaging>
 
   <name>popp-server</name>
@@ -75,6 +74,7 @@
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
+      <version>42.7.11</version> <!-- TODO: CVE-2026-42198, entfernen, wenn es eine neue Spring Boot Version gibt -->
     </dependency>
     <dependency>
       <groupId>org.liquibase</groupId>
@@ -133,6 +133,11 @@
     </dependency>
     <dependency>
       <groupId>de.gematik.openhealth</groupId>
+      <artifactId>asn1-jvm</artifactId>
+      <version>${version.openhealth.healthcard}</version>
+    </dependency>
+    <dependency>
+      <groupId>de.gematik.openhealth</groupId>
       <artifactId>healthcard-jvm</artifactId>
       <version>${version.openhealth.healthcard}</version>
     </dependency>
@@ -140,31 +145,6 @@
       <groupId>de.gematik.openhealth</groupId>
       <artifactId>crypto-jvm</artifactId>
       <version>${version.openhealth.healthcard}</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.tlv</artifactId>
-      <version>1.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.crypto</artifactId>
-      <version>1.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.sdcom</artifactId>
-      <version>1.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.g2icc</artifactId>
-      <version>1.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.utils</artifactId>
-      <version>1.0.3</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -253,43 +233,6 @@
             </goals>
             <id>copy-docker-resources-identities</id>
             <phase>package</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.10.0</version>
-        <executions>
-          <execution>
-            <id>unpack-openhealth-linux-natives</id>
-            <phase>package</phase>
-            <goals>
-              <goal>unpack</goal>
-            </goals>
-            <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>de.gematik.openhealth</groupId>
-                  <artifactId>healthcard-jvm</artifactId>
-                  <version>${version.openhealth.healthcard}</version>
-                  <includes>linux-aarch64/libopenhealth_healthcard.so</includes>
-                  <outputDirectory>${basedir}/target/tmpdocker/openhealth</outputDirectory>
-                  <destFileName>libopenhealth_healthcard.so</destFileName>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>de.gematik.openhealth</groupId>
-                  <artifactId>crypto-jvm</artifactId>
-                  <version>${version.openhealth.healthcard}</version>
-                  <includes>linux-aarch64/libopenhealth_crypto.so</includes>
-                  <outputDirectory>${basedir}/target/tmpdocker/openhealth</outputDirectory>
-                  <destFileName>libopenhealth_crypto.so</destFileName>
-                </artifactItem>
-              </artifactItems>
-              <skip>${skip.dockerbuild}</skip>
-              <overWriteReleases>true</overWriteReleases>
-              <overWriteSnapshots>true</overWriteSnapshots>
-            </configuration>
           </execution>
         </executions>
       </plugin>

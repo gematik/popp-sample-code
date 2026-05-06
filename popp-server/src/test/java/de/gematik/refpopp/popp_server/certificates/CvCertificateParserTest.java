@@ -24,18 +24,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ClassPathResource;
 
-class CVCertificateParserTest {
+class CvCertificateParserTest {
 
-  private CVCertificateParser sut;
+  private CvCertificateParser sut;
+
+  @TempDir private Path tempDir;
 
   @BeforeEach
   void setUp() {
     final var cvcFactory = new CvcFactory();
-    sut = new CVCertificateParser(cvcFactory);
+    sut = new CvCertificateParser(cvcFactory);
   }
 
   @Test
@@ -69,5 +75,20 @@ class CVCertificateParserTest {
 
     // when / then
     assertThrows(CertificateParserException.class, () -> sut.parse(certificateResource));
+  }
+
+  @Test
+  void parsePathShouldReturnCertificate() throws IOException {
+    final var certificatePath = tempDir.resolve("certificate.cvc");
+    Files.copy(new ClassPathResource("cvcEndEntity.crt").getInputStream(), certificatePath);
+
+    final var result = sut.parse(certificatePath);
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  void parsePathShouldThrowCertificateParserException() {
+    assertThrows(CertificateParserException.class, () -> sut.parse(tempDir.resolve("missing.cvc")));
   }
 }

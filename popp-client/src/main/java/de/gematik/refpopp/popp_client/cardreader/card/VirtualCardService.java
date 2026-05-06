@@ -34,6 +34,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,10 +42,12 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import javax.smartcardio.CommandAPDU;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,6 +84,10 @@ public class VirtualCardService {
       HexFormat.of()
           .parseHex(
               "048F3EED7A9475CCC776CDC2D748D4B1A217FED1335132572202FBFA5D1F12351B443B32408B22461F369620102BE4F922D1AC6B4D174AC12B0FB30276CBF0E24E");
+  private static final BigInteger BRAINPOOL_P256R1_ORDER =
+      new BigInteger("A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7", 16);
+  private static final int BRAINPOOL_P256R1_COORDINATE_LENGTH = 32;
+  private static final int MAX_ECDSA_SIGNING_ATTEMPTS = 64;
 
   public static final String APDU_RESPONSE_OK = "9000";
 
@@ -106,8 +113,7 @@ public class VirtualCardService {
           () ->
               HealthCardCommand.Companion.readSfiWithOffsetAndLength(
                   SFI_END_ENTITY_CV_CERTIFICATE, 0, 256),
-          false,
-          8);
+          false);
   private static final String APDU_RETRIEVE_PUBLIC_KEY_IDENTIFIERS =
       buildApduHex(HealthCardCommand.Companion::listPublicKeys, true);
   private static final String APDU_SELECT_PRIVATE_KEY_TRUSTED =
@@ -127,33 +133,31 @@ public class VirtualCardService {
           () ->
               HealthCardCommand.Companion.generalAuthenticateMutualAuthenticationStep1(
                   DUMMY_KEY_REFERENCE),
-          false,
-          8);
+          false);
   private static final String APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX =
       buildApduPrefix(
           () ->
               HealthCardCommand.Companion.generalAuthenticateElcStep2(
                   DUMMY_UNCOMPRESSED_PUBLIC_KEY),
-          false,
-          8);
+          false);
   private static final String APDU_SELECT_DF_ESIGN =
       buildApduHex(() -> HealthCardCommand.Companion.selectAid(DF_ESIGN_AID), false);
   private static final String APDU_READ_EF_C_CH_AUT_E256_PREFIX =
-      buildApduPrefix(() -> HealthCardCommand.Companion.readSfi(SFI_EF_C_CH_AUT_E256), true, 8);
+      buildApduPrefix(() -> HealthCardCommand.Companion.readSfi(SFI_EF_C_CH_AUT_E256), true);
   private static final String APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX = "0CB08400";
   private static final String APDU_SECURE_SELECT_DF_ESIGN_PREFIX = "0CA4040C";
+  private static final String APDU_INTERNAL_AUTHENTICATE_PREFIX =
+      buildApduPrefix(() -> HealthCardCommand.Companion.internalAuthenticate(new byte[24]), false);
 
   private String apduReadEndEntityCvCertificate;
   private String apduMutualAuthenticationStep1;
   private String apduReadEfCChAutE256;
 
-  private final ApplicationEventPublisher eventPublisher;
-
   private static final byte[] EMPTY_BYTES = new byte[0];
 
   private HashMap<String, String> staticApduResponses = new HashMap<>();
-  private String cvcCertificate = null;
-  private String authCertificate = null;
+  @Getter private String cvCertificate = null;
+  @Getter private String authCertificate = null;
   private byte[] egkAuthCvcPrivateKey = null;
   private byte[] poppServiceEndEntityPublicKey = null;
   private SecureMessagingSession secureMessagingSession = null;
@@ -174,7 +178,6 @@ public class VirtualCardService {
       @Value("${command-apdus.mutual-authentication-step-2:}") String apduMutualAuthenticationStep2,
       @Value("${command-apdus.select-df-esign:}") String apduSelectDfEsign,
       @Value("${command-apdus.read-ef-c-ch-aut-e256:}") String apduReadEfCChAutE256) {
-    this.eventPublisher = eventPublisher;
     log.debug("| Entering VirtualCardService()");
 
     if (imageFile == null || imageFile.isEmpty()) {
@@ -184,8 +187,8 @@ public class VirtualCardService {
       try (InputStream is = openImageFile(imageFile)) {
         String xmlString = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
-        cvcCertificate = getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256");
-        log.info("| CVC certificate:  " + cvcCertificate);
+        cvCertificate = getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256");
+        log.info("| CV certificate:  " + cvCertificate);
         authCertificate = getCertificateData(xmlString, "EF.C.CH.AUT.E256");
         log.info("| X.509 certificate:  " + authCertificate);
         egkAuthCvcPrivateKey = loadEgkAuthCvcPrivateKey(xmlString);
@@ -212,16 +215,8 @@ public class VirtualCardService {
     log.debug("| Exiting VirtualCardService()");
   }
 
-  public String getCvcCertificate() {
-    return cvcCertificate;
-  }
-
-  public String getAuthCertificate() {
-    return authCertificate;
-  }
-
   public boolean isConfigured() {
-    return cvcCertificate != null && authCertificate != null;
+    return cvCertificate != null && authCertificate != null;
   }
 
   public List<String> process(final List<ScenarioStep> scenarioStep) {
@@ -265,10 +260,12 @@ public class VirtualCardService {
     } else if (isMutualAuthenticationStep2(normalizedCommandApdu)) {
       initializeSecureMessagingSession(normalizedCommandApdu);
       responseAPDU = "";
-    } else if (isReadEndEntityCvCertificate(normalizedCommandApdu)) { // READ CVC certificate
-      responseAPDU = cvcCertificate;
+    } else if (isReadEndEntityCvCertificate(normalizedCommandApdu)) { // READ CV certificate
+      responseAPDU = cvCertificate;
     } else if (isReadEfCChAutE256(normalizedCommandApdu)) { // READ X.509 certificate
       responseAPDU = authCertificate;
+    } else if (isInternalAuthenticate(normalizedCommandApdu)) {
+      responseAPDU = signInternalAuthenticationChallenge(normalizedCommandApdu);
     } else {
       responseAPDU = resolveStaticResponse(normalizedCommandApdu);
     }
@@ -331,10 +328,8 @@ public class VirtualCardService {
   }
 
   private static String buildApduPrefix(
-      final HealthCardCommandSupplier supplier,
-      final boolean supportsExtendedLength,
-      final int prefixLength) {
-    return buildApduHex(supplier, supportsExtendedLength).substring(0, prefixLength);
+      final HealthCardCommandSupplier supplier, final boolean supportsExtendedLength) {
+    return buildApduHex(supplier, supportsExtendedLength).substring(0, 8);
   }
 
   private boolean isMutualAuthenticationStep1(final String normalizedCommandApdu) {
@@ -343,8 +338,7 @@ public class VirtualCardService {
   }
 
   private boolean isMutualAuthenticationStep2(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.equals(APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX)
-        || normalizedCommandApdu.startsWith(APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX);
+    return normalizedCommandApdu.startsWith(APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX);
   }
 
   private boolean isReadEndEntityCvCertificate(final String normalizedCommandApdu) {
@@ -356,6 +350,92 @@ public class VirtualCardService {
     return normalizedCommandApdu.equals(apduReadEfCChAutE256)
         || normalizedCommandApdu.startsWith(APDU_READ_EF_C_CH_AUT_E256_PREFIX)
         || normalizedCommandApdu.startsWith(APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX);
+  }
+
+  private boolean isInternalAuthenticate(final String normalizedCommandApdu) {
+    return normalizedCommandApdu.startsWith(APDU_INTERNAL_AUTHENTICATE_PREFIX);
+  }
+
+  private String signInternalAuthenticationChallenge(final String normalizedCommandApdu) {
+    if (egkAuthCvcPrivateKey == null) {
+      throw new IllegalStateException("No CVC private key configured for virtual card.");
+    }
+    final var commandApdu = new CommandAPDU(HexFormat.of().parseHex(normalizedCommandApdu));
+    final byte[] tau = concatenate(commandApdu.getData(), new byte[1]);
+    return toHex(signBrainpoolP256r1EcdsaValue(tau));
+  }
+
+  private byte[] signBrainpoolP256r1EcdsaValue(final byte[] value) {
+    final BigInteger privateKey = toPositiveInteger(egkAuthCvcPrivateKey);
+    if (privateKey.signum() == 0 || privateKey.compareTo(BRAINPOOL_P256R1_ORDER) >= 0) {
+      throw new IllegalStateException("Invalid CVC private key configured for virtual card.");
+    }
+
+    final BigInteger z = truncateDigest(value);
+    for (int attempt = 0; attempt < MAX_ECDSA_SIGNING_ATTEMPTS; attempt++) {
+      try (final var keyPair = Openhealth_cryptoKt.generateBrainpoolP256r1KeyPair()) {
+        final var signature =
+            tryCreateSignature(privateKey, z, keyPair.privateKey(), keyPair.publicKey());
+        if (signature.isPresent()) {
+          return signature.get();
+        }
+      } catch (final CryptoException e) {
+        throw new IllegalStateException("Failed to sign CVC authentication challenge", e);
+      }
+    }
+    throw new IllegalStateException("Failed to create a valid CVC ECDSA signature.");
+  }
+
+  private Optional<byte[]> tryCreateSignature(
+      final BigInteger privateKey,
+      final BigInteger z,
+      final byte[] ephemeralPrivateKey,
+      final byte[] ephemeralPublicKey) {
+    final BigInteger k = toPositiveInteger(ephemeralPrivateKey);
+    if (!isValidScalar(k)) {
+      return Optional.empty();
+    }
+
+    final BigInteger r = extractSignatureR(ephemeralPublicKey);
+    if (r.signum() == 0) {
+      return Optional.empty();
+    }
+
+    final BigInteger s =
+        k.modInverse(BRAINPOOL_P256R1_ORDER)
+            .multiply(z.add(r.multiply(privateKey)))
+            .mod(BRAINPOOL_P256R1_ORDER);
+    if (s.signum() == 0) {
+      return Optional.empty();
+    }
+    return Optional.of(concatenate(toFixedLength(r), toFixedLength(s)));
+  }
+
+  private static boolean isValidScalar(final BigInteger value) {
+    return value.signum() != 0 && value.compareTo(BRAINPOOL_P256R1_ORDER) < 0;
+  }
+
+  private static BigInteger extractSignatureR(final byte[] publicKey) {
+    return toPositiveInteger(
+            Arrays.copyOfRange(publicKey, 1, 1 + BRAINPOOL_P256R1_COORDINATE_LENGTH))
+        .mod(BRAINPOOL_P256R1_ORDER);
+  }
+
+  private static BigInteger truncateDigest(final byte[] value) {
+    var digest = toPositiveInteger(value);
+    final int excessBits = digest.bitLength() - BRAINPOOL_P256R1_ORDER.bitLength();
+    if (excessBits > 0) {
+      digest = digest.shiftRight(excessBits);
+    }
+    return digest;
+  }
+
+  private static BigInteger toPositiveInteger(final byte[] value) {
+    return new BigInteger(1, value);
+  }
+
+  private byte[] toFixedLength(final BigInteger value) {
+    return toFixedLength(value.toByteArray(), BRAINPOOL_P256R1_COORDINATE_LENGTH);
   }
 
   private boolean isSecureMessagingProtectedCommand(final String normalizedCommandApdu) {
@@ -486,8 +566,7 @@ public class VirtualCardService {
 
   private byte[] loadEgkAuthCvcPrivateKey(String xmlDoc)
       throws IOException, SAXException, ParserConfigurationException {
-    final String privateKeyHex =
-        getChildAttribute(xmlDoc, EGK_AUT_CVC_PRIVATE_KEY_OBJECT, "privateKey");
+    final String privateKeyHex = getChildAttribute(xmlDoc);
     if (privateKeyHex == null) {
       return null;
     }
@@ -502,19 +581,19 @@ public class VirtualCardService {
         POPP_SERVICE_END_ENTITY_PUBLIC_KEY, POPP_SERVICE_END_ENTITY_PUBLIC_KEY.length);
   }
 
-  private String getChildAttribute(String xmlDoc, String childId, String attributeId)
+  private String getChildAttribute(String xmlDoc)
       throws IOException, SAXException, ParserConfigurationException {
     Element e = getDOMRootElement(xmlDoc);
     NodeList nList = e.getElementsByTagName("child");
     for (int i = 0; i < nList.getLength(); i++) {
       Element child = (Element) nList.item(i);
-      if (!childId.equals(child.getAttribute("id"))) {
+      if (!VirtualCardService.EGK_AUT_CVC_PRIVATE_KEY_OBJECT.equals(child.getAttribute("id"))) {
         continue;
       }
       NodeList attributes = child.getElementsByTagName("attribute");
       for (int j = 0; j < attributes.getLength(); j++) {
         Element attribute = (Element) attributes.item(j);
-        if (attributeId.equals(attribute.getAttribute("id"))) {
+        if ("privateKey".equals(attribute.getAttribute("id"))) {
           return attribute.getTextContent();
         }
       }

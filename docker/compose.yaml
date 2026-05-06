@@ -21,6 +21,7 @@ services:
     container_name: popp-server
     ports:
       - "8443:8443"
+      - "9002:9002"
     environment:
       - IDENTITIES_LOCATION=classpath:identities
       - CERT_HASH_IMPORT_LOCATION=file:/app/import

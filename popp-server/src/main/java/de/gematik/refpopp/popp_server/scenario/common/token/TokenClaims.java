@@ -22,6 +22,7 @@ package de.gematik.refpopp.popp_server.scenario.common.token;
 
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_CONNECTOR;
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_STANDARD;
+import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_VIRTUAL;
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACT_CONNECTOR;
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACT_STANDARD;
 import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey.CARD_CONNECTION_TYPE;
@@ -104,7 +105,8 @@ class TokenClaims {
     if (cardConnectionType == CONTACT_STANDARD || cardConnectionType == CONTACT_CONNECTOR) {
       return ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL.toString();
     } else if (cardConnectionType == CONTACTLESS_STANDARD
-        || cardConnectionType == CONTACTLESS_CONNECTOR) {
+        || cardConnectionType == CONTACTLESS_CONNECTOR
+        || cardConnectionType == CONTACTLESS_VIRTUAL) {
       return ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED.toString();
     }
 

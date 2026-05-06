@@ -37,7 +37,7 @@ public class X509CertificateParser {
       final var certificateFactory = CertificateFactory.getInstance("X.509");
       return (X509Certificate) certificateFactory.generateCertificate(rootInputStream);
     } catch (final CertificateException | IOException e) {
-      throw new CertificateParserException("Failed to parse X509 certificate", "errorCode");
+      throw new CertificateParserException("Failed to parse X509 certificate", "errorCode", e);
     }
   }
 
@@ -47,7 +47,7 @@ public class X509CertificateParser {
       return (X509Certificate) certificateFactory.generateCertificate(inputStream);
     } catch (final CertificateException | IOException e) {
       throw new CertificateParserException(
-          sessionId, "Failed to parse X509 certificate: " + e, "errorCode");
+          sessionId, "Failed to parse X509 certificate: ", "errorCode", e);
     }
   }
 }

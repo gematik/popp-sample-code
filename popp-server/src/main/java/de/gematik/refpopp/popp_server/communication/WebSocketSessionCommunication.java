@@ -44,7 +44,7 @@ public class WebSocketSessionCommunication implements SessionCommunication {
       final var textMessage = new TextMessage(mapper.writeValueAsString(message));
       session.sendMessage(textMessage);
     } catch (final IOException e) {
-      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode");
+      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode", e);
     }
   }
 
@@ -58,7 +58,7 @@ public class WebSocketSessionCommunication implements SessionCommunication {
     try {
       session.close(CloseStatus.NORMAL);
     } catch (final IOException e) {
-      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode");
+      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode", e);
     }
   }
 }

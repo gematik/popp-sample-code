@@ -20,7 +20,9 @@
 
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
+import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
@@ -28,7 +30,6 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -65,38 +66,40 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
     cvcProcessor.createAndValidateCvcCa(
         sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
-    final var importableCvcs = buildTrustedChannelCvcChain(sessionId, scenarioResult, endEntityCvc);
+    final var importableCvcs = buildTrustedChannelCvcChain(sessionId, scenarioResult);
     final var trustedChannelSteps = createTrustedChannelSteps(sessionId, importableCvcs);
     sessionAccessor.storeAdditionalSteps(sessionId, trustedChannelSteps);
   }
 
-  private List<Cvc> buildTrustedChannelCvcChain(
-      final String sessionId, final ScenarioResult scenarioResult, final Cvc endEntityCvc) {
+  private List<CvCertificate> buildTrustedChannelCvcChain(
+      final String sessionId, final ScenarioResult scenarioResult) {
     try {
-      return cvcChainBuilder.build(sessionId, scenarioResult, endEntityCvc);
+      return cvcChainBuilder.build(sessionId, scenarioResult);
     } catch (final RuntimeException e) {
       throw new ScenarioException(
           sessionId,
           "Failed to prepare trusted-channel CVC chain: " + exceptionMessage(e),
-          "errorCode");
+          "errorCode",
+          e);
     }
   }
 
   private List<
           de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios
               .StepDefinition>
-      createTrustedChannelSteps(final String sessionId, final List<Cvc> cvcList) {
+      createTrustedChannelSteps(final String sessionId, final List<CvCertificate> cvcList) {
     try {
       return buildTrustedChannelSteps(cvcList);
     } catch (final RuntimeException e) {
       throw new ScenarioException(
           sessionId,
           "Failed to prepare trusted-channel steps: " + exceptionMessage(e),
-          "errorCode");
+          "errorCode",
+          e);
     }
   }
 
-  private List<StepDefinition> buildTrustedChannelSteps(final List<Cvc> cvcList) {
+  private List<StepDefinition> buildTrustedChannelSteps(final List<CvCertificate> cvcList) {
     final var scenarioSteps = new ArrayList<StepDefinition>();
     addImportCvcSteps(scenarioSteps, cvcList);
     addMutualAuthenticationStep(scenarioSteps);
@@ -104,7 +107,7 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   private void addImportCvcSteps(
-      final List<StepDefinition> scenarioSteps, final List<Cvc> cvcList) {
+      final List<StepDefinition> scenarioSteps, final List<CvCertificate> cvcList) {
     for (int i = cvcList.size(); i-- > 0; ) {
       final var cvc = cvcList.get(i);
       scenarioSteps.add(createManageSecEnvStep(cvc));
@@ -116,12 +119,12 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
     scenarioSteps.add(createMutualAuthenticationStep1());
   }
 
-  private StepDefinition createManageSecEnvStep(final Cvc cvc) {
-    return new StepDefinition(StepId.MSE_APDU, cvc.getCarObject().getValue());
+  private StepDefinition createManageSecEnvStep(final CvCertificate cvc) {
+    return new StepDefinition(StepId.MSE_APDU, CvCertificateSupport.carBytes(cvc));
   }
 
-  private StepDefinition createPsoStep(final Cvc cvc) {
-    return new StepDefinition(StepId.PSO_APDU, cvc.getValueField());
+  private StepDefinition createPsoStep(final CvCertificate cvc) {
+    return new StepDefinition(StepId.PSO_APDU, CvCertificateSupport.certificateValueField(cvc));
   }
 
   private StepDefinition createMutualAuthenticationStep1() {

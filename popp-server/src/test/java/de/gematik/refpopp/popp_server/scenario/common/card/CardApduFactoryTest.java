@@ -21,7 +21,13 @@
 package de.gematik.refpopp.popp_server.scenario.common.card;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import de.gematik.openhealth.crypto.CryptoException;
+import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.certificates.CvcFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +49,7 @@ class CardApduFactoryTest {
   }
 
   @Test
-  void buildsStaticScenarioApdusFromOpenHealth() {
+  void buildsStaticScenarioApdus() {
     assertThat(sut.selectMasterFile()).isEqualTo("00a4040c07d2760001448000");
     assertThat(sut.readVersion()).isEqualTo("00b0910000");
     assertThat(sut.readSubCaCvCertificate()).isEqualTo("00b0870000");
@@ -56,7 +62,7 @@ class CardApduFactoryTest {
   }
 
   @Test
-  void buildsTrustedChannelSpecificApdusFromOpenHealth() {
+  void buildsTrustedChannelSpecificApdus() {
     assertThat(sut.manageSecEnvSetSignatureKeyReference(HEX_FORMAT.parseHex("4445475858870222")))
         .isEqualTo("002281b60a83084445475858870222");
     assertThat(sut.psoComputeDigitalSignatureCvc(HEX_FORMAT.parseHex("010203")))
@@ -66,7 +72,7 @@ class CardApduFactoryTest {
   }
 
   @Test
-  void buildsInternalAuthenticateFromOpenHealthBuilder() {
+  void buildsInternalAuthenticate() {
     assertThat(
             sut.internalAuthenticate(
                 HEX_FORMAT.parseHex("000102030405060708090a0b0c0d0e0f1011121314151617")))
@@ -87,5 +93,34 @@ class CardApduFactoryTest {
 
     assertThat(commandApdu)
         .isEqualTo("00860000457c438541" + HEX_FORMAT.formatHex(ephemeralPublicKey));
+  }
+
+  @Test
+  void constructorUsesCertificateProviderEndEntityChr() throws IOException {
+    final var certificateProviderService = mock(CertificateProviderService.class);
+    final var certificateBytes =
+        Files.readAllBytes(
+            Path.of("src/main/resources/certificates/cvc/80276001011699902101-cvc-flag0.crt"));
+    when(certificateProviderService.getCvEndEntityCertificate())
+        .thenReturn(new CvcFactory().create(certificateBytes));
+
+    sut = new CardApduFactory(certificateProviderService);
+
+    assertThat(sut.generalAuthenticateMutualAuthenticationStep1())
+        .isEqualTo("10860000107c0ec30c000a8027600101169990210100");
+  }
+
+  @Test
+  void generalAuthenticateElcStep2WrapsCryptoException() {
+    sut =
+        new CardApduFactory(
+            TRUSTED_CHANNEL_CHR,
+            cvc -> {
+              throw new CryptoException.Crypto("invalid cvc");
+            });
+
+    assertThatThrownBy(() -> sut.generalAuthenticateElcStep2(new byte[] {0x01}))
+        .isInstanceOf(IllegalStateException.class)
+        .hasCauseInstanceOf(CryptoException.class);
   }
 }

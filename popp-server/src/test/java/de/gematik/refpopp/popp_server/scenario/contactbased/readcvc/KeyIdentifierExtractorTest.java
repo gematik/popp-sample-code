@@ -21,13 +21,15 @@
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.gematik.smartcards.utils.Hex;
+import java.util.HexFormat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class KeyIdentifierExtractorTest {
 
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
   private KeyIdentifierExtractor sut;
 
   @BeforeEach
@@ -36,16 +38,37 @@ class KeyIdentifierExtractorTest {
   }
 
   @Test
-  void extractValidDataShouldReturnEmptyList() {
+  void extractValidDataShouldReturnKeyReferences() {
     // given
     final byte[] data =
-        Hex.toByteArray(
-            "7f2181da7f4e81935f290170420844454758581102237f494b06062b24030503018641045e7ae614740e7012e350de71c10021ec668f21d6859591b4f709c4c73cce91c5a7fb0be1327e59ff1d0cb402b9c2bb0dc0432fa566bd4ff5f532258c7364aecd5f200c0009802768831100001565497f4c1306082a8214004c0481185307000000000000005f25060204000400025f24060209000400015f37409d244d497832172304f298bd49f91f45bf346cb306adeb44b0742017a074902146cccbdbb35426c2eb602d38253d92ebe1ac6905f388407398a474c4ea612d84");
+        HEX_FORMAT.parseHex(
+            "e0154f07d2760001448000b60a83084445475858870222"
+                + "e0154f07d2760001448000b60a83084445475858120223"
+                + "e0194f07d2760001448000a40e830c000a80276001011699902101"
+                + "e0194f07d2760001448000a40e830c4d6f7270686f414343455353"
+                + "e0164f07d2760001448000b60b83094d6f7270686f564552"
+                + "e0154f07d2760001448000b60a83084445475858860220"
+                + "e0154f07d2760001448000b60a83080000000000000013");
 
     // When
     final var result = sut.extract(data);
 
     // Then
-    assertThat(result).isEmpty();
+    assertThat(result)
+        .containsExactlyInAnyOrder(
+            "4445475858870222",
+            "4445475858120223",
+            "000a80276001011699902101",
+            "4d6f7270686f414343455353",
+            "4d6f7270686f564552",
+            "4445475858860220",
+            "0000000000000013");
+  }
+
+  @Test
+  void extractThrowsIllegalArgumentExceptionForInvalidData() {
+    assertThatThrownBy(() -> sut.extract(new byte[] {0x01, 0x02, 0x03}))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Invalid LIST PUBLIC KEY response");
   }
 }

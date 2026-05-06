@@ -18,16 +18,11 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server.certificates;
+package de.gematik.refpopp.popp_client.client;
 
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
-import java.security.interfaces.ECPrivateKey;
-import org.springframework.stereotype.Component;
+public class TokenRetrievalException extends RuntimeException {
 
-@Component
-public class EcPrivateKeyFactory {
-
-  public EcPrivateKeyImpl create(final ECPrivateKey privateKey) {
-    return new EcPrivateKeyImpl(privateKey);
+  public TokenRetrievalException(final String message, final Throwable cause) {
+    super(message, cause);
   }
 }

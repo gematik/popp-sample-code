@@ -23,14 +23,14 @@ package de.gematik.refpopp.popp_server.scenario.contactless.authg2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CvcSignatureVerifier;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
@@ -42,12 +42,8 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.Scen
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
+import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.crypto.EcPublicKeyImpl;
-import de.gematik.smartcards.g2icc.cvc.CertificateDate;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import java.math.BigInteger;
-import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,29 +52,30 @@ import org.junit.jupiter.params.ParameterizedTest;
 class AuthG2ScenarioResultProcessorTest {
 
   private CvcProcessor cvcProcessorMock;
-  private ScenarioResultFinder scenarioResultFinderMock;
   private X509CertificateProcessor x509CertificateProcessorMock;
   private JwtTokenCreator tokenCreatorMock;
   private SessionAccessor sessionAccessorMock;
   private AuthG2ScenarioResultProcessor sut;
   private EgkHashValidationService egkHashValidationServiceMock;
+  private CvcSignatureVerifier signatureVerifierMock;
 
   @BeforeEach
   void setUp() {
     cvcProcessorMock = mock(CvcProcessor.class);
-    scenarioResultFinderMock = mock(ScenarioResultFinder.class);
     x509CertificateProcessorMock = mock(X509CertificateProcessor.class);
     tokenCreatorMock = mock(JwtTokenCreator.class);
     sessionAccessorMock = mock(SessionAccessor.class);
     egkHashValidationServiceMock = mock(EgkHashValidationService.class);
+    signatureVerifierMock = mock(CvcSignatureVerifier.class);
     sut =
         new AuthG2ScenarioResultProcessor(
             cvcProcessorMock,
-            scenarioResultFinderMock,
+            new ScenarioResultFinder(),
             x509CertificateProcessorMock,
             tokenCreatorMock,
             sessionAccessorMock,
-            egkHashValidationServiceMock);
+            egkHashValidationServiceMock,
+            signatureVerifierMock);
   }
 
   @Test
@@ -91,35 +88,36 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    final var cvcMock = mock(Cvc.class);
-    final var publicKeyMock = mock(EcPublicKeyImpl.class);
-    when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
-    when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
+    final var cvcMock = mock(CvCertificate.class);
+    final var x509DataMock = mock(X509Data.class);
     when(cvcProcessorMock.createAndValidateCvcCa(
             sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
-    final var certificateDate = mock(CertificateDate.class);
-    when(cvcMock.getCed()).thenReturn(certificateDate);
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
-    when(certificateDate.getDate()).thenReturn(LocalDate.now());
-    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
-        .thenReturn(scenarioResult.scenarioResultSteps().get(2));
-    when(tokenCreatorMock.createPoppToken(any(), any())).thenReturn("poppToken");
+    when(x509CertificateProcessorMock.extractCertificateData(sessionId, "x509".getBytes()))
+        .thenReturn(x509DataMock);
+    when(tokenCreatorMock.createPoppToken(x509DataMock, sessionId)).thenReturn("poppToken");
     when(sessionAccessorMock.getCvc(sessionId)).thenReturn("cvc".getBytes());
     when(sessionAccessorMock.getAut(sessionId)).thenReturn("aut".getBytes());
+    when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), any()))
+        .thenReturn(CheckResult.MATCH);
+
+    when(signatureVerifierMock.verifyCvcEcdsaValueSignature(
+            any(CvCertificate.class), any(byte[].class), any(byte[].class)))
+        .thenReturn(true);
 
     // when
     sut.process(sessionId, scenarioResult);
 
     // then
-    verify(tokenCreatorMock).createPoppToken(any(), eq(sessionId));
+    verify(tokenCreatorMock).createPoppToken(x509DataMock, sessionId);
     verify(egkHashValidationServiceMock)
         .validateAndProcess(
             "cvc".getBytes(), "aut".getBytes(), CommunicationMode.CONTACTLESS, sessionId);
-    verify(x509CertificateProcessorMock).extractCertificateData(sessionId, "data".getBytes());
+    verify(x509CertificateProcessorMock).extractCertificateData(sessionId, "x509".getBytes());
     verify(sessionAccessorMock).storeJwtToken(sessionId, "poppToken");
   }
 
@@ -132,18 +130,19 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
-        .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
-    final var cvcMock = mock(Cvc.class);
-    final var publicKeyMock = mock(EcPublicKeyImpl.class);
-    when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
-    when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
+    final var cvcMock = mock(CvCertificate.class);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
+    when(x509CertificateProcessorMock.extractCertificateData(sessionId, "x509".getBytes()))
+        .thenReturn(mock(X509Data.class));
     when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), any()))
         .thenReturn(checkResult);
+
+    when(signatureVerifierMock.verifyCvcEcdsaValueSignature(
+            any(CvCertificate.class), any(byte[].class), any(byte[].class)))
+        .thenReturn(true);
 
     // when
     assertThatThrownBy(() -> sut.process(sessionId, scenarioResult))
@@ -156,18 +155,19 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
-        .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
-    final var cvcMock = mock(Cvc.class);
-    final var publicKeyMock = mock(EcPublicKeyImpl.class);
-    when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
-    when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(true);
+    final var cvcMock = mock(CvCertificate.class);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
+    when(x509CertificateProcessorMock.extractCertificateData(sessionId, "x509".getBytes()))
+        .thenReturn(mock(X509Data.class));
     when(egkHashValidationServiceMock.validateAndProcess(any(), any(), any(), any()))
         .thenReturn(CheckResult.UNKNOWN);
+
+    when(signatureVerifierMock.verifyCvcEcdsaValueSignature(
+            any(CvCertificate.class), any(byte[].class), any(byte[].class)))
+        .thenReturn(true);
 
     // when
     assertThatThrownBy(() -> sut.process(sessionId, scenarioResult))
@@ -180,22 +180,18 @@ class AuthG2ScenarioResultProcessorTest {
     // given
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
-    final var cvcMock = mock(Cvc.class);
-    final var publicKeyMock = mock(EcPublicKeyImpl.class);
-    when(cvcMock.getPublicKey()).thenReturn(publicKeyMock);
-    when(publicKeyMock.verifyEcdsa((BigInteger) any(), (byte[]) any())).thenReturn(false);
+    final var cvcMock = mock(CvCertificate.class);
     when(cvcProcessorMock.createAndValidateCvcCa(
             sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
         .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
-    final var certificateDate = mock(CertificateDate.class);
-    when(cvcMock.getCed()).thenReturn(certificateDate);
-    when(certificateDate.getDate()).thenReturn(LocalDate.now());
-    when(scenarioResultFinderMock.find(anyString(), any(), any(StepId.class)))
-        .thenReturn(scenarioResult.scenarioResultSteps().get(2));
     when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
+
+    when(signatureVerifierMock.verifyCvcEcdsaValueSignature(
+            any(CvCertificate.class), any(byte[].class), any(byte[].class)))
+        .thenReturn(false);
 
     // when
     assertThatThrownBy(() -> sut.process(sessionId, scenarioResult))
@@ -205,6 +201,26 @@ class AuthG2ScenarioResultProcessorTest {
     verify(sessionAccessorMock, never()).storeNonce(any(), any());
   }
 
+  @Test
+  void processThrowsScenarioExceptionWhenNonceSignatureVerificationFails() {
+    // given
+    final var sessionId = "sessionId";
+    final var scenarioResult = createScenarioResult();
+    final var cvcMock = mock(CvCertificate.class);
+    when(cvcProcessorMock.createAndValidateCvc(
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
+        .thenReturn(cvcMock);
+    when(sessionAccessorMock.getNonce(sessionId)).thenReturn("nonce".getBytes());
+    when(signatureVerifierMock.verifyCvcEcdsaValueSignature(
+            any(CvCertificate.class), any(byte[].class), any(byte[].class)))
+        .thenThrow(new IllegalStateException("native verification failed"));
+
+    // when / then
+    assertThatThrownBy(() -> sut.process(sessionId, scenarioResult))
+        .isInstanceOf(ScenarioException.class)
+        .hasMessage("Failed to verify nonce signature: native verification failed");
+  }
+
   private static ScenarioResult createScenarioResult() {
     final var scenarioResultStep1 =
         new ScenarioResultStep(StepId.READ_SUB_CA_CV_CERTIFICATE, "9000", "data".getBytes());
@@ -212,7 +228,11 @@ class AuthG2ScenarioResultProcessorTest {
         new ScenarioResultStep(StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "data".getBytes());
     final var scenarioResultStep3 =
         new ScenarioResultStep(StepId.INTERNAL_AUTHENTICATION, "9000", "data".getBytes());
+    final var scenarioResultStep4 =
+        new ScenarioResultStep(StepId.READ_X509, "9000", "x509".getBytes());
     return new ScenarioResult(
-        "scenarioName", List.of(scenarioResultStep1, scenarioResultStep2, scenarioResultStep3));
+        "scenarioName",
+        List.of(
+            scenarioResultStep1, scenarioResultStep2, scenarioResultStep3, scenarioResultStep4));
   }
 }

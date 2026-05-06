@@ -49,7 +49,7 @@ class ScenarioStepCommandResolverTest {
   }
 
   @Test
-  void resolvesStaticOpenHealthCommandsWithoutConfiguredApdu() {
+  void resolvesStaticCommandsWithoutConfiguredApdu() {
     final var stepDefinition = new StepDefinition(StepId.SELECT_MASTER_FILE);
     when(cardApduFactoryMock.selectMasterFile()).thenReturn("00a4040c07d2760001448000");
 
@@ -173,7 +173,7 @@ class ScenarioStepCommandResolverTest {
   }
 
   @Test
-  void resolvesOtherStaticOpenHealthCommandsWithoutConfiguredApdu() {
+  void resolvesOtherStaticCommandsWithoutConfiguredApdu() {
     when(cardApduFactoryMock.readVersion()).thenReturn("00b0910000");
     when(cardApduFactoryMock.readSubCaCvCertificate()).thenReturn("00b0870000");
     when(cardApduFactoryMock.readEndEntityCvCertificate()).thenReturn("00b0860000");

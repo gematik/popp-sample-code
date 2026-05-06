@@ -30,8 +30,8 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.util.HashMap;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +61,7 @@ class TokenCreatorTest {
     // given
     final X509Data x509DataMock = mock(X509Data.class);
     final var sessionId = "sessionId";
-    final var privateKeyMock = mock(EcPrivateKeyImpl.class);
+    final var privateKeyMock = mock(ECPrivateKey.class);
     final var certificateMock = mock(X509Certificate.class);
     final var publicKeyMock = mock(ECPublicKey.class);
     when(certificateProviderServiceMock.getKeyStoreDataPoppToken().certificate())
@@ -91,7 +91,7 @@ class TokenCreatorTest {
     // given
     final var scenarioMessageMock = mock(StandardScenarioMessage.class);
     final var sessionId = "sessionId";
-    final var privateKeyMock = mock(EcPrivateKeyImpl.class);
+    final var privateKeyMock = mock(ECPrivateKey.class);
     final var certificateMock = mock(X509Certificate.class);
     final var publicKeyMock = mock(ECPublicKey.class);
     when(certificateProviderServiceMock.getKeyStoreDataConnector().certificate())

@@ -7,12 +7,11 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>2.3.0</version>
+    <version>2.4.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>popp-client</artifactId>
-  <version>2.3.0</version>
   <packaging>jar</packaging>
 
   <name>popp-client</name>
@@ -104,22 +103,17 @@
     <dependency>
       <groupId>de.gematik.openhealth</groupId>
       <artifactId>asn1-jvm</artifactId>
-      <version>0.3.0-alpha1</version>
+      <version>${version.openhealth.healthcard}</version>
     </dependency>
     <dependency>
       <groupId>de.gematik.openhealth</groupId>
       <artifactId>crypto-jvm</artifactId>
-      <version>0.3.0-alpha1</version>
+      <version>${version.openhealth.healthcard}</version>
     </dependency>
     <dependency>
       <groupId>de.gematik.openhealth</groupId>
       <artifactId>healthcard-jvm</artifactId>
       <version>${version.openhealth.healthcard}</version>
-    </dependency>
-    <dependency>
-      <groupId>de.gematik.smartcards</groupId>
-      <artifactId>de.gematik.smartcards.g2icc</artifactId>
-      <version>1.0.3</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -443,8 +437,18 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>${version.maven-javadoc-plugin}</version>
         <configuration>
+          <sourceFileExcludes>
+            <sourceFileExclude>**/target/generated-sources/**</sourceFileExclude>
+            <sourceFileExclude>**/de/gematik/ws/**</sourceFileExclude>
+            <sourceFileExclude>**/oasis/names/tc/**</sourceFileExclude>
+            <sourceFileExclude>**/org/w3/_2000/_09/xmldsig_/**</sourceFileExclude>>
+         </sourceFileExcludes>
+
           <detectOfflineLinks>false</detectOfflineLinks>
           <doclint>none</doclint>
+          <excludePackageNames>
+            de.gematik.ws.*,oasis.names.tc.*,org.w3._2000._09.xmldsig_.*
+          </excludePackageNames>
         </configuration>
         <executions>
           <execution>

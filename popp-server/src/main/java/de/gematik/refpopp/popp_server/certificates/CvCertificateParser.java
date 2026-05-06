@@ -20,29 +20,40 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class CVCertificateParser {
+public class CvCertificateParser {
 
   private final CvcFactory cvcFactory;
 
-  public CVCertificateParser(final CvcFactory cvcFactory) {
+  public CvCertificateParser(final CvcFactory cvcFactory) {
     this.cvcFactory = cvcFactory;
   }
 
-  public Cvc parse(final ClassPathResource cvcResource) {
+  public CvCertificate parse(final ClassPathResource cvcResource) {
     try (final InputStream certStream = cvcResource.getInputStream()) {
       return cvcFactory.create(certStream.readAllBytes());
     } catch (final Exception e) {
-      log.error("Failed to parse CVC certificate", e);
-      throw new CertificateParserException("Failed to parse CVC certificate", "errorCode");
+      log.error("Failed to parse CV certificate", e);
+      throw new CertificateParserException("Failed to parse CV certificate", "errorCode", e);
+    }
+  }
+
+  public CvCertificate parse(final Path cvcPath) {
+    try {
+      return cvcFactory.create(Files.readAllBytes(cvcPath));
+    } catch (final Exception e) {
+      log.error("Failed to parse CV certificate from {}", cvcPath, e);
+      throw new CertificateParserException("Failed to parse CV certificate", "errorCode", e);
     }
   }
 }

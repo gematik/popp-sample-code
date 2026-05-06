@@ -259,7 +259,7 @@ Once all containers are running, the following endpoints are available:
 #### 4. Testing with a virtual card
 
 The full Docker profile is intended to be used together with the virtual card configuration. You can test it via the 
-Swagger-Ui with the `/token` endpoint as described below with the communication type `contact-virtual`.
+Swagger-Ui with the `/token` endpoint as described below with the communication type `contact-virtual` or `contactless-virtual`.
 
 This allows testing PoPP flows without any card-related hardware.
 
@@ -292,6 +292,14 @@ Run the virtual card token flow:
 ```bash
 curl -H 'Content-Type: application/json' \
   -d '{"communicationType":"contact-virtual"}' \
+  http://localhost:8081/token
+```
+
+For the contactless virtual card flow, use:
+
+```bash
+curl -H 'Content-Type: application/json' \
+  -d '{"communicationType":"contactless-virtual"}' \
   http://localhost:8081/token
 ```
 
@@ -433,6 +441,8 @@ The communication type must be one of the following:
   - use contactless interface from Standard-Kartenleser
 - `contact-virtual`
   - use a virtual card from a card image file, no card reader needed
+- `contactless-virtual`
+  - use a contactless virtual card from a card image file, no card reader needed
 - `contact-connector`
   - use contact-based interface from eHealth-Kartenterminal via Konnektor
 - `contactless-connector`
