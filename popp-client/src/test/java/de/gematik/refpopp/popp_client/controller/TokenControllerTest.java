@@ -176,6 +176,27 @@ class TokenControllerTest {
   }
 
   @Test
+  void getTokenWithContactlessVirtualCallsVirtualCardProcess() throws Exception {
+    // given
+
+    // when / then
+    mockMvc
+        .perform(
+            post("/token")
+                .content(
+                    "{\"communicationType\": \""
+                        + CardConnectionType.CONTACTLESS_VIRTUAL.getType()
+                        + "\"}")
+                .contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().json("{\"status\":\"OK\"}"));
+
+    verify(communicationServiceMock)
+        .startVirtualCard(CardConnectionType.CONTACTLESS_STANDARD, EMPTY_CLIENT_SESSION_ID);
+    verify(cardReaderServiceMock, never()).startCheckForCardReader();
+  }
+
+  @Test
   void getTokenWithContactConnectorWithClientSessionId() throws Exception {
     // given
     final var sessionId = UUID.randomUUID().toString();

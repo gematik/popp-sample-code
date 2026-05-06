@@ -24,18 +24,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.g2icc.cvc.CertificationAuthorityReference;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,23 +66,31 @@ class ReadCvcScenarioResultProcessorTest {
         new ScenarioResult.ScenarioResultStep(
             StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(scenarioResultStep));
-    final var endEntityCvc = createCvc("end-car", "end-value");
-    final var importableCvc = createCvc("import-car", "import-value");
+    final var endEntityCvc = createCvc();
+    final var importableCvc = createCvc();
     final var cvcChain = List.of(importableCvc);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(endEntityCvc);
-    when(cvcChainBuilderMock.build(sessionId, scenarioResult, endEntityCvc)).thenReturn(cvcChain);
+    when(cvcChainBuilderMock.build(sessionId, scenarioResult)).thenReturn(cvcChain);
 
     // when
-    sut.process(sessionId, scenarioResult);
+    try (final var cvcSupportMock = mockStatic(CvCertificateSupport.class)) {
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.carBytes(importableCvc))
+          .thenReturn("import-car".getBytes());
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.certificateValueField(importableCvc))
+          .thenReturn("import-value".getBytes());
+      sut.process(sessionId, scenarioResult);
+    }
 
     // then
     verify(cvcProcessorMock)
         .createAndValidateCvc(sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
     verify(cvcProcessorMock)
         .createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
-    verify(cvcChainBuilderMock).build(sessionId, scenarioResult, endEntityCvc);
+    verify(cvcChainBuilderMock).build(sessionId, scenarioResult);
     verify(sessionAccessorMock)
         .storeAdditionalSteps(eq(sessionId), org.mockito.ArgumentMatchers.anyList());
   }
@@ -93,11 +102,11 @@ class ReadCvcScenarioResultProcessorTest {
         new ScenarioResult.ScenarioResultStep(
             StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(scenarioResultStep));
-    final var endEntityCvc = mock(Cvc.class);
+    final var endEntityCvc = mock(CvCertificate.class);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(endEntityCvc);
-    when(cvcChainBuilderMock.build(sessionId, scenarioResult, endEntityCvc))
+    when(cvcChainBuilderMock.build(sessionId, scenarioResult))
         .thenThrow(new IllegalArgumentException("not a chain"));
 
     assertThatThrownBy(() -> sut.process(sessionId, scenarioResult))
@@ -113,13 +122,15 @@ class ReadCvcScenarioResultProcessorTest {
         new ScenarioResult.ScenarioResultStep(
             StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(scenarioResultStep));
-    final var endEntityCvc = mock(Cvc.class);
+    final var endEntityCvc = mock(CvCertificate.class);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(endEntityCvc);
-    when(cvcChainBuilderMock.build(sessionId, scenarioResult, endEntityCvc)).thenReturn(List.of());
+    when(cvcChainBuilderMock.build(sessionId, scenarioResult)).thenReturn(List.of());
 
-    sut.process(sessionId, scenarioResult);
+    try (final var ignored = mockStatic(CvCertificateSupport.class)) {
+      sut.process(sessionId, scenarioResult);
+    }
 
     final var stepsCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
     verify(sessionAccessorMock).storeAdditionalSteps(eq(sessionId), stepsCaptor.capture());
@@ -142,16 +153,30 @@ class ReadCvcScenarioResultProcessorTest {
             List.of(
                 new ScenarioResult.ScenarioResultStep(
                     StepId.READ_END_ENTITY_CV_CERTIFICATE, "9000", "abcdef".getBytes())));
-    final var endEntityCvc = createCvc("end-car", "end-value");
-    final var importableCvc1 = createCvc("car1", "value1");
-    final var importableCvc2 = createCvc("car2", "value2");
+    final var endEntityCvc = createCvc();
+    final var importableCvc1 = createCvc();
+    final var importableCvc2 = createCvc();
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(endEntityCvc);
-    when(cvcChainBuilderMock.build(sessionId, scenarioResult, endEntityCvc))
+    when(cvcChainBuilderMock.build(sessionId, scenarioResult))
         .thenReturn(List.of(importableCvc1, importableCvc2));
 
-    sut.process(sessionId, scenarioResult);
+    try (final var cvcSupportMock = mockStatic(CvCertificateSupport.class)) {
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.carBytes(importableCvc1))
+          .thenReturn("car1".getBytes());
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.carBytes(importableCvc2))
+          .thenReturn("car2".getBytes());
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.certificateValueField(importableCvc1))
+          .thenReturn("value1".getBytes());
+      cvcSupportMock
+          .when(() -> CvCertificateSupport.certificateValueField(importableCvc2))
+          .thenReturn("value2".getBytes());
+      sut.process(sessionId, scenarioResult);
+    }
 
     final var stepsCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
     verify(sessionAccessorMock).storeAdditionalSteps(eq(sessionId), stepsCaptor.capture());
@@ -178,12 +203,7 @@ class ReadCvcScenarioResultProcessorTest {
     assertEquals(ScenarioId.READ_CVC, scenarioId);
   }
 
-  private Cvc createCvc(final String car, final String valueField) {
-    final var cvc = mock(Cvc.class);
-    final var carObject = mock(CertificationAuthorityReference.class);
-    when(carObject.getValue()).thenReturn(car.getBytes());
-    when(cvc.getCarObject()).thenReturn(carObject);
-    when(cvc.getValueField()).thenReturn(valueField.getBytes());
-    return cvc;
+  private CvCertificate createCvc() {
+    return mock(CvCertificate.class);
   }
 }

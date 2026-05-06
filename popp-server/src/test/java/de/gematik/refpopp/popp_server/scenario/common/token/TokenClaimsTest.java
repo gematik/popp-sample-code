@@ -173,6 +173,24 @@ class TokenClaimsTest {
   }
 
   @Test
+  void createPoppClaimsWithContactlessVirtualProofMethod() {
+    // given
+    when(sessionContainer.retrieveSessionData(
+            sessionId,
+            SessionContainer.SessionStorageKey.CARD_CONNECTION_TYPE,
+            CardConnectionType.class))
+        .thenReturn(Optional.of(CardConnectionType.CONTACTLESS_VIRTUAL));
+
+    // when
+    final Map<String, Object> claims = sut.createPoppClaims(x509Data, sessionId);
+
+    // then
+    assertThat(claims)
+        .containsEntry(
+            PROOF_METHOD.getKeyValue(), ProofMethod.EHC_PRACTITIONER_CVC_AUTHENTICATED.getValue());
+  }
+
+  @Test
   void createPoppClaimsWhenNoConnectionTypeAvailable() {
     // given
     when(sessionContainer.retrieveSessionData(

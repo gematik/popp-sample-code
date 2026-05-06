@@ -6,6 +6,19 @@
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.4.0
+
+### changed
+- Replaced the former Smartcard-library based CVC and trusted-channel handling in PoPP client and server with OpenHealth-based `CvCertificate`, healthcard parsing, and crypto verification APIs
+- Reworked trusted CVC directory loading and trusted-channel chain building on the server to use OpenHealth instead of `TrustCenter` and `SecureMessagingConverterSoftware`
+- Switched the configured trusted-channel service identity validation to OpenHealth using the configured PKCS#8 key material directly
+- Simplified server-side key handling by removing obsolete parser and factory layers around private keys and JCA key store access
+- Add support for Contactless Virtual Card
+
+### fixed
+- Fixed contact-based and contactless CVC signature verification and nonce verification to use the same OpenHealth-based verification logic across scenarios
+- Fixed parsing of `LIST PUBLIC KEY` and `EF.Version2` responses by using OpenHealth parsers instead of local TLV decoding
+
 ## Release 2.3.0
 
 ### added

@@ -85,7 +85,7 @@ class WebSocketHandlerTest {
   }
 
   @Test
-  void handleTextMessageStartsEgkProcessOrchestrator() throws IOException {
+  void handleTextMessageStartsEgkProcessOrchestrator() {
     // given
     final var payload =
         """

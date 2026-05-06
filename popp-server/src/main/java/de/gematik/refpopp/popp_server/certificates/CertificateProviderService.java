@@ -20,10 +20,9 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.poppcommons.api.exceptions.PrivateKeyLoadingException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import de.gematik.smartcards.g2icc.cvc.TrustCenter;
 import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
@@ -52,6 +51,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class CertificateProviderService {
+  private static final String IDENTITIES_DIRECTORY = "identities";
+  private static final String PKI_CVC_G2_DIRECTORY = IDENTITIES_DIRECTORY + "/PKI_CVC.G2";
 
   @Value("${certificates.identities-location}")
   private String identitiesLocation;
@@ -81,27 +82,27 @@ public class CertificateProviderService {
   private ClassPathResource cvcPoppServicePrivateKeyResource;
 
   @Getter private X509Certificate rootCertificate;
-  @Getter private EcPrivateKeyImpl cvcPoppServicePrk;
-  @Getter private Cvc cvcSubCertificate;
-  @Getter private Cvc cvEndEntityCertificate;
+  @Getter private CvcDirectory cvcDirectory;
+  @Getter private CvCertificate cvcSubCertificate;
+  @Getter private CvCertificate cvEndEntityCertificate;
   @Getter private KeyStoreData keyStoreDataConnector;
   @Getter private KeyStoreData keyStoreDataPoppToken;
 
   private final X509CertificateParser x509CertificateParser;
-  private final CVCertificateParser cvCertificateParser;
-  private final PrivateKeyParser privateKeyParser;
+  private final CvCertificateParser cvCertificateParser;
+  private final ConfiguredTrustedChannelIdentityValidator configuredTrustedChannelIdentityValidator;
   private final KeyStoreService keyStoreService;
   private final ResourceLoader resourceLoader;
 
   public CertificateProviderService(
       final X509CertificateParser x509CertificateParser,
-      final CVCertificateParser cvCertificateParser,
-      final PrivateKeyParser privateKeyParser,
+      final CvCertificateParser cvCertificateParser,
+      final ConfiguredTrustedChannelIdentityValidator configuredTrustedChannelIdentityValidator,
       final KeyStoreService keyStoreService,
       final ResourceLoader resourceLoader) {
     this.x509CertificateParser = x509CertificateParser;
     this.cvCertificateParser = cvCertificateParser;
-    this.privateKeyParser = privateKeyParser;
+    this.configuredTrustedChannelIdentityValidator = configuredTrustedChannelIdentityValidator;
     this.keyStoreService = keyStoreService;
     this.resourceLoader = resourceLoader;
   }
@@ -113,12 +114,14 @@ public class CertificateProviderService {
     this.rootCertificate = x509CertificateParser.parse(rootCertificateResource);
 
     final var identitiesPath = resolveIdentitiesPath();
-    log.info("| Loading PKI_CVC from {}", identitiesPath.pkiCvcPath);
-    TrustCenter.initializeCache(identitiesPath.pkiCvcPath());
+    log.info("| Loading trusted CVC directory from {}", identitiesPath);
+    this.cvcDirectory = CvcDirectory.load(identitiesPath, cvCertificateParser);
     this.cvcSubCertificate = cvCertificateParser.parse(cvcSubCertificateResource);
     this.cvEndEntityCertificate = cvCertificateParser.parse(cvcEndEntityCertificateResource);
+    final var cvcPoppServicePrivateKeyDer = readPrivateKeyDer(cvcPoppServicePrivateKeyResource);
+    configuredTrustedChannelIdentityValidator.validate(
+        cvcSubCertificate, cvEndEntityCertificate, cvcPoppServicePrivateKeyDer);
 
-    this.cvcPoppServicePrk = privateKeyParser.parse(cvcPoppServicePrivateKeyResource);
     this.keyStoreDataConnector =
         keyStoreService.getConnectorKeyStoreData(
             connectorKeyStoreResource, connectorKeyStorePassword);
@@ -129,43 +132,32 @@ public class CertificateProviderService {
   }
 
   /**
-   * Needed, because TrustCenter.initializeCache() expects a file system path. Resolves the
-   * identities path and loads the PKI_CVC file based on the configured identities location. If the
-   * identities resource is located on the file system, it loads the PKI_CVC file and identities
-   * directory directly. Otherwise, it creates a temporary directory to resolve and copy the
-   * required PKI_CVC resources from the classpath.
+   * Resolves the identities path based on the configured identities location. If the identities
+   * resource is located on the file system, it uses that directory directly. Otherwise, it creates
+   * a temporary directory and copies the PKI_CVC resources from the classpath.
    *
-   * @return an instance of {@code IdentitiesPkiCvcPath} containing the resolved PKI_CVC file path
-   *     and the identities directory path.
-   * @throws ScenarioException if an error occurs while loading or processing the identities or
-   *     PKI_CVC resources.
+   * @return the resolved identities directory containing {@code PKI_CVC.G2}.
+   * @throws ScenarioException if an error occurs while loading or processing the identities
+   *     resources.
    */
-  private IdentitiesPkiCvcPath resolveIdentitiesPath() {
+  private Path resolveIdentitiesPath() {
     final var identitiesRoot = resourceLoader.getResource(identitiesLocation);
-    final var pkiLocation =
-        identitiesLocation.endsWith("/")
-            ? identitiesLocation + "PKI_CVC.G2"
-            : identitiesLocation + "/PKI_CVC.G2";
-    final Resource pkiResource = resourceLoader.getResource(pkiLocation);
 
     try {
       final var url = identitiesRoot.getURL();
       if ("file".equals(url.getProtocol())) {
-        final var identitiesDir = Paths.get(url.toURI());
-        final var pkiCvcFile = pkiResource.getFile().toPath();
-        return new IdentitiesPkiCvcPath(pkiCvcFile, identitiesDir);
+        return Paths.get(url.toURI());
       } else {
         final var tempFolder = createSecureTempDir();
         log.info("| tempFolder: {}", tempFolder);
-        final var pkiCvcPath = tempFolder.resolve("identities/PKI_CVC.G2");
         final PathMatchingResourcePatternResolver resolver =
             new PathMatchingResourcePatternResolver();
         final Resource[] resources =
-            resolver.getResources("classpath:" + "identities/PKI_CVC.G2" + "/**");
+            resolver.getResources("classpath:" + PKI_CVC_G2_DIRECTORY + "/**");
         for (final Resource resource : resources) {
           if (resource.isReadable()) {
             final String resourceURL = resource.getURL().toString();
-            final int index = resourceURL.indexOf("identities/PKI_CVC.G2");
+            final int index = resourceURL.indexOf(PKI_CVC_G2_DIRECTORY);
             if (index < 0) {
               continue;
             }
@@ -179,14 +171,32 @@ public class CertificateProviderService {
             }
           }
         }
-        final var identitiesPath = tempFolder.resolve("identities");
-        return new IdentitiesPkiCvcPath(pkiCvcPath, identitiesPath);
+        return tempFolder.resolve(IDENTITIES_DIRECTORY);
       }
     } catch (final IOException | URISyntaxException e) {
       throw new ScenarioException(
           "| N/A",
-          "Unable to load PKI_CVC from " + pkiLocation + ": " + e.getMessage(),
-          "errorcode");
+          "Unable to load PKI_CVC from " + identitiesLocation + ": " + e.getMessage(),
+          "errorcode",
+          e);
+    }
+  }
+
+  public CvCertificate findIdentityCvcByChr(final String chr) {
+    return cvcDirectory
+        .findByChr(chr)
+        .orElseThrow(
+            () ->
+                new ScenarioException(
+                    "| N/A", "Unable to find trusted CVC for CHR " + chr, "errorCode"));
+  }
+
+  private byte[] readPrivateKeyDer(final ClassPathResource privateKeyResource) {
+    try (final var inputStream = privateKeyResource.getInputStream()) {
+      return inputStream.readAllBytes();
+    } catch (final IOException e) {
+      throw new PrivateKeyLoadingException(
+          "serverSessionId", "Failed to load private key", "errorCode");
     }
   }
 
@@ -205,11 +215,9 @@ public class CertificateProviderService {
     }
 
     if (attrs != null) {
-      return Files.createTempDirectory(baseDir, "identities", attrs);
+      return Files.createTempDirectory(baseDir, IDENTITIES_DIRECTORY, attrs);
     } else {
-      return Files.createTempDirectory(baseDir, "identities");
+      return Files.createTempDirectory(baseDir, IDENTITIES_DIRECTORY);
     }
   }
-
-  private record IdentitiesPkiCvcPath(Path pkiCvcPath, Path identitiesPath) {}
 }

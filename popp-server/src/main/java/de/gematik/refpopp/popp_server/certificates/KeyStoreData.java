@@ -20,7 +20,7 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPrivateKey;
 
-public record KeyStoreData(EcPrivateKeyImpl privateKey, X509Certificate certificate) {}
+public record KeyStoreData(ECPrivateKey privateKey, X509Certificate certificate) {}

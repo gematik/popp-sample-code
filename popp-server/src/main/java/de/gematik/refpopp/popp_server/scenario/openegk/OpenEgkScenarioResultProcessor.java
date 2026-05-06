@@ -22,10 +22,14 @@ package de.gematik.refpopp.popp_server.scenario.openegk;
 
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_CONNECTOR;
 import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_STANDARD;
+import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACTLESS_VIRTUAL;
 import static de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode.CONTACT;
 import static de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode.CONTACTLESS;
 import static de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode.G3;
 
+import de.gematik.openhealth.healthcard.CardDataException;
+import de.gematik.openhealth.healthcard.HealthCardVersion2;
+import de.gematik.openhealth.healthcard.Openhealth_healthcardKt;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
@@ -33,9 +37,7 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.tlv.BerTlv;
-import de.gematik.smartcards.tlv.ConstructedBerTlv;
-import de.gematik.smartcards.utils.Hex;
+import java.util.HexFormat;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +47,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
 
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
   private final SessionAccessor sessionAccessor;
   private final ScenarioResultFinder scenarioResultFinder;
 
@@ -64,9 +67,10 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     log.debug("| Entering processScenarioResult()");
 
-    final var efVersion = readVersion(sessionId, scenarioResult);
-    final var ptvObjSys = getPtvObjSys(sessionId, efVersion);
-    processPtvObjSys(sessionId, ptvObjSys);
+    try (final var efVersion = readVersion(sessionId, scenarioResult)) {
+      final var ptvObjSys = getPtvObjSys(sessionId, efVersion);
+      processPtvObjSys(sessionId, ptvObjSys);
+    }
 
     log.debug("| Exiting processScenarioResult()");
   }
@@ -93,37 +97,35 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
 
   private boolean isCardConnectionTypeContactLess(final String sessionId) {
     final var connectionType = sessionAccessor.getCardConnectionType(sessionId);
-    return connectionType == CONTACTLESS_CONNECTOR || connectionType == CONTACTLESS_STANDARD;
+    return connectionType == CONTACTLESS_CONNECTOR
+        || connectionType == CONTACTLESS_STANDARD
+        || connectionType == CONTACTLESS_VIRTUAL;
   }
 
-  private String getPtvObjSys(final String sessionId, final EfVersion efVersion) {
+  private String getPtvObjSys(final String sessionId, final HealthCardVersion2 efVersion) {
     final String ptvObjSys;
-    if ("020000".equals(efVersion.versionFilling())) {
-      ptvObjSys =
-          Hex.toHexDigits(efVersion.efV2().getPrimitive(0xc1).orElseThrow().getValueField());
+    if ("020000".equals(HEX_FORMAT.formatHex(efVersion.fillingInstructionsVersion()))) {
+      ptvObjSys = HEX_FORMAT.formatHex(efVersion.objectSystemVersion());
     } else {
       throw new ScenarioException(
           sessionId,
-          "unsupported version of content in EF.Version2: " + efVersion.versionFilling(),
+          "unsupported version of content in EF.Version2: "
+              + HEX_FORMAT.formatHex(efVersion.fillingInstructionsVersion()),
           "errorCode");
     }
     return ptvObjSys;
   }
 
-  private EfVersion readVersion(final String sessionId, final ScenarioResult scenarioResult) {
+  private HealthCardVersion2 readVersion(
+      final String sessionId, final ScenarioResult scenarioResult) {
     final var rspEfVersion2 =
         scenarioResultFinder
             .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION)
             .data();
-    final var efV2 = (ConstructedBerTlv) BerTlv.getInstance(rspEfVersion2);
-    final var versionFilling =
-        Hex.toHexDigits(
-            efV2.getPrimitive(0xc0)
-                .orElseThrow(
-                    () -> new ScenarioException(sessionId, "missing version filling", "errorCode"))
-                .getValueField());
-    return new EfVersion(efV2, versionFilling);
+    try {
+      return Openhealth_healthcardKt.parseHealthCardVersion2(rspEfVersion2);
+    } catch (final CardDataException e) {
+      throw new ScenarioException(sessionId, "invalid EF.Version2: " + e.getMessage(), "errorCode");
+    }
   }
-
-  private record EfVersion(ConstructedBerTlv efV2, String versionFilling) {}
 }

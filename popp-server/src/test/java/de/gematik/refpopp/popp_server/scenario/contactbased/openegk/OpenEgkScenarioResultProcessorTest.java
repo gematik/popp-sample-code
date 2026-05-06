@@ -36,21 +36,17 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.Scen
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.openegk.OpenEgkScenarioResultProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.tlv.BerTlv;
-import de.gematik.smartcards.tlv.ConstructedBerTlv;
-import de.gematik.smartcards.tlv.PrimitiveBerTlv;
-import de.gematik.smartcards.utils.Hex;
+import java.util.HexFormat;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class OpenEgkScenarioResultProcessorTest {
 
   public static final String SESSION_ID = "testSessionId";
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
   private OpenEgkScenarioResultProcessor sut;
   private SessionAccessor sessionAccessorMock;
   private ScenarioResultFinder scenarioResultFinderMock;
@@ -69,182 +65,179 @@ class OpenEgkScenarioResultProcessorTest {
   @Test
   void processWithContactBasedCard() {
     // Given
-    final var byteArray = Hex.toByteArray("020000");
-    final var resultStep = new ScenarioResultStep("description", "9000", byteArray);
-    final var resultStep2 = new ScenarioResultStep("description2", "6985", byteArray);
+    final var efVersion = efVersion2("020000", "040502");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenReturn(CardConnectionType.CONTACT_STANDARD);
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
-    final var primitiveBerTlvMock2 = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock1));
-    when(primitiveBerTlvMock1.getValueField()).thenReturn(byteArray);
-    when(berTlvMock.getPrimitive(0xc1L)).thenReturn(Optional.of(primitiveBerTlvMock2));
-    when(primitiveBerTlvMock2.getValueField()).thenReturn(Hex.toByteArray("040502"));
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance(byteArray)).thenReturn(berTlvMock);
 
-      // When
-      sut.process(SESSION_ID, scenarioResult);
+    // When
+    sut.process(SESSION_ID, scenarioResult);
 
-      // Then
-      Mockito.verify(sessionAccessorMock)
-          .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACT);
-    }
+    // Then
+    Mockito.verify(sessionAccessorMock)
+        .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACT);
   }
 
   @Test
   void processWithUnsupportedPtvObjSysThrowsException() {
     // Given
-    final var byteArray = Hex.toByteArray("020000");
-    final var resultStep = new ScenarioResultStep("name1", "9000", byteArray);
+    final var efVersion = efVersion2("020000", "000000");
+    final var resultStep = new ScenarioResultStep("name1", "9000", efVersion);
     final var resultStep2 = new ScenarioResultStep("name2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep);
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
-    final var primitiveBerTlvMock2 = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock1));
-    when(primitiveBerTlvMock1.getValueField()).thenReturn(byteArray);
-    when(berTlvMock.getPrimitive(0xc1L)).thenReturn(Optional.of(primitiveBerTlvMock2));
-    when(primitiveBerTlvMock2.getValueField()).thenReturn(Hex.toByteArray("000000"));
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance(byteArray)).thenReturn(berTlvMock);
 
-      // When
-      assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
+    // When
+    assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
 
-      // Then
-      Mockito.verify(sessionAccessorMock, Mockito.never())
-          .storeCommunicationMode(anyString(), any());
-    }
+    // Then
+    Mockito.verify(sessionAccessorMock, Mockito.never()).storeCommunicationMode(anyString(), any());
   }
 
   @Test
   void processWithUnsupportedVersionOfContentThrowsException() {
     // Given
-    final var resultStep = new ScenarioResultStep("description", "9000", "020000".getBytes());
+    final var resultStep =
+        new ScenarioResultStep("description", "9000", efVersion2("010000", "040502"));
     final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep);
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock));
-    final var byteArray = Hex.toByteArray("unsupported");
-    when(primitiveBerTlvMock.getValueField()).thenReturn(byteArray);
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance("020000".getBytes())).thenReturn(berTlvMock);
 
-      // When
-      assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
+    // When
+    assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
 
-      // Then
-      Mockito.verify(sessionAccessorMock, Mockito.never())
-          .storeCommunicationMode(anyString(), any());
-    }
+    // Then
+    Mockito.verify(sessionAccessorMock, Mockito.never()).storeCommunicationMode(anyString(), any());
   }
 
   @Test
   void processWithG3Cards() {
     // Given
-    final var resultStep = new ScenarioResultStep("description", "9000", "020000".getBytes());
-    final var resultStep2 = new ScenarioResultStep("description2", "6985", "020000".getBytes());
+    final var efVersion = efVersion2("020000", "050000");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
 
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
-    final var primitiveBerTlvMock2 = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock1));
-    final var byteArray = Hex.toByteArray("020000");
-    when(primitiveBerTlvMock1.getValueField()).thenReturn(byteArray);
-    when(berTlvMock.getPrimitive(0xc1L)).thenReturn(Optional.of(primitiveBerTlvMock2));
-    when(primitiveBerTlvMock2.getValueField()).thenReturn(Hex.toByteArray("050000"));
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance("020000".getBytes())).thenReturn(berTlvMock);
 
-      // When
-      try {
-        sut.process(SESSION_ID, scenarioResult);
-      } catch (final ScenarioException e) {
-        fail("Should not throw exception");
-      }
-      // Then
-      Mockito.verify(sessionAccessorMock).storeCommunicationMode(SESSION_ID, CommunicationMode.G3);
+    // When
+    try {
+      sut.process(SESSION_ID, scenarioResult);
+    } catch (final ScenarioException e) {
+      fail("Should not throw exception");
     }
+
+    // Then
+    Mockito.verify(sessionAccessorMock).storeCommunicationMode(SESSION_ID, CommunicationMode.G3);
   }
 
   @Test
   void processWithContactLessCards() {
     // Given
-    final var byteArray = Hex.toByteArray("020000");
-    final var resultStep = new ScenarioResultStep("description", "9000", byteArray);
-    final var resultStep2 = new ScenarioResultStep("description2", "6985", byteArray);
+    final var efVersion = efVersion2("020000", "040502");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenReturn(CardConnectionType.CONTACTLESS_STANDARD);
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
-    final var primitiveBerTlvMock2 = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock1));
-    when(primitiveBerTlvMock1.getValueField()).thenReturn(byteArray);
-    when(berTlvMock.getPrimitive(0xc1L)).thenReturn(Optional.of(primitiveBerTlvMock2));
-    when(primitiveBerTlvMock2.getValueField()).thenReturn(Hex.toByteArray("040502"));
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance(byteArray)).thenReturn(berTlvMock);
 
-      // When
-      sut.process(SESSION_ID, scenarioResult);
+    // When
+    sut.process(SESSION_ID, scenarioResult);
 
-      // Then
-      Mockito.verify(sessionAccessorMock)
-          .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACTLESS);
-    }
+    // Then
+    Mockito.verify(sessionAccessorMock)
+        .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACTLESS);
+  }
+
+  @Test
+  void processWithContactlessConnectorStoresContactlessMode() {
+    // Given
+    final var efVersion = efVersion2("020000", "040502");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
+    final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
+    when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
+        .thenReturn(CardConnectionType.CONTACTLESS_CONNECTOR);
+    when(scenarioResultFinderMock.find(
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
+        .thenReturn(resultStep2);
+
+    // When
+    sut.process(SESSION_ID, scenarioResult);
+
+    // Then
+    Mockito.verify(sessionAccessorMock)
+        .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACTLESS);
+  }
+
+  @Test
+  void processWithContactlessVirtualCardStoresContactlessMode() {
+    // Given
+    final var efVersion = efVersion2("020000", "040502");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
+    final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
+    when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
+        .thenReturn(CardConnectionType.CONTACTLESS_VIRTUAL);
+    when(scenarioResultFinderMock.find(
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
+        .thenReturn(resultStep2);
+
+    // When
+    sut.process(SESSION_ID, scenarioResult);
+
+    // Then
+    Mockito.verify(sessionAccessorMock)
+        .storeCommunicationMode(SESSION_ID, CommunicationMode.CONTACTLESS);
   }
 
   @Test
   void processThrowsExceptionWhenCardConnectionTypeNotFound() {
     // Given
-    final var byteArray = Hex.toByteArray("020000");
-    final var resultStep = new ScenarioResultStep("description", "9000", byteArray);
-    final var resultStep2 = new ScenarioResultStep("description2", "6985", byteArray);
+    final var efVersion = efVersion2("020000", "040502");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
     final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
     when(scenarioResultFinderMock.find(
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
         .thenThrow(new ScenarioException("", "", ""));
-    final var berTlvMock = Mockito.mock(ConstructedBerTlv.class);
-    final var primitiveBerTlvMock1 = Mockito.mock(PrimitiveBerTlv.class);
-    final var primitiveBerTlvMock2 = Mockito.mock(PrimitiveBerTlv.class);
-    when(berTlvMock.getPrimitive(0xc0L)).thenReturn(Optional.of(primitiveBerTlvMock1));
-    when(primitiveBerTlvMock1.getValueField()).thenReturn(byteArray);
-    when(berTlvMock.getPrimitive(0xc1L)).thenReturn(Optional.of(primitiveBerTlvMock2));
-    when(primitiveBerTlvMock2.getValueField()).thenReturn(Hex.toByteArray("040502"));
-    try (final MockedStatic<BerTlv> berTlv = Mockito.mockStatic(BerTlv.class)) {
-      berTlv.when(() -> BerTlv.getInstance(byteArray)).thenReturn(berTlvMock);
 
-      // When
-      assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
+    // When
+    assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
 
-      // Then
-      Mockito.verify(sessionAccessorMock, Mockito.never())
-          .storeCommunicationMode(anyString(), any());
-    }
+    // Then
+    Mockito.verify(sessionAccessorMock, Mockito.never()).storeCommunicationMode(anyString(), any());
+  }
+
+  private static byte[] efVersion2(
+      final String fillingInstructionsVersion, final String objectSystemVersion) {
+    return HEX_FORMAT.parseHex(
+        "ef2b"
+            + "c003"
+            + fillingInstructionsVersion
+            + "c103"
+            + objectSystemVersion
+            + "c210444549444d4548435f39303030030005"
+            + "c403010000"
+            + "c503020000"
+            + "c703010000");
   }
 }

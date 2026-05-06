@@ -32,6 +32,7 @@ public enum CardConnectionType {
   CONTACTLESS_CONNECTOR("contactless-connector", false),
   CONTACT_CONNECTOR_VIA_STANDARD_TERMINAL("contact-connector-via-standard-terminal", true),
   CONTACT_VIRTUAL("contact-virtual", false),
+  CONTACTLESS_VIRTUAL("contactless-virtual", false),
   G3("g3", false),
   UNKNOWN("unknown", false);
 

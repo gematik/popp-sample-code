@@ -39,5 +39,6 @@ ENV SERVER_SSL_KEY_ALIAS=ZertifikatAlias
 
 # Expose the port that the application runs on
 EXPOSE 8443
+EXPOSE 9002
 
-CMD ["sh", "-c", "exec java -Dspring.profiles.active=dev -jar popp-server.jar"]
+CMD ["sh", "-c", "exec java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:9002 -Dspring.profiles.active=dev -jar popp-server.jar"]

@@ -116,7 +116,7 @@ public class EgkHashValidationService {
       final var md = MessageDigest.getInstance("SHA-256");
       return md.digest(data);
     } catch (final NoSuchAlgorithmException e) {
-      throw new ScenarioException(sessionId, "SHA-256 algorithm not found", "errorcode");
+      throw new ScenarioException(sessionId, "SHA-256 algorithm not found", "errorcode", e);
     }
   }
 }

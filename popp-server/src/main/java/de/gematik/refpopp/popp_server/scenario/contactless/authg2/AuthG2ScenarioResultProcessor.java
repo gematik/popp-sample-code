@@ -20,7 +20,9 @@
 
 package de.gematik.refpopp.popp_server.scenario.contactless.authg2;
 
+import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CvcSignatureVerifier;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
@@ -34,9 +36,6 @@ import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.crypto.EcPublicKeyImpl;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import java.math.BigInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -50,6 +49,7 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   private final JwtTokenCreator tokenCreator;
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
+  private final CvcSignatureVerifier signatureVerifier;
 
   public AuthG2ScenarioResultProcessor(
       final CvcProcessor cvcProcessor,
@@ -57,13 +57,15 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       final X509CertificateProcessor x509CertificateProcessor,
       final JwtTokenCreator tokenCreator,
       final SessionAccessor sessionAccessor,
-      final EgkHashValidationService egkHashValidationService) {
+      final EgkHashValidationService egkHashValidationService,
+      final CvcSignatureVerifier signatureVerifier) {
     this.cvcProcessor = cvcProcessor;
     this.scenarioResultFinder = scenarioResultFinder;
     this.x509CertificateProcessor = x509CertificateProcessor;
     this.tokenCreator = tokenCreator;
     this.sessionAccessor = sessionAccessor;
     this.egkHashValidationService = egkHashValidationService;
+    this.signatureVerifier = signatureVerifier;
   }
 
   @Override
@@ -109,13 +111,15 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   private void verifySignatureOfNonce(
-      final String sessionId, final ScenarioResult scenarioResult, final Cvc endEntityCvc) {
+      final String sessionId,
+      final ScenarioResult scenarioResult,
+      final CvCertificate endEntityCvc) {
     final var signature =
         scenarioResultFinder
             .find(sessionId, scenarioResult.scenarioResultSteps(), StepId.INTERNAL_AUTHENTICATION)
             .data();
     final var nonce = sessionAccessor.getNonce(sessionId);
-    final var verified = verify(endEntityCvc.getPublicKey(), nonce, signature);
+    final var verified = verify(sessionId, endEntityCvc, nonce, signature);
 
     if (!verified) {
       throw new ScenarioException(sessionId, "Signature of nonce is not valid", "errorCode");
@@ -123,9 +127,17 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   private boolean verify(
-      final EcPublicKeyImpl publicKey, final byte[] nonce, final byte[] signature) {
-    final var algId = "00";
-    final var tau = new BigInteger(1, nonce).shiftLeft(8).add(new BigInteger(algId, 16));
-    return publicKey.verifyEcdsa(tau, signature);
+      final String sessionId,
+      final CvCertificate certificate,
+      final byte[] nonce,
+      final byte[] signature) {
+    final var tau = new byte[nonce.length + 1];
+    System.arraycopy(nonce, 0, tau, 0, nonce.length);
+    try {
+      return signatureVerifier.verifyCvcEcdsaValueSignature(certificate, tau, signature);
+    } catch (final IllegalStateException e) {
+      throw new ScenarioException(
+          sessionId, "Failed to verify nonce signature: " + e.getMessage(), "errorCode");
+    }
   }
 }

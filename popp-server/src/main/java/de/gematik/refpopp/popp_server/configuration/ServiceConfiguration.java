@@ -20,9 +20,7 @@
 
 package de.gematik.refpopp.popp_server.configuration;
 
-import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import de.gematik.refpopp.popp_server.certificates.KeyStoreLoader;
-import de.gematik.smartcards.g2icc.cos.SecureMessagingConverterSoftware;
 import java.security.KeyStore;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -40,15 +38,6 @@ public class ServiceConfiguration {
   @Bean
   public ObjectMapper objectMapper() {
     return new ObjectMapper();
-  }
-
-  @Bean
-  SecureMessagingConverterSoftware secureMessagingConverterSoftware(
-      final CertificateProviderService certificateProviderService) {
-    return new SecureMessagingConverterSoftware(
-        certificateProviderService.getCvcSubCertificate(),
-        certificateProviderService.getCvEndEntityCertificate(),
-        certificateProviderService.getCvcPoppServicePrk());
   }
 
   @Bean

@@ -31,7 +31,15 @@ import static org.mockito.Mockito.when;
 import de.gematik.openhealth.asn1.Asn1TagClass;
 import de.gematik.openhealth.asn1.Asn1TagForm;
 import de.gematik.openhealth.asn1.Openhealth_asn1Kt;
+import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
+import de.gematik.openhealth.healthcard.ApduException;
+import de.gematik.openhealth.healthcard.HealthCardCommand;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
@@ -77,8 +85,16 @@ class VirtualCardServiceTest {
 
   @Test
   void isConfiguredFalse() {
-    virtualCardService.setCvcCertificate(null);
+    virtualCardService.setCvCertificate(null);
     virtualCardService.setAuthCertificate(null);
+    assertFalse(virtualCardService.isConfigured());
+  }
+
+  @Test
+  void isConfiguredFalseWhenAuthCertificateIsMissing() {
+    virtualCardService.setCvCertificate("CV_CERT");
+    virtualCardService.setAuthCertificate(null);
+
     assertFalse(virtualCardService.isConfigured());
   }
 
@@ -99,7 +115,7 @@ class VirtualCardServiceTest {
     assertEquals(4, responses.size());
 
     assertEquals(
-        virtualCardService.getCvcCertificate() + VirtualCardService.APDU_RESPONSE_OK,
+        virtualCardService.getCvCertificate() + VirtualCardService.APDU_RESPONSE_OK,
         responses.get(0));
     assertEquals(
         VirtualCardService.APDU_RESPONSE_OK,
@@ -140,11 +156,11 @@ class VirtualCardServiceTest {
 
     Assertions.assertThat(service.isConfigured()).isFalse();
 
-    service.setCvcCertificate("CVC_CERT");
+    service.setCvCertificate("CV_CERT");
     service.setAuthCertificate("AUTH_CERT");
 
     Assertions.assertThat(service.isConfigured()).isTrue();
-    Assertions.assertThat(service.getCvcCertificate()).isEqualTo("CVC_CERT");
+    Assertions.assertThat(service.getCvCertificate()).isEqualTo("CV_CERT");
     Assertions.assertThat(service.getAuthCertificate()).isEqualTo("AUTH_CERT");
 
     final var steps =
@@ -159,7 +175,7 @@ class VirtualCardServiceTest {
 
     Assertions.assertThat(responses).hasSize(5);
     Assertions.assertThat(responses.get(0))
-        .isEqualTo("CVC_CERT" + VirtualCardService.APDU_RESPONSE_OK);
+        .isEqualTo("CV_CERT" + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(1))
         .startsWith("7C")
         .endsWith(VirtualCardService.APDU_RESPONSE_OK);
@@ -176,7 +192,7 @@ class VirtualCardServiceTest {
     final var eventPublisher = mock(ApplicationEventPublisher.class);
     final var service =
         new VirtualCardService(eventPublisher, "", "", "", "", "", "", "", "", "", "", "");
-    service.setCvcCertificate("CVC_CERT");
+    service.setCvCertificate("CV_CERT");
     service.setAuthCertificate("AUTH_CERT");
 
     final var responses =
@@ -206,7 +222,7 @@ class VirtualCardServiceTest {
             VirtualCardService.APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS
                 + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(4))
-        .isEqualTo("CVC_CERT" + VirtualCardService.APDU_RESPONSE_OK);
+        .isEqualTo("CV_CERT" + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(5))
         .startsWith("7C")
         .endsWith(VirtualCardService.APDU_RESPONSE_OK);
@@ -290,6 +306,147 @@ class VirtualCardServiceTest {
         .isEqualTo(HexFormat.of().parseHex(service.getAuthCertificate()));
     Assertions.assertThat(responseStatusWord).containsExactly((byte) 0x90, 0x00);
     Assertions.assertThat(responseMac).hasSize(8);
+  }
+
+  @Test
+  void processSignsInternalAuthenticateChallengeWithCvcKey() throws Exception {
+    final byte[] nonce =
+        HexFormat.of().parseHex("000102030405060708090A0B0C0D0E0F1011121314151617");
+    final var internalAuthenticate =
+        commandApduHex(HealthCardCommand.Companion.internalAuthenticate(nonce));
+
+    final var response =
+        virtualCardService
+            .process(
+                List.of(
+                    new ScenarioStep(
+                        internalAuthenticate, List.of(VirtualCardService.APDU_RESPONSE_OK))))
+            .getFirst();
+
+    Assertions.assertThat(response).endsWith(VirtualCardService.APDU_RESPONSE_OK);
+    final byte[] signature = HexFormat.of().parseHex(response.substring(0, response.length() - 4));
+    final byte[] tau = Arrays.copyOf(nonce, nonce.length + 1);
+    try (final var cvc =
+        Openhealth_asn1Kt.parseCvCertificate(
+            HexFormat.of().parseHex(virtualCardService.getCvCertificate()))) {
+      Assertions.assertThat(signature).hasSize(64);
+      Assertions.assertThat(Openhealth_cryptoKt.verifyCvcEcdsaValueSignature(cvc, tau, signature))
+          .isTrue();
+    }
+  }
+
+  @Test
+  void constructorLoadsImageFromClasspathPrefix() {
+    final var service = newService("classpath:IMG_eGK_G21_TU_root6 1.xml");
+
+    Assertions.assertThat(service.isConfigured()).isTrue();
+    Assertions.assertThat(service.getCvCertificate()).isNotBlank();
+    Assertions.assertThat(service.getAuthCertificate()).isNotBlank();
+  }
+
+  @Test
+  void constructorLoadsImageFromFilesystem() throws Exception {
+    final Path imageFile = Files.createTempFile("virtual-card", ".xml");
+    try (InputStream source =
+        VirtualCardServiceTest.class
+            .getClassLoader()
+            .getResourceAsStream("IMG_eGK_G21_TU_root6 1.xml")) {
+      Assertions.assertThat(source).isNotNull();
+      Files.copy(source, imageFile, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    final var service = newService(imageFile.toString());
+
+    Assertions.assertThat(service.isConfigured()).isTrue();
+  }
+
+  @Test
+  void constructorTreatsNullImageAsNotConfigured() {
+    final var service = newService(null);
+
+    Assertions.assertThat(service.isConfigured()).isFalse();
+  }
+
+  @Test
+  void constructorFailsWhenClasspathImageIsMissing() {
+    Assertions.assertThatThrownBy(this::createServiceWithMissingClasspathImage)
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("Error when loading XML card image file")
+        .hasRootCauseInstanceOf(FileNotFoundException.class)
+        .hasRootCauseMessage("Classpath resource not found: missing-virtual-card.xml");
+  }
+
+  @Test
+  void constructorFailsWhenImageCannotBeFound() {
+    Assertions.assertThatThrownBy(this::createServiceWithMissingImage)
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("Error when loading XML card image file")
+        .hasRootCauseInstanceOf(FileNotFoundException.class)
+        .hasRootCauseMessage("File not found on filesystem or classpath: missing-virtual-card.xml");
+  }
+
+  @Test
+  void processInternalAuthenticateFailsWithoutCvcPrivateKey() throws Exception {
+    final var service = newService("");
+    final var internalAuthenticate =
+        commandApduHex(HealthCardCommand.Companion.internalAuthenticate(new byte[24]));
+    final var steps =
+        List.of(
+            new ScenarioStep(internalAuthenticate, List.of(VirtualCardService.APDU_RESPONSE_OK)));
+
+    Assertions.assertThatThrownBy(() -> service.process(steps))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("No CVC private key configured for virtual card.");
+  }
+
+  @Test
+  void processInternalAuthenticateFailsWithInvalidCvcPrivateKey() throws Exception {
+    final var service = newService("");
+    service.setEgkAuthCvcPrivateKey(new byte[32]);
+    final var internalAuthenticate =
+        commandApduHex(HealthCardCommand.Companion.internalAuthenticate(new byte[24]));
+    final var steps =
+        List.of(
+            new ScenarioStep(internalAuthenticate, List.of(VirtualCardService.APDU_RESPONSE_OK)));
+
+    Assertions.assertThatThrownBy(() -> service.process(steps))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Invalid CVC private key configured for virtual card.");
+  }
+
+  @Test
+  void processReturnsOkForOpenHealthContactlessPrivateKeySelection() throws Exception {
+    final var service = newService("");
+    final var selectContactlessCvcKey =
+        commandApduHex(
+            HealthCardCommand.Companion.manageSecEnvSelectPrivateKey((byte) 0x09, (byte) 0x00));
+
+    final var response =
+        service
+            .process(
+                List.of(
+                    new ScenarioStep(
+                        selectContactlessCvcKey, List.of(VirtualCardService.APDU_RESPONSE_OK))))
+            .getFirst();
+
+    Assertions.assertThat(response).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+  }
+
+  private VirtualCardService newService(final String imageFile) {
+    return new VirtualCardService(
+        mock(ApplicationEventPublisher.class), imageFile, "", "", "", "", "", "", "", "", "", "");
+  }
+
+  private void createServiceWithMissingClasspathImage() {
+    newService("classpath:missing-virtual-card.xml");
+  }
+
+  private void createServiceWithMissingImage() {
+    newService("missing-virtual-card.xml");
+  }
+
+  private String commandApduHex(final HealthCardCommand command) throws ApduException {
+    return HexFormat.of().formatHex(command.toApdu(false).toVec().cloneAsNonzeroizingVec());
   }
 
   private byte[] readProtectedField(final String responseHex, final int tagNumber) {

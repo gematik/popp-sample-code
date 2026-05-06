@@ -18,27 +18,22 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.poppcommons.api.exceptions;
+package de.gematik.refpopp.popp_server.certificates;
 
-import java.io.Serial;
-import lombok.Getter;
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.openhealth.crypto.CryptoException;
+import de.gematik.openhealth.crypto.CvcTrustAnchor;
+import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
+import java.time.Instant;
+import java.util.List;
+import org.springframework.stereotype.Component;
 
-@Getter
-public abstract class GeneralPoPPServerException extends RuntimeException {
+@Component
+public class CvcChainValidator {
 
-  @Serial private static final long serialVersionUID = -3455896777160551403L;
-
-  protected String exceptionTypeName;
-  private final String errorCode;
-
-  protected GeneralPoPPServerException(final String message, final String errorCode) {
-    super(message);
-    this.errorCode = errorCode;
-  }
-
-  protected GeneralPoPPServerException(
-      final String message, final String errorCode, final Throwable cause) {
-    super(message, cause);
-    this.errorCode = errorCode;
+  public void validate(final CvCertificate certificate, final CvCertificate trustAnchorCertificate)
+      throws CryptoException {
+    final var trustAnchor = CvcTrustAnchor.Companion.fromCertificate(trustAnchorCertificate);
+    Openhealth_cryptoKt.validateCvcChain(List.of(certificate), List.of(trustAnchor), Instant.now());
   }
 }

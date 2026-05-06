@@ -37,6 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -62,6 +63,9 @@ public class CommunicationService {
 
   private final Map<String, CompletableFuture<String>> tokenQueue = new ConcurrentHashMap<>();
 
+  @Value("${popp-client.token-wait-timeout-seconds:5}")
+  private int tokenWaitTimeoutSeconds;
+
   public String start(final CardConnectionType cardConnectionType, final String clientSessionId) {
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     CompletableFuture<String> tokenFuture = new CompletableFuture<>();
@@ -73,14 +77,16 @@ public class CommunicationService {
 
   private String waitAndGetToken(CompletableFuture<String> tokenFuture) {
     try {
-      return tokenFuture.get(5, TimeUnit.SECONDS);
+      return tokenFuture.get(tokenWaitTimeoutSeconds, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // ✓ restore interrupt flag
-      throw new RuntimeException("Thread was interrupted while waiting for token", e);
+      throw new TokenRetrievalException("Thread was interrupted while waiting for token", e);
     } catch (TimeoutException e) {
-      throw new RuntimeException("Token retrieval timed out", e);
+      throw new TokenRetrievalException("Token retrieval timed out", e);
     } catch (ExecutionException e) {
-      throw new RuntimeException("Error while retrieving token", e);
+      final var cause = e.getCause();
+      throw new TokenRetrievalException(
+          cause == null ? "Error while retrieving token" : cause.getMessage(), cause);
     }
   }
 
@@ -177,10 +183,27 @@ public class CommunicationService {
           handleStandardScenarioMessage(standardScenarioMessage);
       case final ConnectorScenarioMessage connectorScenarioMessage ->
           handleConnectorScenarioMessage(connectorScenarioMessage);
-      case final ErrorMessage errorMessage ->
-          log.error(
-              "Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
+      case final ErrorMessage errorMessage -> handleErrorMessage(errorMessage);
       default -> log.error("Unknown message type: {}", poPPMessage.getType());
+    }
+  }
+
+  private void handleErrorMessage(final ErrorMessage errorMessage) {
+    log.error("Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
+    final var clientSessionId =
+        (String) clientServerCommunicationService.getSSLSession().get(CLIENT_SESSION_ID);
+    if (clientSessionId == null) {
+      log.warn("No clientSessionId found for server error message");
+      return;
+    }
+    final var tokenFuture = tokenQueue.remove(clientSessionId);
+    if (tokenFuture != null) {
+      tokenFuture.completeExceptionally(
+          new IllegalStateException(
+              "Server error "
+                  + errorMessage.getErrorCode()
+                  + ": "
+                  + errorMessage.getErrorDetail()));
     }
   }
 

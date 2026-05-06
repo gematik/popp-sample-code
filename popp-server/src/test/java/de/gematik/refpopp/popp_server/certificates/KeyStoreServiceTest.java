@@ -37,14 +37,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.core.io.ClassPathResource;
 
 class KeyStoreServiceTest {
 
-  @InjectMocks private KeyStoreService sut;
+  private KeyStoreService sut;
 
   @Mock private ClassPathResource keyStoreResourceMock;
 
@@ -55,13 +54,12 @@ class KeyStoreServiceTest {
 
   @Mock private X509Certificate certificateMock;
 
-  @Mock private EcPrivateKeyFactory ecPrivateKeyFactoryMock;
-
   private AutoCloseable closeable;
 
   @BeforeEach
   void setUp() {
     closeable = MockitoAnnotations.openMocks(this);
+    sut = new KeyStoreService(keyStoreMock, keyStoreMock);
   }
 
   @AfterEach
@@ -86,9 +84,9 @@ class KeyStoreServiceTest {
 
     // then
     assertThat(result).isNotNull();
-    verify(ecPrivateKeyFactoryMock).create(privateKeyMock);
+    assertThat(result.privateKey()).isSameAs(privateKeyMock);
+    assertThat(result.certificate()).isSameAs(certificateMock);
     verify(keyStoreMock).getCertificate("test-keystore");
-    verify(ecPrivateKeyFactoryMock).create(privateKeyMock);
   }
 
   @Test
@@ -102,7 +100,7 @@ class KeyStoreServiceTest {
             () -> sut.getPoppKeyStoreData(new ClassPathResource(keyStorePath), keyStorePassword))
         .isInstanceOf(KeyStoreException.class)
         .hasMessageContaining("password is null");
-    verifyNoInteractions(ecPrivateKeyFactoryMock, keyStoreMock);
+    verifyNoInteractions(keyStoreMock);
   }
 
   @Test
@@ -118,7 +116,7 @@ class KeyStoreServiceTest {
     assertThatThrownBy(() -> sut.getPoppKeyStoreData(classPathResourceMock, keyStorePassword))
         .isInstanceOf(KeyStoreException.class)
         .hasMessageContaining("Failed to get filename from keystore");
-    verifyNoInteractions(ecPrivateKeyFactoryMock);
+    verifyNoInteractions(keyStoreMock);
   }
 
   @Test

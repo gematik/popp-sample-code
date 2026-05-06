@@ -20,13 +20,11 @@
 
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
-import de.gematik.smartcards.tlv.BerTlv;
-import de.gematik.smartcards.tlv.ConstructedBerTlv;
-import de.gematik.smartcards.utils.Hex;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
+import de.gematik.openhealth.healthcard.CardDataException;
+import de.gematik.openhealth.healthcard.Openhealth_healthcardKt;
+import java.util.HexFormat;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -34,28 +32,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class KeyIdentifierExtractor {
 
+  private static final byte[] EGK_AID = HexFormat.of().parseHex("d2760001448000");
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
+
   public Set<String> extract(final byte[] data) {
-    final Set<String> keyRefs = new HashSet<>();
-
-    final List<BerTlv> template =
-        ((ConstructedBerTlv) BerTlv.getInstance(0x20, data)).getTemplate();
-    template.stream()
-        .filter(tlv -> 0xe0 == tlv.getTag())
-        .map(tlv -> ((ConstructedBerTlv) tlv).getTemplate())
-        .filter(temp -> temp.size() >= 2)
-        .forEach(
-            temp -> {
-              final var aid = Hex.toHexDigits(temp.getFirst().getValueField());
-              final var keyDo = temp.get(1);
-              if (keyDo instanceof final ConstructedBerTlv kt) {
-                final var keyRef = Hex.toHexDigits(kt.getTemplate().getFirst().getValueField());
-
-                if ("d2760001448000".equals(aid)) {
-                  keyRefs.add(keyRef);
-                }
-              }
-            });
-
-    return Collections.unmodifiableSet(keyRefs);
+    try (final var listPublicKeys = Openhealth_healthcardKt.parseListPublicKeys(data)) {
+      return listPublicKeys.keyReferencesForApplicationIdentifier(EGK_AID).stream()
+          .map(HEX_FORMAT::formatHex)
+          .collect(Collectors.toUnmodifiableSet());
+    } catch (final CardDataException e) {
+      throw new IllegalArgumentException("Invalid LIST PUBLIC KEY response", e);
+    }
   }
 }

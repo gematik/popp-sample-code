@@ -26,6 +26,7 @@ import de.gematik.openhealth.healthcard.ApduException;
 import de.gematik.openhealth.healthcard.CommandBuilderException;
 import de.gematik.openhealth.healthcard.HealthCardCommand;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
 import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -49,7 +50,7 @@ public class CardApduFactory {
   @Autowired
   public CardApduFactory(final CertificateProviderService certificateProviderService) {
     this(
-        certificateProviderService.getCvEndEntityCertificate().getChrObject().getValue(),
+        CvCertificateSupport.chrBytes(certificateProviderService.getCvEndEntityCertificate()),
         Openhealth_cryptoKt::generateElcEphemeralPublicKey);
   }
 

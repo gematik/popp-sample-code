@@ -20,26 +20,20 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
-import de.gematik.poppcommons.api.exceptions.PrivateKeyParserException;
-import de.gematik.smartcards.crypto.EafiElcPrkFormat;
-import de.gematik.smartcards.crypto.EcPrivateKeyImpl;
-import de.gematik.smartcards.tlv.BerTlv;
-import java.io.IOException;
-import org.springframework.core.io.ClassPathResource;
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.openhealth.crypto.CryptoException;
+import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PrivateKeyParser {
+public class CvcSignatureVerifier {
 
-  public EcPrivateKeyImpl parse(final ClassPathResource privateKeyResource) {
+  public boolean verifyCvcEcdsaValueSignature(
+      final CvCertificate certificate, final byte[] token, final byte[] signature) {
     try {
-      final var inputStream = privateKeyResource.getInputStream();
-      final byte[] bytes = inputStream.readAllBytes();
-      final var berTlv = BerTlv.getInstance(bytes);
-      return new EcPrivateKeyImpl(berTlv, EafiElcPrkFormat.PKCS8);
-    } catch (final IOException e) {
-      throw new PrivateKeyParserException(
-          "serverSessionId", "Failed to parse private key", "errorCode");
+      return Openhealth_cryptoKt.verifyCvcEcdsaValueSignature(certificate, token, signature);
+    } catch (final CryptoException e) {
+      throw new IllegalStateException("CVC ECDSA verification failed", e);
     }
   }
 }

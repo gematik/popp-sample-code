@@ -35,15 +35,12 @@ public class KeyStoreService {
 
   private final KeyStore poppKeyStore;
   private final KeyStore connectorKeyStore;
-  private final EcPrivateKeyFactory ecPrivateKeyFactory;
 
   KeyStoreService(
       @Qualifier("poppKeyStore") final KeyStore poppKeyStore,
-      @Qualifier("connectorKeyStore") final KeyStore connectorKeyStore,
-      final EcPrivateKeyFactory ecPrivateKeyFactory) {
+      @Qualifier("connectorKeyStore") final KeyStore connectorKeyStore) {
     this.poppKeyStore = poppKeyStore;
     this.connectorKeyStore = connectorKeyStore;
-    this.ecPrivateKeyFactory = ecPrivateKeyFactory;
   }
 
   KeyStoreData getPoppKeyStoreData(
@@ -77,7 +74,6 @@ public class KeyStoreService {
         throw new KeyStoreException(
             "No key found under alias '" + commonKeyName + "'", "errorCode");
       }
-      final var insPrivateKey = ecPrivateKeyFactory.create(rawKey);
 
       final var certificate = (X509Certificate) keyStore.getCertificate(commonKeyName);
       if (certificate == null) {
@@ -85,7 +81,7 @@ public class KeyStoreService {
             "No certificate found under alias '" + commonKeyName + "'", "errorCode");
       }
 
-      return new KeyStoreData(insPrivateKey, certificate);
+      return new KeyStoreData(rawKey, certificate);
     } catch (final KeyStoreException e) {
       throw e;
     } catch (final Exception e) {

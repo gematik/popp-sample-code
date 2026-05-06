@@ -20,15 +20,17 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.cvc;
 
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.openhealth.crypto.CryptoException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
+import de.gematik.refpopp.popp_server.certificates.CvcChainValidator;
 import de.gematik.refpopp.popp_server.certificates.CvcFactory;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
-import de.gematik.smartcards.g2icc.cvc.Cvc.SignatureStatus;
-import java.time.LocalDate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -37,33 +39,37 @@ public class CvcProcessor {
   private final CvcFactory cvcFactory;
   private final ScenarioResultFinder scenarioResultFinder;
   private final SessionAccessor sessionAccessor;
+  private final CertificateProviderService certificateProviderService;
+  private final CvcChainValidator cvcChainValidator;
 
   public CvcProcessor(
       final CvcFactory cvcFactory,
       final ScenarioResultFinder scenarioResultFinder,
-      final SessionAccessor sessionAccessor) {
+      final SessionAccessor sessionAccessor,
+      final CertificateProviderService certificateProviderService,
+      final CvcChainValidator cvcChainValidator) {
     this.cvcFactory = cvcFactory;
     this.scenarioResultFinder = scenarioResultFinder;
     this.sessionAccessor = sessionAccessor;
+    this.certificateProviderService = certificateProviderService;
+    this.cvcChainValidator = cvcChainValidator;
   }
 
-  public Cvc createAndValidateCvc(
+  public CvCertificate createAndValidateCvc(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var cvc = createCvc(sessionId, scenarioResult, stepId);
-    checkExpirationDate(sessionId, cvc);
-    validateCvcSignature(sessionId, cvc);
+    validateCvc(sessionId, cvc);
     return cvc;
   }
 
-  public Cvc createAndValidateCvcCa(
+  public CvCertificate createAndValidateCvcCa(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var cvc = createCvcCa(sessionId, scenarioResult, stepId);
-    checkExpirationDate(sessionId, cvc);
-    validateCvcSignature(sessionId, cvc);
+    validateCvc(sessionId, cvc);
     return cvc;
   }
 
-  private Cvc createCvc(
+  private CvCertificate createCvc(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var result =
         scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepId);
@@ -72,7 +78,7 @@ public class CvcProcessor {
     return cvcFactory.create(result.data());
   }
 
-  private Cvc createCvcCa(
+  private CvCertificate createCvcCa(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var result =
         scenarioResultFinder.find(sessionId, scenarioResult.scenarioResultSteps(), stepId);
@@ -81,29 +87,14 @@ public class CvcProcessor {
     return cvcFactory.create(result.data());
   }
 
-  private void validateCvcSignature(final String sessionId, final Cvc cvc) {
-    if (cvc.getSignatureStatus() != SignatureStatus.SIGNATURE_VALID) {
-      if (cvc.isEndEntity()) {
-        throw new ScenarioException(
-            sessionId, "Signature of End-Entity CVC is not valid", "errorCode");
-      } else {
-        throw new ScenarioException(sessionId, "Signature of SubCA CVC is not valid", "errorCode");
-      }
+  private void validateCvc(final String sessionId, final CvCertificate cvc) {
+    final var issuer =
+        certificateProviderService.findIdentityCvcByChr(CvCertificateSupport.car(cvc));
+    try {
+      cvcChainValidator.validate(cvc, issuer);
+    } catch (final CryptoException e) {
+      throw new ScenarioException(
+          sessionId, "Failed to validate CVC chain: " + e.getMessage(), "errorCode");
     }
-  }
-
-  private void checkExpirationDate(final String sessionId, final Cvc cvc) {
-    final var endEntityExpireDate = cvc.getCxd().getDate();
-    if (isExpired(endEntityExpireDate)) {
-      if (cvc.isEndEntity()) {
-        throw new ScenarioException(sessionId, "End-Entity CVC is expired", "errorCode");
-      } else {
-        throw new ScenarioException(sessionId, "SubCA CVC is expired", "errorCode");
-      }
-    }
-  }
-
-  private boolean isExpired(final LocalDate date) {
-    return LocalDate.now().isAfter(date);
   }
 }

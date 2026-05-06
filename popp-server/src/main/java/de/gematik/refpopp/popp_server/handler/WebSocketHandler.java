@@ -29,7 +29,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvi
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -57,14 +57,13 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
   }
 
   @Override
-  public void afterConnectionEstablished(@NonNull final WebSocketSession session) {
+  public void afterConnectionEstablished(final WebSocketSession session) {
     log.info("| {} Connection to server established", session.getId());
     storeFirstScenarioInSession(session);
   }
 
   @Override
-  protected void handleTextMessage(
-      @NonNull final WebSocketSession session, final TextMessage message) {
+  protected void handleTextMessage(final WebSocketSession session, final TextMessage message) {
     log.debug("| Entering handleTextMessage()");
     final var payload = message.getPayload();
 
@@ -86,7 +85,7 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
 
   @Override
   public void afterConnectionClosed(
-      @NonNull final WebSocketSession session, @NonNull final CloseStatus status) {
+      final WebSocketSession session, final @NonNull CloseStatus status) {
     log.info("| {} Connection closed: {}", session.getId(), status);
     sessionContainer.clearSession(session.getId());
   }

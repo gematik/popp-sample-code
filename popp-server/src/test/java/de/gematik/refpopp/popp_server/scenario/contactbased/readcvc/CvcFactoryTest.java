@@ -21,13 +21,16 @@
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
+import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.openhealth.asn1.Openhealth_asn1Kt;
 import de.gematik.refpopp.popp_server.certificates.CvcFactory;
-import de.gematik.smartcards.g2icc.cvc.Cvc;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 
 class CvcFactoryTest {
 
@@ -40,18 +43,26 @@ class CvcFactoryTest {
 
   @Test
   void createReturnsNewCvc() {
-    try (final MockedConstruction<Cvc> mocked = Mockito.mockConstruction(Cvc.class)) {
+    try (final var asn1Mock = mockStatic(Openhealth_asn1Kt.class)) {
       // given
       final byte[] cvcData = new byte[] {0x01, 0x02, 0x03};
+      final var cvCertificate = mock(CvCertificate.class);
+      asn1Mock
+          .when(() -> Openhealth_asn1Kt.parseCvCertificate(any(byte[].class)))
+          .thenReturn(cvCertificate);
 
       // when
       final var cvc = sut.create(cvcData);
 
       // then
-      assertThat(cvc).isNotNull();
-      final var constructedCvc = mocked.constructed().getFirst();
-      assertThat(constructedCvc).isNotNull();
-      assertThat(mocked.constructed()).hasSize(1);
+      assertThat(cvc).isSameAs(cvCertificate);
     }
+  }
+
+  @Test
+  void createThrowsIllegalArgumentExceptionForInvalidCvcBytes() {
+    assertThatThrownBy(() -> sut.create(new byte[] {0x01, 0x02, 0x03}))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Failed to parse CVC");
   }
 }
