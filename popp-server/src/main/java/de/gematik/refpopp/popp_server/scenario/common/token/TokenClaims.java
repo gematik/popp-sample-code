@@ -37,9 +37,11 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 class TokenClaims {
 
@@ -73,10 +75,36 @@ class TokenClaims {
     claims.put(EnumTokenClaimsKey.PATIENT_PROOF_TIME.getKeyValue(), getPatientProofTime(sessionId));
     claims.put(EnumTokenClaimsKey.PATIENT_ID.getKeyValue(), x509Data.getSubject().kvNr());
     claims.put(EnumTokenClaimsKey.INSURER_ID.getKeyValue(), x509Data.getSubject().ikNr());
-    claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), actorId);
-    claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), actorProfessionOid);
+    final var identifier = getActorId(sessionId);
+    claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), identifier);
+    final var professionOid = getProfessionOid(sessionId);
+    claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), professionOid);
     claims.put(EnumTokenClaimsKey.AUTHORIZATION_DETAILS.getKeyValue(), authorizationDetails);
     return claims;
+  }
+
+  private String getProfessionOid(String sessionId) {
+    return sessionContainer
+        .<UserInfo>retrieveSessionData(
+            sessionId, SessionContainer.SessionStorageKey.ZETA_USER_INFO, UserInfo.class)
+        .map(UserInfo::professionOID)
+        .orElseGet(
+            () -> {
+              log.warn("No professionOid found in session, using default");
+              return actorProfessionOid;
+            });
+  }
+
+  private String getActorId(String sessionId) {
+    return sessionContainer
+        .<UserInfo>retrieveSessionData(
+            sessionId, SessionContainer.SessionStorageKey.ZETA_USER_INFO, UserInfo.class)
+        .map(UserInfo::identifier)
+        .orElseGet(
+            () -> {
+              log.warn("No identifier (actorId) found in session, using default");
+              return actorId;
+            });
   }
 
   Map<String, Object> createConnectorClaims(final StandardScenarioMessage standardScenarioMessage) {

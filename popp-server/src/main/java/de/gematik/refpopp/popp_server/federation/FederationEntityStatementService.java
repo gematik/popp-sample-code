@@ -58,9 +58,9 @@ public class FederationEntityStatementService {
     this.keystorePassword = keystorePassword;
   }
 
-  public String create() {
+  public String create(String baseUrl) {
     try {
-      var identifierUrl = normalizeBaseUrl(federationProperties.getBaseUrl());
+      var identifierUrl = normalizeBaseUrl(baseUrl);
       var entitySigningPublicKey =
           (ECPublicKey)
               keyStore.getCertificate(federationProperties.getEntitySigningAlias()).getPublicKey();

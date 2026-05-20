@@ -26,7 +26,6 @@ import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEve
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionOpenedEvent;
 import de.gematik.refpopp.popp_client.configuration.PathResolver;
 import de.gematik.zeta.sdk.BuildConfig;
-import de.gematik.zeta.sdk.StorageConfig;
 import de.gematik.zeta.sdk.TpmConfig;
 import de.gematik.zeta.sdk.WsClientExtension;
 import de.gematik.zeta.sdk.ZetaSdk;
@@ -38,6 +37,7 @@ import de.gematik.zeta.sdk.authentication.SubjectTokenProvider;
 import de.gematik.zeta.sdk.authentication.smb.SmbTokenProvider;
 import de.gematik.zeta.sdk.network.http.client.ZetaHttpClientBuilder;
 import de.gematik.zeta.sdk.storage.InMemoryStorage;
+import de.gematik.zeta.sdk.storage.StorageConfig;
 import io.ktor.client.plugins.logging.LogLevel;
 import jakarta.annotation.PostConstruct;
 import java.net.URI;
@@ -107,15 +107,20 @@ public class SecureWebSocketClient {
                 "demo-client",
                 "0.2.0",
                 "sdk-client",
-                new StorageConfig(
-                    new InMemoryStorage(), "7aae7xXr8rnzVqjpYbosS0CFMrlprkD7jbVotm0fd+w="),
+                new StorageConfig.Custom(new InMemoryStorage()),
                 new TpmConfig() {},
                 new AuthConfig(
-                    List.of("popp"), 30L, true, getTokenProvider(), AttestationConfig.software()),
+                    List.of("popp"),
+                    30L,
+                    true,
+                    getTokenProvider(),
+                    AttestationConfig.software(),
+                    ""),
                 createPlatformProductId(),
                 new ZetaHttpClientBuilder("")
                     .disableServerValidation(disableServerValidation)
-                    .logging(LogLevel.ALL, message -> log.info("Ktor HttpClient: {}", message)),
+                    .logging(LogLevel.ALL),
+                null,
                 null,
                 null));
   }
@@ -207,7 +212,7 @@ public class SecureWebSocketClient {
                 zetaSdk,
                 this.serverUri.toString(),
                 builder -> {
-                  builder.disableServerValidation(true);
+                  builder.disableServerValidation(disableServerValidation);
                   return Unit.INSTANCE;
                 },
                 new HashMap<>(),

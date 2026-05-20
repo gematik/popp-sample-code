@@ -106,7 +106,7 @@ class ReadX509ScenarioResultProcessorIT extends BaseIntegrationTest {
         .containsKey("kid");
 
     assertThat(payloadMap)
-        .containsEntry("iss", "https://popp.example.com")
+        .containsEntry("iss", "http://popp-server:8443")
         .containsEntry("version", "1.0.0")
         .containsKeys(
             "iat",
