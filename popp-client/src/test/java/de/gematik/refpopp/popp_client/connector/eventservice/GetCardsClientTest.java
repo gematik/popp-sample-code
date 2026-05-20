@@ -36,16 +36,20 @@ import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpoint;
 import de.gematik.refpopp.popp_client.connector.soap.ServiceEndpointProvider;
 import de.gematik.ws.conn.cardservice.v8.CardInfoType;
 import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
+import de.gematik.ws.conn.eventservice.v7.GetCards;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
 class GetCardsClientTest {
 
   private GetCardsClient sut;
   private ServiceEndpointProvider serviceEndpointProviderMock;
+  private Context contextMock;
+  private Jaxb2Marshaller eventServiceMarshallerMock;
 
   @BeforeEach
   void setUp() {
@@ -54,11 +58,11 @@ class GetCardsClientTest {
     when(serviceEndpointProviderMock.getCardServiceEndpoint()).thenReturn(endpointMock);
     when(endpointMock.getVersion()).thenReturn("7.2.0");
 
-    final Jaxb2Marshaller eventServiceMarshallerMock = mock(Jaxb2Marshaller.class);
-    final Context contextMock = mock(Context.class);
+    eventServiceMarshallerMock = mock(Jaxb2Marshaller.class);
+    contextMock = mock(Context.class);
     sut =
         new GetCardsClient(
-            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null);
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "ct-id");
   }
 
   @Test
@@ -86,16 +90,32 @@ class GetCardsClientTest {
   }
 
   @Test
-  void performGetCardsWithTwoCardsAndCheckOnlyEgkIsReturned() {
+  void performGetCardsReturnsEmptyListWhenNoCardsPresent() {
     // given
-    final var expectedCardHandles = List.of("egkCardHandle");
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sut);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(any(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    final var actualResponse = spySut.performGetCards();
+
+    // then
+    assertThat(actualResponse).isNotNull();
+    assertThat(actualResponse.getCardHandles()).isEmpty();
+  }
+
+  @Test
+  void performGetCardsWithMultipleCardsReturnsAllHandles() {
+    // given
     final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
     final var cardInfoType1 = new CardInfoType();
-    cardInfoType1.setCardType(CardTypeType.SMC_KT);
-    cardInfoType1.setCardHandle("smcKtCardHandle");
+    cardInfoType1.setCardHandle("handle1");
     final var cardInfoType2 = new CardInfoType();
-    cardInfoType2.setCardType(CardTypeType.EGK);
-    cardInfoType2.setCardHandle("egkCardHandle");
+    cardInfoType2.setCardHandle("handle2");
     when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
     when(soapResponseMock.getCards().getCard()).thenReturn(List.of(cardInfoType1, cardInfoType2));
     final GetCardsClient spySut = spy(sut);
@@ -107,8 +127,114 @@ class GetCardsClientTest {
     final var actualResponse = spySut.performGetCards();
 
     // then
-    assertThat(actualResponse).isNotNull();
-    assertThat(actualResponse.getCardHandles()).containsExactly(expectedCardHandles.getFirst());
-    verify(serviceEndpointProviderMock).getEventServiceFullEndpoint();
+    assertThat(actualResponse.getCardHandles()).containsExactly("handle1", "handle2");
+  }
+
+  @Test
+  void performGetCardsWithNonBlankCtIdSetsCtIdInRequest() {
+    // given – sut is created with ctId="ct" in setUp
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sut);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getCtId()).isEqualTo("ct-id");
+  }
+
+  @Test
+  void performGetCardsWithBlankCtIdDoesNotSetCtIdInRequest() {
+    // given – create sut with blank ctId
+    final GetCardsClient sutWithBlankCtId =
+        new GetCardsClient(
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "");
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithBlankCtId);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getCtId()).isNull();
+  }
+
+  @Test
+  void performGetCardsSetsEgkCardTypeInRequest() {
+    // given
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sut);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getCardType()).isEqualTo(CardTypeType.EGK);
+  }
+
+  @Test
+  void performGetCardsSetsContextFromContextConfiguration() {
+    // given
+    when(contextMock.getClientSystemId()).thenReturn("clientId");
+    when(contextMock.getMandantId()).thenReturn("mandantId");
+    when(contextMock.getWorkplaceId()).thenReturn("workplaceId");
+    final GetCardsClient sutWithContext =
+        new GetCardsClient(
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "");
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithContext);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    final var actualContext = requestCaptor.getValue().getContext();
+    assertThat(actualContext.getClientSystemId()).isEqualTo("clientId");
+    assertThat(actualContext.getMandantId()).isEqualTo("mandantId");
+    assertThat(actualContext.getWorkplaceId()).isEqualTo("workplaceId");
+  }
+
+  @Test
+  void performGetCardsUsesEndpointFromServiceEndpointProvider() {
+    // given
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint())
+        .thenReturn("https://konnektor.example/event");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sut);
+    final ArgumentCaptor<String> endpointCaptor = ArgumentCaptor.forClass(String.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(any(), endpointCaptor.capture(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(endpointCaptor.getValue()).isEqualTo("https://konnektor.example/event");
   }
 }

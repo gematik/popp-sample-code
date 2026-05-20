@@ -18,20 +18,14 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server.federation;
+package de.gematik.refpopp.popp_server.scenario.common.token;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.validation.constraints.NotBlank;
 
-@Component
-@ConfigurationProperties(prefix = "federation")
-@Data
-public class FederationProperties {
-  private String orgName;
-  private String issuer;
-  private String subject;
-  private String masterIssuer;
-  private String entitySigningAlias;
-  private String poppTokenSigningAlias;
-}
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record UserInfo(
+    @NotBlank String identifier,
+    @NotBlank String professionOID,
+    String organizationName,
+    String commonName) {}

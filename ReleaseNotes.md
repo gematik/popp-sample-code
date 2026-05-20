@@ -6,6 +6,16 @@
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.4.1
+
+### added
+- Added support for selecting a specific card terminal via ct-id when multiple terminals are connected to a Konnektor
+- Added endpoint (popp-client) for popp token verification: /token/verify
+
+### changed
+- Replaced static actorId value with value extracted from the zeta-user-info header
+- Updated ZETA version to 1.0.1
+
 ## Release 2.4.0
 
 ### changed
@@ -13,7 +23,7 @@
 - Reworked trusted CVC directory loading and trusted-channel chain building on the server to use OpenHealth instead of `TrustCenter` and `SecureMessagingConverterSoftware`
 - Switched the configured trusted-channel service identity validation to OpenHealth using the configured PKCS#8 key material directly
 - Simplified server-side key handling by removing obsolete parser and factory layers around private keys and JCA key store access
-- Add support for Contactless Virtual Card
+- Added support for Contactless Virtual Card
 
 ### fixed
 - Fixed contact-based and contactless CVC signature verification and nonce verification to use the same OpenHealth-based verification logic across scenarios

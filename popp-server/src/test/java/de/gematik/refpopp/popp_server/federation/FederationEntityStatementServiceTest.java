@@ -87,10 +87,9 @@ class FederationEntityStatementServiceTest {
     given(federationProperties.getIssuer()).willReturn("https://popp.example");
     given(federationProperties.getSubject()).willReturn("https://popp.example");
     given(federationProperties.getEntitySigningAlias()).willReturn(SIGNING_ALIAS);
-    given(federationProperties.getBaseUrl()).willReturn(baseUrlWithTrailingSlash);
 
     // when
-    var compactJws = service.create();
+    var compactJws = service.create(baseUrlWithTrailingSlash);
 
     // then
     assertThat(compactJws).isNotBlank();
@@ -166,10 +165,9 @@ class FederationEntityStatementServiceTest {
     given(federationProperties.getOrgName()).willReturn(ORGANIZATION_NAME);
     given(federationProperties.getMasterIssuer()).willReturn(FEDERATION_MASTER_ISSUER);
     given(federationProperties.getEntitySigningAlias()).willReturn(SIGNING_ALIAS);
-    given(federationProperties.getBaseUrl()).willReturn("https://issuer.example");
 
     // when
-    var token = service.create();
+    var token = service.create("https://issuer.example");
 
     // then
     var claims =
@@ -201,10 +199,9 @@ class FederationEntityStatementServiceTest {
     given(federationProperties.getIssuer()).willReturn("https://popp.example");
     given(federationProperties.getSubject()).willReturn("https://popp.example");
     given(federationProperties.getEntitySigningAlias()).willReturn(SIGNING_ALIAS);
-    given(federationProperties.getBaseUrl()).willReturn("https://issuer.example");
 
     // when
-    service.create();
+    service.create("https://issuer.example");
 
     // then
     verify(jwkKidGenerator).generate(publicKey);
@@ -213,11 +210,10 @@ class FederationEntityStatementServiceTest {
   @Test
   void createWhenGettingCertificateFailsThrowsIllegalStateException() throws Exception {
     // given
-    given(federationProperties.getBaseUrl()).willReturn("https://issuer.example");
     given(keyStore.getCertificate(any())).willThrow(new KeyStoreException("boom"));
 
     // when // then
-    assertThatThrownBy(() -> service.create())
+    assertThatThrownBy(() -> service.create("https://issuer.example"))
         .isInstanceOf(FederationEntityStatementCreationException.class)
         .hasMessage("Failed to create federation entity statement")
         .hasCauseInstanceOf(KeyStoreException.class);
@@ -235,10 +231,9 @@ class FederationEntityStatementServiceTest {
     given(federationProperties.getMasterIssuer()).willReturn("https://issuer.example");
     given(federationProperties.getOrgName()).willReturn("orgName");
     given(keyStore.getKey(any(), any())).willThrow(new UnrecoverableKeyException("wrong password"));
-    given(federationProperties.getBaseUrl()).willReturn("https://issuer.example");
 
     // when // then
-    assertThatThrownBy(() -> service.create())
+    assertThatThrownBy(() -> service.create("https://issuer.example"))
         .isInstanceOf(FederationEntityStatementCreationException.class)
         .hasMessage("Failed to create federation entity statement")
         .hasCauseInstanceOf(UnrecoverableKeyException.class);

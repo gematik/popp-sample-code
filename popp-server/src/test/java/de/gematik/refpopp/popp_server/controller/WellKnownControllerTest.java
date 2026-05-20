@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.controller;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,7 +52,7 @@ class WellKnownControllerTest {
   @Test
   void openIdFederationReturnsJwtWithCorrectContentType() throws Exception {
     var expectedJwt = "header.payload.signature";
-    when(federationEntityStatementService.create()).thenReturn(expectedJwt);
+    when(federationEntityStatementService.create(anyString())).thenReturn(expectedJwt);
 
     mockMvc
         .perform(get("/.well-known/openid-federation").accept("application/entity-statement+jwt"))
@@ -59,12 +60,12 @@ class WellKnownControllerTest {
         .andExpect(content().contentType("application/entity-statement+jwt;charset=UTF-8"))
         .andExpect(content().string(expectedJwt));
 
-    verify(federationEntityStatementService).create();
+    verify(federationEntityStatementService).create(anyString());
   }
 
   @Test
   void openIdFederationServiceReturnsNullReturns200WithNullBody() throws Exception {
-    when(federationEntityStatementService.create()).thenReturn(null);
+    when(federationEntityStatementService.create(anyString())).thenReturn(null);
 
     mockMvc
         .perform(get("/.well-known/openid-federation").accept("application/entity-statement+jwt"))
@@ -114,7 +115,7 @@ class WellKnownControllerTest {
   @Test
   void openIdFederationWhenServiceFailsReturns500WithErrorResponse() throws Exception {
     // given
-    given(federationEntityStatementService.create())
+    given(federationEntityStatementService.create(anyString()))
         .willThrow(new FederationEntityStatementCreationException("boom", new RuntimeException()));
 
     // when // then

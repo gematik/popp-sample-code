@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Slf4j
 @RestController
@@ -45,7 +46,8 @@ public class WellKnownController {
       value = "/.well-known/openid-federation",
       produces = "application/entity-statement+jwt")
   public ResponseEntity<String> openIdFederation() {
-    var jwt = federationEntityStatementService.create();
+    var baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+    var jwt = federationEntityStatementService.create(baseUrl);
     return ResponseEntity.ok(jwt);
   }
 

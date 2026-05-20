@@ -18,20 +18,26 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server.federation;
+package de.gematik.refpopp.popp_client.controller;
 
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
-@Component
-@ConfigurationProperties(prefix = "federation")
-@Data
-public class FederationProperties {
-  private String orgName;
-  private String issuer;
-  private String subject;
-  private String masterIssuer;
-  private String entitySigningAlias;
-  private String poppTokenSigningAlias;
+@Getter
+public class PoppTokenValidationException extends RuntimeException {
+
+  private final ErrorCode errorCode;
+  private final HttpStatus httpStatus;
+
+  public PoppTokenValidationException(ErrorCode errorCode, String message) {
+    super(message);
+    this.errorCode = errorCode;
+    this.httpStatus = errorCode.getHttpStatus();
+  }
+
+  public PoppTokenValidationException(ErrorCode errorCode, String message, Throwable cause) {
+    super(message, cause);
+    this.errorCode = errorCode;
+    this.httpStatus = errorCode.getHttpStatus();
+  }
 }

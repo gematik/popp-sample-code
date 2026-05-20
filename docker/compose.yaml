@@ -6,6 +6,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=dev-local
       - ZETA_AUTHENTICATION_SMB_KEYFILE=/app/smcb_private.p12
+      - FEDERATION_ENTITY_STATEMENT_URL=http://popp-server:8443/.well-known/openid-federation
     networks:
       - popp-network
     ports:
@@ -26,6 +27,7 @@ services:
       - IDENTITIES_LOCATION=classpath:identities
       - CERT_HASH_IMPORT_LOCATION=file:/app/import
       - SPRING_DATASOURCE_URL=jdbc:postgresql://popp-server-db:5432/egk_hash_db
+      - FEDERATION_JWKS_URL=http://popp-server:8443
     networks:
       - popp-network
     depends_on:
@@ -60,7 +62,7 @@ services:
       - popp-zeta-pep
 
   popp-zeta-pep:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:0.5.1
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:1.0.1
     environment:
       - POPP_SERVER_HOST=popp-server:8443
       - HTTP_PROXY=
@@ -85,7 +87,7 @@ services:
       popp-server:
         condition: service_started # TODO: change to "service_healthy" when healthcheck is available
   popp-zeta-pdp:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:0.5.1
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:1.0.1
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
@@ -162,7 +164,7 @@ services:
 
   popp-zeta-pdp-opa:
     container_name: popp-zeta-pdp-opa
-    image: openpolicyagent/opa:1.15.2-static
+    image: openpolicyagent/opa:1.16.2
     environment:
       HTTP_PROXY: ""
       HTTPS_PROXY: ""

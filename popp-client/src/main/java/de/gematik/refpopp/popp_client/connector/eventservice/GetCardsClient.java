@@ -31,12 +31,11 @@ import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
 import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 import de.gematik.ws.conn.eventservice.v7.GetCards;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
-import java.util.List;
-import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
@@ -49,18 +48,21 @@ public class GetCardsClient extends SoapClient {
 
   private final Context context;
   private final ServiceEndpointProvider serviceEndpointProvider;
+  private final String ctId;
 
   public GetCardsClient(
       final Jaxb2Marshaller eventServiceMarshaller,
       final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
-      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient) {
+      @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient,
+      @Value("${connector.terminal-configuration.ct-id:}") String ctId) {
     super(
         eventServiceMarshaller,
-        (Supplier<String>) () -> buildSoapAction(serviceEndpointProvider, SoapActions.GET_CARDS),
+        () -> buildSoapAction(serviceEndpointProvider, SoapActions.GET_CARDS),
         httpClient);
     this.context = context;
     this.serviceEndpointProvider = serviceEndpointProvider;
+    this.ctId = ctId;
   }
 
   public DetermineCardHandleResponse performGetCards() {
@@ -69,14 +71,10 @@ public class GetCardsClient extends SoapClient {
     log.info("Sending GetCards request to connector at {}", endpoint);
     final GetCardsResponse soapResponse =
         sendRequest(soapRequest, endpoint, GetCardsResponse.class);
-    final DetermineCardHandleResponse determineCardHandleResponse =
-        new DetermineCardHandleResponse();
+    final var determineCardHandleResponse = new DetermineCardHandleResponse();
 
-    final List<String> cardHandles =
-        soapResponse.getCards().getCard().stream()
-            .filter(card -> CardTypeType.EGK.equals(card.getCardType()))
-            .map(CardInfoType::getCardHandle)
-            .toList();
+    final var cardHandles =
+        soapResponse.getCards().getCard().stream().map(CardInfoType::getCardHandle).toList();
 
     determineCardHandleResponse.setCardHandles(cardHandles);
     return determineCardHandleResponse;
@@ -90,6 +88,10 @@ public class GetCardsClient extends SoapClient {
     final ContextType contextType = getContextType();
     final GetCards getCards = new GetCards();
     getCards.setContext(contextType);
+    if (!ctId.isBlank()) {
+      getCards.setCtId(ctId);
+    }
+    getCards.setCardType(CardTypeType.EGK);
 
     return getCards;
   }

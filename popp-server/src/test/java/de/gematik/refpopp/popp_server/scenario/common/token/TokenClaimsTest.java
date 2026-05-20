@@ -97,6 +97,10 @@ class TokenClaimsTest {
             sessionId, SessionContainer.SessionStorageKey.PATIENT_PROOF_TIME, Long.class))
         .thenReturn(Optional.ofNullable(patientProofTime));
 
+    when(sessionContainer.retrieveSessionData(
+            sessionId, SessionContainer.SessionStorageKey.ZETA_USER_INFO, UserInfo.class))
+        .thenReturn(Optional.empty());
+
     when(x509Data.getSubject()).thenReturn(subject);
   }
 
@@ -203,6 +207,39 @@ class TokenClaimsTest {
     assertThatExceptionOfType(ScenarioException.class)
         .isThrownBy(() -> sut.createPoppClaims(x509Data, sessionId))
         .withMessage("No card connection type found");
+  }
+
+  @Test
+  void createPoppClaimsUsesSessionUserInfoForActorIdAndProfessionOid() {
+    // given
+    final var userInfo = new UserInfo("actor-from-session", "1.2.3.4.5", "org", "cn");
+    when(sessionContainer.retrieveSessionData(
+            sessionId, SessionContainer.SessionStorageKey.ZETA_USER_INFO, UserInfo.class))
+        .thenReturn(Optional.of(userInfo));
+
+    // when
+    final Map<String, Object> claims = sut.createPoppClaims(x509Data, sessionId);
+
+    // then
+    assertThat(claims)
+        .containsEntry(ACTOR_ID.getKeyValue(), "actor-from-session")
+        .containsEntry(ACTOR_PROFESSION_OID.getKeyValue(), "1.2.3.4.5");
+  }
+
+  @Test
+  void createPoppClaimsUsesConfiguredDefaultsWhenSessionUserInfoIsMissing() {
+    // given
+    when(sessionContainer.retrieveSessionData(
+            sessionId, SessionContainer.SessionStorageKey.ZETA_USER_INFO, UserInfo.class))
+        .thenReturn(Optional.empty());
+
+    // when
+    final Map<String, Object> claims = sut.createPoppClaims(x509Data, sessionId);
+
+    // then
+    assertThat(claims)
+        .containsEntry(ACTOR_ID.getKeyValue(), actorId)
+        .containsEntry(ACTOR_PROFESSION_OID.getKeyValue(), actorProfessionOid);
   }
 
   @Test

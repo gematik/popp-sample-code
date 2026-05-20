@@ -26,10 +26,15 @@ import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.refpopp.popp_server.communication.WebSocketSessionCommunication;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrchestrator;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
+import de.gematik.refpopp.popp_server.scenario.common.token.UserInfo;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -40,6 +45,7 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 public class WebSocketHandler extends AbstractWebSocketHandler {
 
+  private static final String HEADER_ZETA_USER_INFO = "zeta-user-info";
   private final SessionContainer sessionContainer;
   private final MessageOrchestrator egkMessageOrchestrator;
   private final ObjectMapper mapper;
@@ -59,6 +65,12 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
   @Override
   public void afterConnectionEstablished(final WebSocketSession session) {
     log.info("| {} Connection to server established", session.getId());
+    extractUserInfo(session.getHandshakeHeaders())
+        .flatMap(this::parseUserInfo)
+        .ifPresent(
+            userInfo ->
+                sessionContainer.storeSessionData(
+                    session.getId(), SessionContainer.SessionStorageKey.ZETA_USER_INFO, userInfo));
     storeFirstScenarioInSession(session);
   }
 
@@ -107,6 +119,31 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
       session.close();
     } catch (final IOException ioException) {
       log.error("| Error while sending error message", ioException);
+    }
+  }
+
+  private Optional<String> extractUserInfo(final HttpHeaders headers) {
+    final var encoded = headers.getFirst(HEADER_ZETA_USER_INFO);
+
+    if (encoded == null || encoded.isBlank()) {
+      return Optional.empty();
+    }
+
+    try {
+      final byte[] decoded = Base64.getDecoder().decode(encoded);
+      return Optional.of(new String(decoded, StandardCharsets.UTF_8));
+    } catch (IllegalArgumentException e) {
+      log.warn("Invalid zeta-user-info header", e);
+      return Optional.empty();
+    }
+  }
+
+  private Optional<UserInfo> parseUserInfo(final String userInfoJson) {
+    try {
+      return Optional.of(mapper.readValue(userInfoJson, UserInfo.class));
+    } catch (JacksonException e) {
+      log.error("Invalid zeta-user-info JSON", e);
+      return Optional.empty();
     }
   }
 }

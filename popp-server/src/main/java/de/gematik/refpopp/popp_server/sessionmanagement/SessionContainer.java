@@ -44,6 +44,7 @@ public class SessionContainer {
     CVC,
     CVC_CA,
     AUT,
+    ZETA_USER_INFO,
     DEFAULT
   }
 
