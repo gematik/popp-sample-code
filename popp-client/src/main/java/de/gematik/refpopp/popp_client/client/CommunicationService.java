@@ -118,8 +118,13 @@ public class CommunicationService {
   }
 
   public String startVirtualCard(
-      final CardConnectionType cardConnectionType, final String clientSessionId) {
+      final CardConnectionType cardConnectionType, final String clientSessionId, String imageFile) {
     log.info("| Using virtual card");
+    if (!virtualCardService.isConfigured() && (imageFile == null || imageFile.isEmpty())) {
+      throw new IllegalArgumentException("| No virtual card image configured");
+    } else if (imageFile != null && !imageFile.isEmpty()) {
+      virtualCardService.loadCardImage(imageFile);
+    }
 
     clientServerCommunicationService.connect();
     final Map<String, Object> sslSession = clientServerCommunicationService.getSSLSession();

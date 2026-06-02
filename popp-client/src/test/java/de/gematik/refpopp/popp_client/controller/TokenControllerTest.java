@@ -192,7 +192,7 @@ class TokenControllerTest {
         .andExpect(content().json("{\"status\":\"OK\"}"));
 
     verify(communicationServiceMock)
-        .startVirtualCard(CardConnectionType.CONTACTLESS_STANDARD, EMPTY_CLIENT_SESSION_ID);
+        .startVirtualCard(CardConnectionType.CONTACTLESS_STANDARD, EMPTY_CLIENT_SESSION_ID, null);
     verify(cardReaderServiceMock, never()).startCheckForCardReader();
   }
 
