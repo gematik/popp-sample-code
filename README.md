@@ -157,7 +157,6 @@ Configure your Konnektor address and context:
 ```yaml
 connector:
   end-point-url: <ip address and port of event-service endpoint of Konnektor>
-  terminal-configuration:
   log-ws: <if SOAP messages should be logged>
   secure:
     enable: <If TLS should be used>
@@ -167,17 +166,18 @@ connector:
     trust-all: <If all certificates should be trusted, only for testing purposes>
     truststore: <Truststore with the Konnektor certificate and its trust chain>
     truststore-password: <Password of the truststore>
-  context:
-    clientSystemId: <ClientSystemId for Konnektor Context>
-    workplaceId: <WorkplaceId for Konnektor Context>
-    mandantId: <MandantId for Konnektor Context>
+  terminal-configuration:  
+    context:
+      clientSystemId: <ClientSystemId for Konnektor Context>
+      workplaceId: <WorkplaceId for Konnektor Context>
+      mandantId: <MandantId for Konnektor Context>
+    ct-id: <CardTerminalId for specific card terminal>
 ```
 Example:
 
 ```yaml
 connector:
   end-point-url: "http://127.0.0.1"
-  terminal-configuration:
   log-ws: true
   secure:
     enable: false
@@ -187,10 +187,12 @@ connector:
     trust-all: false
     truststore: truststore.p12
     truststore-password: changeit
-  context:
-    clientSystemId: "ClientID1"
-    workplaceId: "Workplace1"
-    mandantId: "Mandant1"
+  terminal-configuration:  
+    context:
+      clientSystemId: "ClientID1"
+      workplaceId: "Workplace1"
+      mandantId: "Mandant1"
+    ct-id: "kt"  
 ```
 
 **Supported Konnektor functions**
@@ -203,14 +205,28 @@ connector:
 
 #### c) Virtual Card
 
-If you want to use a virtual card instead a card reader or Konnektor you can configure it as follows.
+If you don't have a card reader or Konnektor you can use a virtual card.
 This allows testing without any card-related hardware.
-The card data will be read from the XML image file specified.
+The card data will be read from the XML image file specified, and it works for contact based and contactless card images.
+
+Put your XML image in popp-client/src/main/resources to use it.
+Either configure your application*.yaml 
 
 ```yaml
 virtual-card:
   image-file: <XML image file>
 ```
+
+or change your card during runtime with e.g.
+
+```bash
+curl -H 'Content-Type: application/json' \
+  -d '{"communicationType":"contact-virtual","virtualCard":"<XML image file>"}' \
+  http://localhost:8081/token
+```
+
+If you don't specify a new card image in the request, it will automatically use the one in the application*.yaml.
+If you specify a new card image, it will overwrite the one in the application*.yaml.
 
 ## Execution
 

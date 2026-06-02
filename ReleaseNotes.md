@@ -6,6 +6,11 @@
 - If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.5.0
+
+### added
+- Added support to switch virtual card images during runtime (via /token request)
+
 ## Release 2.4.1
 
 ### added

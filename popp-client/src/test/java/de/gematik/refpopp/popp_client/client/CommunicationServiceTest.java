@@ -245,7 +245,9 @@ class CommunicationServiceTest {
         .when(clientServerCommunicationServiceMock)
         .sendMessage(any());
 
-    String token = sut.startVirtualCard(CardConnectionType.CONTACT_STANDARD, "mock-session");
+    String token =
+        sut.startVirtualCard(
+            CardConnectionType.CONTACT_STANDARD, "mock-session", "random/image/path");
 
     assertThat(token).isEqualTo("mock-token");
     verify(clientServerCommunicationServiceMock).connect();

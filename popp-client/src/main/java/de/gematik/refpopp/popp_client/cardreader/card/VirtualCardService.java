@@ -180,22 +180,7 @@ public class VirtualCardService {
       @Value("${command-apdus.read-ef-c-ch-aut-e256:}") String apduReadEfCChAutE256) {
     log.debug("| Entering VirtualCardService()");
 
-    if (imageFile == null || imageFile.isEmpty()) {
-      log.info("| No image file configured for virtual card.");
-    } else {
-      log.info("| Loading certificates from " + imageFile);
-      try (InputStream is = openImageFile(imageFile)) {
-        String xmlString = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-
-        cvCertificate = getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256");
-        log.info("| CV certificate:  " + cvCertificate);
-        authCertificate = getCertificateData(xmlString, "EF.C.CH.AUT.E256");
-        log.info("| X.509 certificate:  " + authCertificate);
-        egkAuthCvcPrivateKey = loadEgkAuthCvcPrivateKey(xmlString);
-      } catch (IOException | SAXException | ParserConfigurationException e) {
-        throw new RuntimeException("Error when loading XML card image file", e);
-      }
-    }
+    loadCardImage(imageFile);
     poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey();
 
     this.apduReadEndEntityCvCertificate = normalize(apduReadEndEntityCvCertificate);
@@ -213,6 +198,26 @@ public class VirtualCardService {
     registerStaticApduResponse(apduSelectDfEsign, "");
 
     log.debug("| Exiting VirtualCardService()");
+  }
+
+  public void loadCardImage(String imageFile) {
+    if (imageFile == null || imageFile.isEmpty()) {
+      log.info("| No image file configured for virtual card.");
+      return;
+    }
+
+    log.info("| Loading certificates from " + imageFile);
+    try (InputStream is = openImageFile(imageFile)) {
+      String xmlString = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+
+      cvCertificate = getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256");
+      log.info("| CV certificate: " + cvCertificate);
+      authCertificate = getCertificateData(xmlString, "EF.C.CH.AUT.E256");
+      log.info("| X.509 certificate: " + authCertificate);
+      egkAuthCvcPrivateKey = loadEgkAuthCvcPrivateKey(xmlString);
+    } catch (IOException | SAXException | ParserConfigurationException e) {
+      throw new RuntimeException("Error when loading XML card image file", e);
+    }
   }
 
   public boolean isConfigured() {
