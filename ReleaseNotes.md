@@ -3,8 +3,12 @@
 # Release Notes popp-sample-code
 
 ### Known Issues
-- If your eGK has an older CVCA you may get problems while testing with the RÍSE PoPP-Service
 - Standard-Kartenleser with Docker is not supported
+
+## Release 2.5.1
+
+### fixed
+- contact(less)-virtual now uses correct SubCA CVC from card image used
 
 ## Release 2.5.0
 

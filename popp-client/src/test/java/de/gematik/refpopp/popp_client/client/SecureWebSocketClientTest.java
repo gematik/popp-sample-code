@@ -235,6 +235,21 @@ class SecureWebSocketClientTest {
   }
 
   @Test
+  void connectBlockingRethrowsConnectErrorFromWorkerThread() {
+    // given
+    final var connectionException = new RuntimeException("Service discovery failed");
+    doThrow(connectionException)
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    // when / then
+    assertThatThrownBy(() -> sut.connectBlocking())
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("Failed to establish WebSocket connection: Service discovery failed")
+        .hasCause(connectionException);
+  }
+
+  @Test
   void testConnectBlockingInterrupted() throws Exception {
     // given
     var latchSpy = spy(new CountDownLatch(1));

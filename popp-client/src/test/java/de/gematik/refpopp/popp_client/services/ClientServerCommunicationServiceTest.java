@@ -84,6 +84,18 @@ class ClientServerCommunicationServiceTest {
   }
 
   @Test
+  void connectRethrowsRuntimeExceptionFromWebSocketClient() {
+    // given
+    when(webSocketClientMock.isClosed()).thenReturn(true);
+    final var connectionException = new RuntimeException("Connection failed");
+    doThrow(connectionException).when(webSocketClientMock).connectBlocking();
+
+    // when / then
+    final var thrown = assertThrows(RuntimeException.class, () -> sut.connect());
+    org.assertj.core.api.Assertions.assertThat(thrown).isSameAs(connectionException);
+  }
+
+  @Test
   void sendMessageSuccessfully() {
     // given
     when(webSocketClientMock.isClosed()).thenReturn(false);

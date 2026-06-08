@@ -79,6 +79,7 @@ public class SecureWebSocketClient {
   private final ExecutorService pool;
   private final CountDownLatch sessionReady = new CountDownLatch(1);
   private final AtomicReference<WsClientExtension.WsSession> session = new AtomicReference<>();
+  private final AtomicReference<Throwable> connectError = new AtomicReference<>();
   private final Map<String, Object> sessionMetadata;
   private final WsClientWrapper wsClientWrapper;
 
@@ -207,7 +208,8 @@ public class SecureWebSocketClient {
 
   public void connectBlocking() {
     pool.submit(
-        () ->
+        () -> {
+          try {
             wsClientWrapper.ws(
                 zetaSdk,
                 this.serverUri.toString(),
@@ -234,11 +236,22 @@ public class SecureWebSocketClient {
                       log.debug("WebSocket received binary (bytes): {}", bin.getBytes().length);
                     }
                   }
-                }));
+                });
+          } catch (final Throwable t) {
+            connectError.set(t);
+            log.error("WebSocket connect failed: {}", t.getMessage(), t);
+            sessionReady.countDown();
+          }
+        });
 
     try {
-      if (!sessionReady.await(10, TimeUnit.SECONDS)) {
+      if (!sessionReady.await(150, TimeUnit.SECONDS)) {
         throw new RuntimeException("Connection timeout");
+      }
+      final Throwable cause = connectError.get();
+      if (cause != null) {
+        throw new RuntimeException(
+            "Failed to establish WebSocket connection: " + cause.getMessage(), cause);
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();

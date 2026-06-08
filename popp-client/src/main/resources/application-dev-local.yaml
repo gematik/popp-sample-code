@@ -17,7 +17,7 @@ connector:
       clientSystemId: ${CONTEXT_CLIENT_SYSTEM_ID:C1}
       workplaceId: ${CONTEXT_WORKPLACE_ID:W1}
       mandantId: ${CONTEXT_MANDANT_ID:M1}
-    ct-id: "" # Identifikation des Kartenterminals
+    ct-id: ${CARD_TERMINAL_ID:ktId} # Identifikation des Kartenterminals
 
 zeta:
   client:
