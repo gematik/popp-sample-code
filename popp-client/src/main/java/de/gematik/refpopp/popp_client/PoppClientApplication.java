@@ -20,11 +20,24 @@
 
 package de.gematik.refpopp.popp_client;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 
+@Slf4j
 @SpringBootApplication(scanBasePackages = "de.gematik.refpopp.popp_client")
 public class PoppClientApplication {
+
+  @Value("${popp-server.url}")
+  private String poppServerUrl;
+
+  @EventListener(ApplicationReadyEvent.class)
+  public void onApplicationReady() {
+    log.info("### PoPP Service: {}", poppServerUrl);
+  }
 
   public static void main(final String[] args) {
     SpringApplication.run(PoppClientApplication.class, args);

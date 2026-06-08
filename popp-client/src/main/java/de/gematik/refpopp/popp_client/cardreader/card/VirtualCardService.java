@@ -91,10 +91,6 @@ public class VirtualCardService {
 
   public static final String APDU_RESPONSE_OK = "9000";
 
-  public static final String APDU_RESPONSE_READ_VERSION =
-      "ef2bc003020000c103040502c210444549444d4548435f39303030030005c403010000c503020000c703010000";
-  public static final String APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE =
-      "7f2181d87f4e81915f290170420844454758588702227f494d06082a8648ce3d04030286410428405a0ccc5c53b6780356a5141eb47fed5f56be44bc22f2046fc053fedbc25e50e24a6d6af95c1cfee9497acce359a253f7d0b7abaea5d1a62de030145f0c975f200844454758581102237f4c1306082a8214004c0481185307800000000000005f25060203000703015f24060301000703005f37404cd260c0803b125a001ba81ba9f2e2b1390de4f14691c822a28cc776a186d7ba7f08704c27fdcdaeb1f8b243a37976cf37bf7c121858d0f0419de83217a395de";
   public static final String APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS =
       "e0154f07d2760001448000b60a83084445475858870222e0154f07d2760001448000b60a83084445475858120223e0194f07d2760001448000a40e830c000a80276001011699902101e0194f07d2760001448000a40e830c4d6f7270686f414343455353e0164f07d2760001448000b60b83094d6f7270686f564552e0154f07d2760001448000b60a83084445475858860220e0154f07d2760001448000b60a83080000000000000013";
   private static final String APDU_SELECT_MASTER_FILE =
@@ -152,6 +148,8 @@ public class VirtualCardService {
   private String apduReadEndEntityCvCertificate;
   private String apduMutualAuthenticationStep1;
   private String apduReadEfCChAutE256;
+  private String subCaCvCertificate;
+  private String version2;
 
   private static final byte[] EMPTY_BYTES = new byte[0];
 
@@ -188,9 +186,8 @@ public class VirtualCardService {
     this.apduReadEfCChAutE256 = normalize(apduReadEfCChAutE256);
 
     registerStaticApduResponse(apduSelectMasterFile, "");
-    registerStaticApduResponse(apduReadVersion, APDU_RESPONSE_READ_VERSION);
-    registerStaticApduResponse(
-        apduReadSubCaCvCertificate, APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE);
+    registerStaticApduResponse(apduReadVersion, version2);
+    registerStaticApduResponse(apduReadSubCaCvCertificate, subCaCvCertificate);
     registerStaticApduResponse(
         apduRetrievePublicKeyIdentifiers, APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS);
     registerStaticApduResponse(apduSelectPrivateKey, "");
@@ -214,6 +211,10 @@ public class VirtualCardService {
       log.info("| CV certificate: " + cvCertificate);
       authCertificate = getCertificateData(xmlString, "EF.C.CH.AUT.E256");
       log.info("| X.509 certificate: " + authCertificate);
+      subCaCvCertificate = getCertificateData(xmlString, "EF.C.CA_eGK.CS.E256");
+      log.info("| Sub-CA CV certificate:  " + subCaCvCertificate);
+      version2 = getCertificateData(xmlString, "EF.Version2");
+      log.info("| EF.Version2:  " + version2);
       egkAuthCvcPrivateKey = loadEgkAuthCvcPrivateKey(xmlString);
     } catch (IOException | SAXException | ParserConfigurationException e) {
       throw new RuntimeException("Error when loading XML card image file", e);
@@ -310,10 +311,10 @@ public class VirtualCardService {
       return "";
     }
     if (normalizedCommandApdu.equals(APDU_READ_VERSION)) {
-      return APDU_RESPONSE_READ_VERSION;
+      return version2;
     }
     if (normalizedCommandApdu.equals(APDU_READ_SUB_CA_CV_CERTIFICATE)) {
-      return APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE;
+      return subCaCvCertificate;
     }
     if (normalizedCommandApdu.equals(APDU_RETRIEVE_PUBLIC_KEY_IDENTIFIERS)) {
       return APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS;

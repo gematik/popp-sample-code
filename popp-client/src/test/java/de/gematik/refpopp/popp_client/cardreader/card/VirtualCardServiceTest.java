@@ -55,6 +55,10 @@ class VirtualCardServiceTest {
   private static final String GENERAL_AUTHENTICATE_STEP_2 =
       "00 86 0000    45"
           + " 7c43854104987fce93bfc191e4db006b56f8fd5f749d256fc5842f0f3f31becf613ce146f66318f77ff7ee51c10b6b6a0f349896400c7601bfc07608ff08fe0ce1d921ca42";
+  private static final String APDU_RESPONSE_READ_VERSION =
+      "ef2bc003020000c103040502c21045474b5f47322e312020202020040502c403010000c503020000c703010000";
+  private static final String APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE =
+      "7F2181D87F4E81915F290170420844454758588702227F494D06082A8648CE3D04030286410428405A0CCC5C53B6780356A5141EB47FED5F56BE44BC22F2046FC053FEDBC25E50E24A6D6AF95C1CFEE9497ACCE359A253F7D0B7ABAEA5D1A62DE030145F0C975F200844454758581102237F4C1306082A8214004C0481185307800000000000005F25060203000703015F24060301000703005F37404CD260C0803B125A001BA81BA9F2E2B1390DE4F14691C822A28CC776A186D7BA7F08704C27FDCDAEB1F8B243A37976CF37BF7C121858D0F0419DE83217A395DE";
 
   private VirtualCardService virtualCardService;
 
@@ -181,9 +185,6 @@ class VirtualCardServiceTest {
         .endsWith(VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(2))
         .isEqualTo("AUTH_CERT" + VirtualCardService.APDU_RESPONSE_OK);
-    Assertions.assertThat(responses.get(3))
-        .isEqualTo(
-            VirtualCardService.APDU_RESPONSE_READ_VERSION + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(4)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
   }
 
@@ -191,7 +192,8 @@ class VirtualCardServiceTest {
   void processSupportsOpenHealthDefaultsWithoutConfiguredCommandApdus() {
     final var eventPublisher = mock(ApplicationEventPublisher.class);
     final var service =
-        new VirtualCardService(eventPublisher, "", "", "", "", "", "", "", "", "", "", "");
+        new VirtualCardService(
+            eventPublisher, "IMG_eGK_G21_TU_root6 1.xml", "", "", "", "", "", "", "", "", "", "");
     service.setCvCertificate("CV_CERT");
     service.setAuthCertificate("AUTH_CERT");
 
@@ -211,12 +213,9 @@ class VirtualCardServiceTest {
 
     Assertions.assertThat(responses.get(0)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(1))
-        .isEqualTo(
-            VirtualCardService.APDU_RESPONSE_READ_VERSION + VirtualCardService.APDU_RESPONSE_OK);
+        .isEqualTo(APDU_RESPONSE_READ_VERSION + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(2))
-        .isEqualTo(
-            VirtualCardService.APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE
-                + VirtualCardService.APDU_RESPONSE_OK);
+        .isEqualTo(APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(3))
         .isEqualTo(
             VirtualCardService.APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS
