@@ -5,7 +5,7 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
-## Release 2.5.2
+## Release 2.6.0
 
 ### changed
 - Replaced hardcoded error code strings with error codes defined in the gemSpec_PoPP_Service specification.
