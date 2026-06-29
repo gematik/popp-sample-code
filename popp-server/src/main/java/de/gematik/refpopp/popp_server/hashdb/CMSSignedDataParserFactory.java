@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import java.io.InputStream;
 import org.bouncycastle.cms.CMSException;
@@ -42,7 +43,9 @@ public class CMSSignedDataParserFactory {
       return new CMSSignedDataParser(digestProviderBuilder.build(), dataStream);
     } catch (final CMSException | OperatorCreationException e) {
       throw new ImportDataException(
-          sessionId, "Failed to create CMSSignedDataParser " + e, "errorCode");
+          sessionId,
+          "Failed to create CMSSignedDataParser " + e,
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

@@ -19,6 +19,7 @@ zeta:
     alias: ${ZETA_AUTHENTICATION_SMB_ALIAS:alias}
     keyfile: ${ZETA_AUTHENTICATION_SMB_KEYFILE:docker/zeta/smcb-private/smcb_private.p12}
     password: ${ZETA_AUTHENTICATION_SMB_PASSWORD:00}
+  http-log-level: NONE
 
 card-reader:
   name:

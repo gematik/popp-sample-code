@@ -18,14 +18,18 @@ connector:
       workplaceId: ${CONTEXT_WORKPLACE_ID:W1}
       mandantId: ${CONTEXT_MANDANT_ID:M1}
     ct-id: ${CARD_TERMINAL_ID:ktId} # Identifikation des Kartenterminals
+    ct-slot: ${CARD_TERMINAL_SLOT:} # Slot-Nummer der Karte
 
 zeta:
   client:
     disableServerValidation: ${ZETA_CLIENT_DISABLE_SERVER_VALIDATION:true}
+  storage:
+    aes-b64-key: ${ZETA_STORAGE_AES_B64_KEY:M6lnQhKYmMbzB08pBycjltAv+n9OkMGidTgUL//c8zk=}
   authentication.smb:
     alias: ${ZETA_AUTHENTICATION_SMB_ALIAS:alias}
     keyfile: ${ZETA_AUTHENTICATION_SMB_KEYFILE:docker/zeta/smcb-private/smcb_private.p12}
     password: ${ZETA_AUTHENTICATION_SMB_PASSWORD:00}
+  http-log-level: NONE # ALL, INFO, HEADERS, BODY, NONE
 
 card-reader:
   name: "REINER SCT"
@@ -40,8 +44,5 @@ popp-client:
     size: 300
 
 federation:
-  keystore:
-    location: "classpath:federation-keystore.jks"
-    password: "gematik"
   entity-statement:
     url: "http://localhost:8443/.well-known/openid-federation"

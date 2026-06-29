@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.validator;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ValidationException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
@@ -40,7 +41,8 @@ public class StatusWordValidator {
       final List<StepDefinition> currentStepDefinitions, final ScenarioResult scenarioResult) {
     if (currentStepDefinitions.size() != scenarioResult.scenarioResultSteps().size()) {
       throw new ValidationException(
-          "Number of expected results does not match number of received results", "errorCode");
+          "Number of expected results does not match number of received results",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     for (int i = 0; i < currentStepDefinitions.size(); i++) {
       final StepDefinition stepDefinition = currentStepDefinitions.get(i);
@@ -52,7 +54,7 @@ public class StatusWordValidator {
                 + stepDefinition.expectedStatusWords()
                 + " but got "
                 + statusWord,
-            "errorCode");
+            BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
       }
     }
   }

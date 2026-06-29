@@ -21,6 +21,8 @@
 package de.gematik.refpopp.popp_server.certificates;
 
 import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
+import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import de.gematik.poppcommons.api.exceptions.PrivateKeyLoadingException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import jakarta.annotation.PostConstruct;
@@ -116,8 +118,20 @@ public class CertificateProviderService {
     final var identitiesPath = resolveIdentitiesPath();
     log.info("| Loading trusted CVC directory from {}", identitiesPath);
     this.cvcDirectory = CvcDirectory.load(identitiesPath, cvCertificateParser);
-    this.cvcSubCertificate = cvCertificateParser.parse(cvcSubCertificateResource);
-    this.cvEndEntityCertificate = cvCertificateParser.parse(cvcEndEntityCertificateResource);
+    try {
+      this.cvcSubCertificate = cvCertificateParser.parse(cvcSubCertificateResource);
+    } catch (final CertificateParserException e) {
+      log.error("| Failed to parse CV certificate", e);
+      throw new CertificateParserException(
+          "Failed to parse Sub-CA-CVC certificate", BdeErrorCode.INVALID_CA_CVC, e);
+    }
+    try {
+      this.cvEndEntityCertificate = cvCertificateParser.parse(cvcEndEntityCertificateResource);
+    } catch (final CertificateParserException e) {
+      log.error("| Failed to parse End-Entity-CVC certificate", e);
+      throw new CertificateParserException(
+          "Failed to parse End-Entity-CVC certificate", BdeErrorCode.INVALID_END_ENTITY_CVC, e);
+    }
     final var cvcPoppServicePrivateKeyDer = readPrivateKeyDer(cvcPoppServicePrivateKeyResource);
     configuredTrustedChannelIdentityValidator.validate(
         cvcSubCertificate, cvEndEntityCertificate, cvcPoppServicePrivateKeyDer);
@@ -177,7 +191,7 @@ public class CertificateProviderService {
       throw new ScenarioException(
           "| N/A",
           "Unable to load PKI_CVC from " + identitiesLocation + ": " + e.getMessage(),
-          "errorcode",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR,
           e);
     }
   }
@@ -188,7 +202,9 @@ public class CertificateProviderService {
         .orElseThrow(
             () ->
                 new ScenarioException(
-                    "| N/A", "Unable to find trusted CVC for CHR " + chr, "errorCode"));
+                    "| N/A",
+                    "Unable to find trusted CVC for CHR " + chr,
+                    BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
   }
 
   private byte[] readPrivateKeyDer(final ClassPathResource privateKeyResource) {
@@ -196,7 +212,9 @@ public class CertificateProviderService {
       return inputStream.readAllBytes();
     } catch (final IOException e) {
       throw new PrivateKeyLoadingException(
-          "serverSessionId", "Failed to load private key", "errorCode");
+          "serverSessionId",
+          "Failed to load private key",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 

@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 import lombok.Getter;
 
@@ -31,14 +32,17 @@ public class PrivateKeyLoadingException extends GeneralPoPPServerException {
   private final String sessionId;
 
   public PrivateKeyLoadingException(
-      final String sessionId, final String message, final String errorCode) {
+      final String sessionId, final String message, final BdeErrorCode errorCode) {
     super(message, errorCode);
     this.sessionId = sessionId;
     this.exceptionTypeName = this.getClass().getTypeName();
   }
 
   public PrivateKeyLoadingException(
-      final String sessionId, final String message, final String errorCode, final Throwable cause) {
+      final String sessionId,
+      final String message,
+      final BdeErrorCode errorCode,
+      final Throwable cause) {
     super(message, errorCode, cause);
     this.sessionId = sessionId;
     this.exceptionTypeName = this.getClass().getTypeName();

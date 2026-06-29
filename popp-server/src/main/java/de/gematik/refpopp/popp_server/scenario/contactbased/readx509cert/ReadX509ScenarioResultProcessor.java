@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.contactbased.readx509cert;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
 import de.gematik.refpopp.popp_server.model.CheckResult;
@@ -81,7 +82,8 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
     final var checkResult =
         egkHashValidationService.validateAndProcess(cvc, aut, CommunicationMode.CONTACT, sessionId);
     if (checkResult == CheckResult.BLOCKED || checkResult == CheckResult.MISMATCH) {
-      throw new ScenarioException(sessionId, "InvalidCertificatePairT1", "errorCode");
+      throw new ScenarioException(
+          sessionId, "InvalidCertificatePairT1", BdeErrorCode.INVALID_CERTIFICATE_PAIR_T1);
     }
   }
 }

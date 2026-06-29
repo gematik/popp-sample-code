@@ -44,6 +44,8 @@ import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
+import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardServiceFactory;
+import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.util.HashMap;
@@ -68,6 +70,7 @@ class CommunicationServiceTest {
   private ObjectMapper mapper;
   private Map<String, CompletableFuture<String>> tokenQueue;
   private VirtualCardService virtualCardServiceMock;
+  private VirtualCardServiceFactory virtualCardServiceFactoryMock;
 
   @BeforeEach
   void setUp() throws NoSuchFieldException, IllegalAccessException {
@@ -77,6 +80,9 @@ class CommunicationServiceTest {
     connectorCommunicationServiceWrapper = mock(ConnectorCommunicationServiceWrapper.class);
     tokenQueue = new ConcurrentHashMap<>();
     virtualCardServiceMock = mock(VirtualCardService.class);
+    virtualCardServiceFactoryMock = mock(VirtualCardServiceFactory.class);
+    when(virtualCardServiceFactoryMock.create(anyString())).thenReturn(virtualCardServiceMock);
+    when(virtualCardServiceMock.isConfigured()).thenReturn(true);
 
     final var cardChannelMock = mock(CardChannel.class);
     when(cardCommunicationServiceMock.getCardChannel()).thenReturn(Optional.of(cardChannelMock));
@@ -89,7 +95,8 @@ class CommunicationServiceTest {
             cardCommunicationServiceMock,
             clientServerCommunicationServiceMock,
             connectorCommunicationServiceWrapper,
-            virtualCardServiceMock);
+            virtualCardServiceMock,
+            virtualCardServiceFactoryMock);
     final var tokenQueueField = CommunicationService.class.getDeclaredField("tokenQueue");
     tokenQueueField.setAccessible(true);
     tokenQueueField.set(sut, tokenQueue);
@@ -253,6 +260,41 @@ class CommunicationServiceTest {
     verify(clientServerCommunicationServiceMock).connect();
     verify(ssl).put("virtualCard", true);
     verify(ssl).put("cardConnectionType", CardConnectionType.CONTACT_STANDARD);
+  }
+
+  @Test
+  void handleServerEventUsesSameVirtualCardSessionStateForSameClientSession() {
+    final var givenMessage =
+        """
+            {
+              "version": "1.0.0",
+              "clientSessionId": "session-1",
+              "sequenceCounter": 1,
+              "timeSpan": 300,
+              "steps": [
+                {
+                  "commandApdu": "00A404000E325041592E5359532E4444463031",
+                  "expectedStatusWords": ["9000"]
+                }
+              ],
+              "type": "StandardScenario"
+            }
+        """;
+
+    final Map<String, Object> sslSession =
+        new HashMap<>(Map.of("virtualCard", true, "clientSessionId", "session-1"));
+    when(clientServerCommunicationServiceMock.getSSLSession()).thenReturn(sslSession);
+    when(virtualCardServiceMock.process(anyList(), any(VirtualCardSessionState.class)))
+        .thenReturn(List.of("9000"));
+
+    sut.handleServerEvent(new TextMessageReceivedEvent(givenMessage));
+    sut.handleServerEvent(new TextMessageReceivedEvent(givenMessage));
+
+    final var sessionStateCaptor = ArgumentCaptor.forClass(VirtualCardSessionState.class);
+    verify(virtualCardServiceMock, times(2)).process(anyList(), sessionStateCaptor.capture());
+    assertThat(sessionStateCaptor.getAllValues()).hasSize(2);
+    assertThat(sessionStateCaptor.getAllValues().get(0))
+        .isSameAs(sessionStateCaptor.getAllValues().get(1));
   }
 
   @Test

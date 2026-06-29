@@ -23,6 +23,8 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
 # Set the working directory inside the container
 WORKDIR /app
 
+ENV JAVA_TOOL_OPTIONS="-Djava.util.prefs.userRoot=/tmp/.java-user-prefs -Djava.util.prefs.systemRoot=/tmp/.java-system-prefs"
+
 # Default USERID and GROUPID
 ARG USERID=10000
 ARG GROUPID=10000

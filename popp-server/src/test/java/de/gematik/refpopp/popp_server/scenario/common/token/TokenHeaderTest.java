@@ -31,6 +31,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
+import java.util.Base64;
 import java.util.Map;
 import org.jose4j.lang.JoseException;
 import org.junit.jupiter.api.AfterEach;
@@ -118,9 +119,27 @@ class TokenHeaderTest {
         .isNotNull()
         .hasSize(3)
         .containsEntry("typ", "JWT")
+        .containsEntry("x5c", Base64.getEncoder().encodeToString(dummyCertBytes))
         .containsEntry("stpl", "dmFsaWQ=")
         .containsKey("x5c");
     verifyNoInteractions(jwkKidGenerator);
+  }
+
+  @Test
+  void createHeaderForPoppTokenThrowsScenarioExceptionWhenKidGenerationFails()
+      throws JoseException {
+    // given
+    final var sessionId = "test-session";
+    when(jwkKidGenerator.generate(mockPublicKey)).thenThrow(new JoseException("kid failed"));
+
+    // when & then
+    final var exception =
+        assertThrows(
+            ScenarioException.class,
+            () -> sut.createHeader(mockCertificate, mockPublicKey, sessionId, TokenType.POPP));
+
+    assertThat(exception.getMessage()).isEqualTo("Could not create kid");
+    verify(jwkKidGenerator).generate(mockPublicKey);
   }
 
   @Test

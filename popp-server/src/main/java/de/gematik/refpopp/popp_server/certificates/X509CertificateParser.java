@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -37,7 +38,8 @@ public class X509CertificateParser {
       final var certificateFactory = CertificateFactory.getInstance("X.509");
       return (X509Certificate) certificateFactory.generateCertificate(rootInputStream);
     } catch (final CertificateException | IOException e) {
-      throw new CertificateParserException("Failed to parse X509 certificate", "errorCode", e);
+      throw new CertificateParserException(
+          "Failed to parse X509 certificate", BdeErrorCode.INVALID_X509, e);
     }
   }
 
@@ -47,7 +49,7 @@ public class X509CertificateParser {
       return (X509Certificate) certificateFactory.generateCertificate(inputStream);
     } catch (final CertificateException | IOException e) {
       throw new CertificateParserException(
-          sessionId, "Failed to parse X509 certificate: ", "errorCode", e);
+          sessionId, "Failed to parse X509 certificate: ", BdeErrorCode.INVALID_X509, e);
     }
   }
 }

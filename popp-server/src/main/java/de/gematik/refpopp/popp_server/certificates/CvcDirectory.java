@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.certificates;
 
 import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -72,7 +73,8 @@ public class CvcDirectory {
                       .add(cvc));
     } catch (final IOException e) {
       throw new CertificateParserException(
-          "Failed to load trusted CVC directory from " + trustedPath, "errorCode");
+          "Failed to load trusted CVC directory from " + trustedPath,
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
 
     return new CvcDirectory(cvcByChr);

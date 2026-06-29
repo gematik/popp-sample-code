@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.KeyStoreException;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
@@ -59,33 +60,38 @@ public class KeyStoreService {
       final String keyStorePassword) {
     log.info("| Loading keystore from path: {}", keyStoreResource.getPath());
     if (keyStorePassword == null) {
-      throw new KeyStoreException("password is null", "errorCode");
+      throw new KeyStoreException("password is null", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
 
     try {
       final var filename = keyStoreResource.getFilename();
       if (filename == null) {
-        throw new KeyStoreException("Failed to get filename from keystore", "errorCode");
+        throw new KeyStoreException(
+            "Failed to get filename from keystore", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
       }
       final var commonKeyName = filename.substring(0, filename.lastIndexOf('.'));
       final var rawKey =
           (ECPrivateKey) keyStore.getKey(commonKeyName, keyStorePassword.toCharArray());
       if (rawKey == null) {
         throw new KeyStoreException(
-            "No key found under alias '" + commonKeyName + "'", "errorCode");
+            "No key found under alias '" + commonKeyName + "'",
+            BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
       }
 
       final var certificate = (X509Certificate) keyStore.getCertificate(commonKeyName);
       if (certificate == null) {
         throw new KeyStoreException(
-            "No certificate found under alias '" + commonKeyName + "'", "errorCode");
+            "No certificate found under alias '" + commonKeyName + "'",
+            BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
       }
 
       return new KeyStoreData(rawKey, certificate);
     } catch (final KeyStoreException e) {
       throw e;
     } catch (final Exception e) {
-      throw new KeyStoreException("Failed to load keystore data: " + e.getMessage(), "errorCode");
+      throw new KeyStoreException(
+          "Failed to load keystore data: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

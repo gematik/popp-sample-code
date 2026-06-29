@@ -26,44 +26,25 @@ import de.gematik.openhealth.asn1.Asn1TagForm;
 import de.gematik.openhealth.asn1.Openhealth_asn1Kt;
 import de.gematik.openhealth.crypto.CryptoException;
 import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
-import de.gematik.openhealth.healthcard.ApduException;
-import de.gematik.openhealth.healthcard.CommandBuilderException;
 import de.gematik.openhealth.healthcard.HealthCardCommand;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import javax.smartcardio.CommandAPDU;
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 @Service
-@Setter
 @Slf4j
 public class VirtualCardService {
-  private static final String EGK_AUT_CVC_PRIVATE_KEY_OBJECT = "PrK.eGK.AUT_CVC.E256";
+  private static final VirtualCardImageData EMPTY_CARD_DATA =
+      new VirtualCardImageData(null, null, null, null, null);
   private static final int SFI_VERSION = 0x11;
   private static final int SFI_SUB_CA_CV_CERTIFICATE = 0x07;
   private static final int SFI_END_ENTITY_CV_CERTIFICATE = 0x06;
@@ -77,7 +58,6 @@ public class VirtualCardService {
       HexFormat.of()
           .parseHex(
               "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-  private static final byte[] SECURE_MESSAGING_SUFFIX_MAC = HexFormat.of().parseHex("00000002");
   private static final byte[] EGK_AID = HexFormat.of().parseHex("D2760001448000");
   private static final byte[] DF_ESIGN_AID = HexFormat.of().parseHex("A000000167455349474E");
   private static final byte[] POPP_SERVICE_END_ENTITY_PUBLIC_KEY =
@@ -94,190 +74,167 @@ public class VirtualCardService {
   public static final String APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS =
       "e0154f07d2760001448000b60a83084445475858870222e0154f07d2760001448000b60a83084445475858120223e0194f07d2760001448000a40e830c000a80276001011699902101e0194f07d2760001448000a40e830c4d6f7270686f414343455353e0164f07d2760001448000b60b83094d6f7270686f564552e0154f07d2760001448000b60a83084445475858860220e0154f07d2760001448000b60a83080000000000000013";
   private static final String APDU_SELECT_MASTER_FILE =
-      buildApduHex(() -> HealthCardCommand.Companion.selectAid(EGK_AID), false);
+      VirtualCardApduHelper.buildApduHex(
+          () -> HealthCardCommand.Companion.selectAid(EGK_AID), false);
   private static final String APDU_READ_VERSION =
-      buildApduHex(
+      VirtualCardApduHelper.buildApduHex(
           () -> HealthCardCommand.Companion.readSfiWithOffsetAndLength(SFI_VERSION, 0, 256), false);
   private static final String APDU_READ_SUB_CA_CV_CERTIFICATE =
-      buildApduHex(
+      VirtualCardApduHelper.buildApduHex(
           () ->
               HealthCardCommand.Companion.readSfiWithOffsetAndLength(
                   SFI_SUB_CA_CV_CERTIFICATE, 0, 256),
           false);
   private static final String APDU_READ_END_ENTITY_CV_CERTIFICATE_PREFIX =
-      buildApduPrefix(
+      VirtualCardApduHelper.buildApduPrefix(
           () ->
               HealthCardCommand.Companion.readSfiWithOffsetAndLength(
                   SFI_END_ENTITY_CV_CERTIFICATE, 0, 256),
           false);
   private static final String APDU_RETRIEVE_PUBLIC_KEY_IDENTIFIERS =
-      buildApduHex(HealthCardCommand.Companion::listPublicKeys, true);
+      VirtualCardApduHelper.buildApduHex(HealthCardCommand.Companion::listPublicKeys, true);
   private static final String APDU_SELECT_PRIVATE_KEY_TRUSTED =
-      buildApduHex(
+      VirtualCardApduHelper.buildApduHex(
           () ->
               HealthCardCommand.Companion.manageSecEnvSelectPrivateKey(
                   PRIVATE_KEY_REFERENCE, ALGORITHM_ID_TRUSTED_CHANNEL),
           false);
   private static final String APDU_SELECT_PRIVATE_KEY_CONTACTLESS =
-      buildApduHex(
+      VirtualCardApduHelper.buildApduHex(
           () ->
               HealthCardCommand.Companion.manageSecEnvSelectPrivateKey(
                   PRIVATE_KEY_REFERENCE, ALGORITHM_ID_CONTACTLESS),
           false);
   private static final String APDU_MUTUAL_AUTHENTICATION_STEP_1_PREFIX =
-      buildApduPrefix(
+      VirtualCardApduHelper.buildApduPrefix(
           () ->
               HealthCardCommand.Companion.generalAuthenticateMutualAuthenticationStep1(
                   DUMMY_KEY_REFERENCE),
           false);
   private static final String APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX =
-      buildApduPrefix(
+      VirtualCardApduHelper.buildApduPrefix(
           () ->
               HealthCardCommand.Companion.generalAuthenticateElcStep2(
                   DUMMY_UNCOMPRESSED_PUBLIC_KEY),
           false);
   private static final String APDU_SELECT_DF_ESIGN =
-      buildApduHex(() -> HealthCardCommand.Companion.selectAid(DF_ESIGN_AID), false);
+      VirtualCardApduHelper.buildApduHex(
+          () -> HealthCardCommand.Companion.selectAid(DF_ESIGN_AID), false);
   private static final String APDU_READ_EF_C_CH_AUT_E256_PREFIX =
-      buildApduPrefix(() -> HealthCardCommand.Companion.readSfi(SFI_EF_C_CH_AUT_E256), true);
+      VirtualCardApduHelper.buildApduPrefix(
+          () -> HealthCardCommand.Companion.readSfi(SFI_EF_C_CH_AUT_E256), true);
   private static final String APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX = "0CB08400";
   private static final String APDU_SECURE_SELECT_DF_ESIGN_PREFIX = "0CA4040C";
   private static final String APDU_INTERNAL_AUTHENTICATE_PREFIX =
-      buildApduPrefix(() -> HealthCardCommand.Companion.internalAuthenticate(new byte[24]), false);
+      VirtualCardApduHelper.buildApduPrefix(
+          () -> HealthCardCommand.Companion.internalAuthenticate(new byte[24]), false);
 
-  private String apduReadEndEntityCvCertificate;
-  private String apduMutualAuthenticationStep1;
-  private String apduReadEfCChAutE256;
-  private String subCaCvCertificate;
-  private String version2;
+  private final VirtualCardImageData cardData;
+  private final byte[] poppServiceEndEntityPublicKey;
+  private final ApduMatcher apduMatcher;
 
-  private static final byte[] EMPTY_BYTES = new byte[0];
-
-  private HashMap<String, String> staticApduResponses = new HashMap<>();
-  @Getter private String cvCertificate = null;
-  @Getter private String authCertificate = null;
-  private byte[] egkAuthCvcPrivateKey = null;
-  private byte[] poppServiceEndEntityPublicKey = null;
-  private SecureMessagingSession secureMessagingSession = null;
-  private byte[] pendingCardEphemeralPrivateKey = null;
-
+  @Autowired
   public VirtualCardService(
-      ApplicationEventPublisher eventPublisher,
       @Value("${virtual-card.image-file:}") String imageFile,
-      @Value("${command-apdus.select-master-file:}") String apduSelectMasterFile,
-      @Value("${command-apdus.read-version:}") String apduReadVersion,
-      @Value("${command-apdus.read-sub-ca-cv-certificate:}") String apduReadSubCaCvCertificate,
-      @Value("${command-apdus.read-end-entity-cv-certificate:}")
-          String apduReadEndEntityCvCertificate,
-      @Value("${command-apdus.retrieve-public-key-identifiers:}")
-          String apduRetrievePublicKeyIdentifiers,
-      @Value("${command-apdus.select-private-key:}") String apduSelectPrivateKey,
-      @Value("${command-apdus.mutual-authentication-step-1:}") String apduMutualAuthenticationStep1,
-      @Value("${command-apdus.mutual-authentication-step-2:}") String apduMutualAuthenticationStep2,
-      @Value("${command-apdus.select-df-esign:}") String apduSelectDfEsign,
-      @Value("${command-apdus.read-ef-c-ch-aut-e256:}") String apduReadEfCChAutE256) {
-    log.debug("| Entering VirtualCardService()");
-
-    loadCardImage(imageFile);
-    poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey();
-
-    this.apduReadEndEntityCvCertificate = normalize(apduReadEndEntityCvCertificate);
-    this.apduMutualAuthenticationStep1 = normalize(apduMutualAuthenticationStep1);
-    this.apduReadEfCChAutE256 = normalize(apduReadEfCChAutE256);
-
-    registerStaticApduResponse(apduSelectMasterFile, "");
-    registerStaticApduResponse(apduReadVersion, version2);
-    registerStaticApduResponse(apduReadSubCaCvCertificate, subCaCvCertificate);
-    registerStaticApduResponse(
-        apduRetrievePublicKeyIdentifiers, APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS);
-    registerStaticApduResponse(apduSelectPrivateKey, "");
-    registerStaticApduResponse(apduMutualAuthenticationStep2, "");
-    registerStaticApduResponse(apduSelectDfEsign, "");
-
-    log.debug("| Exiting VirtualCardService()");
+      final VirtualCardImageLoader imageLoader,
+      final ApduMatcher apduMatcher) {
+    this.cardData = loadCardData(imageFile, imageLoader);
+    this.poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey(this.cardData);
+    this.apduMatcher = apduMatcher;
   }
 
-  public void loadCardImage(String imageFile) {
+  VirtualCardService(final String imageFile) {
+    this(imageFile, new VirtualCardImageLoader(), new ApduMatcher());
+  }
+
+  VirtualCardService(final VirtualCardImageData cardData, final ApduMatcher apduMatcher) {
+    this.cardData = cardData == null ? EMPTY_CARD_DATA : cardData;
+    this.poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey(this.cardData);
+    this.apduMatcher = apduMatcher;
+  }
+
+  private static VirtualCardImageData loadCardData(
+      final String imageFile, final VirtualCardImageLoader imageLoader) {
     if (imageFile == null || imageFile.isEmpty()) {
       log.info("| No image file configured for virtual card.");
-      return;
+      return EMPTY_CARD_DATA;
     }
 
-    log.info("| Loading certificates from " + imageFile);
-    try (InputStream is = openImageFile(imageFile)) {
-      String xmlString = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-
-      cvCertificate = getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256");
-      log.info("| CV certificate: " + cvCertificate);
-      authCertificate = getCertificateData(xmlString, "EF.C.CH.AUT.E256");
-      log.info("| X.509 certificate: " + authCertificate);
-      subCaCvCertificate = getCertificateData(xmlString, "EF.C.CA_eGK.CS.E256");
-      log.info("| Sub-CA CV certificate:  " + subCaCvCertificate);
-      version2 = getCertificateData(xmlString, "EF.Version2");
-      log.info("| EF.Version2:  " + version2);
-      egkAuthCvcPrivateKey = loadEgkAuthCvcPrivateKey(xmlString);
+    log.info("| Loading certificates from {}", imageFile);
+    try {
+      final VirtualCardImageData cardData = imageLoader.load(imageFile);
+      log.info("| CV certificate: {}", cardData.cvCertificate());
+      log.info("| X.509 certificate: {}", cardData.authCertificate());
+      log.info("| Sub-CA CV certificate:  {}", cardData.subCaCvCertificate());
+      log.info("| EF.Version2:  {}", cardData.version2());
+      return cardData;
     } catch (IOException | SAXException | ParserConfigurationException e) {
       throw new RuntimeException("Error when loading XML card image file", e);
     }
   }
 
   public boolean isConfigured() {
-    return cvCertificate != null && authCertificate != null;
+    return getCvCertificate() != null && getAuthCertificate() != null;
+  }
+
+  public String getCvCertificate() {
+    return cardData.cvCertificate();
+  }
+
+  public String getAuthCertificate() {
+    return cardData.authCertificate();
   }
 
   public List<String> process(final List<ScenarioStep> scenarioStep) {
+    return process(scenarioStep, new VirtualCardSessionState());
+  }
+
+  public List<String> process(
+      final List<ScenarioStep> scenarioStep, final VirtualCardSessionState sessionState) {
     final var responses = new ArrayList<String>();
     for (final var step : scenarioStep) {
-      responses.add(process(step));
+      responses.add(process(step, sessionState));
     }
-
     return responses;
   }
 
-  private static InputStream openImageFile(String imageFile) throws IOException {
-    if (imageFile.startsWith("classpath:")) {
-      String cp = imageFile.substring("classpath:".length());
-      InputStream is = VirtualCardService.class.getClassLoader().getResourceAsStream(cp);
-      if (is == null) {
-        throw new FileNotFoundException("Classpath resource not found: " + cp);
-      }
-      return is;
-    }
-    Path p = Paths.get(imageFile);
-    if (Files.exists(p)) {
-      return Files.newInputStream(p);
-    }
-    InputStream is = VirtualCardService.class.getClassLoader().getResourceAsStream(imageFile);
-    if (is == null) {
-      throw new FileNotFoundException("File not found on filesystem or classpath: " + imageFile);
-    }
-    return is;
-  }
-
-  private String process(final ScenarioStep scenarioStep) {
-    final var normalizedCommandApdu = normalize(scenarioStep.getCommandApdu());
+  private String process(
+      final ScenarioStep scenarioStep, final VirtualCardSessionState sessionState) {
+    final var normalizedCommandApdu =
+        VirtualCardPureHelper.normalize(scenarioStep.getCommandApdu());
     log.info("| APDU command: {}", normalizedCommandApdu);
 
     String responseAPDU;
     String statusWord = APDU_RESPONSE_OK;
-    if (isMutualAuthenticationStep1(normalizedCommandApdu)) {
-      secureMessagingSession = null;
-      responseAPDU = buildEphemeralPublicKeyResponse();
-    } else if (isMutualAuthenticationStep2(normalizedCommandApdu)) {
-      initializeSecureMessagingSession(normalizedCommandApdu);
+    if (apduMatcher.isMutualAuthenticationStep1(
+        normalizedCommandApdu, APDU_MUTUAL_AUTHENTICATION_STEP_1_PREFIX)) {
+      sessionState.clearSecureMessagingSession();
+      responseAPDU = buildEphemeralPublicKeyResponse(sessionState);
+    } else if (apduMatcher.isMutualAuthenticationStep2(
+        normalizedCommandApdu, APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX)) {
+      initializeSecureMessagingSession(normalizedCommandApdu, sessionState);
       responseAPDU = "";
-    } else if (isReadEndEntityCvCertificate(normalizedCommandApdu)) { // READ CV certificate
-      responseAPDU = cvCertificate;
-    } else if (isReadEfCChAutE256(normalizedCommandApdu)) { // READ X.509 certificate
-      responseAPDU = authCertificate;
-    } else if (isInternalAuthenticate(normalizedCommandApdu)) {
+    } else if (apduMatcher.isReadEndEntityCvCertificate(
+        normalizedCommandApdu, APDU_READ_END_ENTITY_CV_CERTIFICATE_PREFIX)) { // READ CV certificate
+      responseAPDU = cardData.cvCertificate();
+    } else if (apduMatcher.isReadEfCChAutE256(
+        normalizedCommandApdu,
+        APDU_READ_EF_C_CH_AUT_E256_PREFIX,
+        APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX)) { // READ X.509 certificate
+      responseAPDU = cardData.authCertificate();
+    } else if (apduMatcher.isInternalAuthenticate(
+        normalizedCommandApdu, APDU_INTERNAL_AUTHENTICATE_PREFIX)) {
       responseAPDU = signInternalAuthenticationChallenge(normalizedCommandApdu);
     } else {
       responseAPDU = resolveStaticResponse(normalizedCommandApdu);
     }
-    if (isSecureMessagingProtectedCommand(normalizedCommandApdu)
-        && secureMessagingSession != null) {
-      responseAPDU = secureMessagingSession.protectResponse(responseAPDU, statusWord);
+    if (apduMatcher.isSecureMessagingProtectedCommand(
+            normalizedCommandApdu,
+            APDU_SECURE_SELECT_DF_ESIGN_PREFIX,
+            APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX)
+        && sessionState.hasSecureMessagingSession()) {
+      responseAPDU =
+          sessionState.getSecureMessagingSession().protectResponse(responseAPDU, statusWord);
     } else {
       responseAPDU = responseAPDU + statusWord;
     }
@@ -285,25 +242,7 @@ public class VirtualCardService {
     return responseAPDU;
   }
 
-  private String normalize(final String s) {
-    if (s == null || s.isBlank()) {
-      return "";
-    }
-    return s.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
-  }
-
-  private void registerStaticApduResponse(final String commandApdu, final String responseApdu) {
-    final var normalizedCommandApdu = normalize(commandApdu);
-    if (!normalizedCommandApdu.isEmpty()) {
-      staticApduResponses.put(normalizedCommandApdu, responseApdu);
-    }
-  }
-
   private String resolveStaticResponse(final String normalizedCommandApdu) {
-    final var configuredResponse = staticApduResponses.get(normalizedCommandApdu);
-    if (configuredResponse != null) {
-      return configuredResponse;
-    }
     if (normalizedCommandApdu.equals(APDU_SELECT_MASTER_FILE)
         || normalizedCommandApdu.equals(APDU_SELECT_PRIVATE_KEY_TRUSTED)
         || normalizedCommandApdu.equals(APDU_SELECT_PRIVATE_KEY_CONTACTLESS)
@@ -311,10 +250,10 @@ public class VirtualCardService {
       return "";
     }
     if (normalizedCommandApdu.equals(APDU_READ_VERSION)) {
-      return version2;
+      return cardData.version2();
     }
     if (normalizedCommandApdu.equals(APDU_READ_SUB_CA_CV_CERTIFICATE)) {
-      return subCaCvCertificate;
+      return cardData.subCaCvCertificate();
     }
     if (normalizedCommandApdu.equals(APDU_RETRIEVE_PUBLIC_KEY_IDENTIFIERS)) {
       return APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS;
@@ -322,56 +261,18 @@ public class VirtualCardService {
     return "";
   }
 
-  private static String buildApduHex(
-      final HealthCardCommandSupplier supplier, final boolean supportsExtendedLength) {
-    try (final var command = supplier.get();
-        final var commandApdu = command.toApdu(supportsExtendedLength);
-        final var bytes = commandApdu.toVec()) {
-      return HexFormat.of().withUpperCase().formatHex(bytes.cloneAsNonzeroizingVec());
-    } catch (final ApduException | CommandBuilderException e) {
-      throw new IllegalStateException("Failed to build static virtual-card APDU", e);
-    }
-  }
-
-  private static String buildApduPrefix(
-      final HealthCardCommandSupplier supplier, final boolean supportsExtendedLength) {
-    return buildApduHex(supplier, supportsExtendedLength).substring(0, 8);
-  }
-
-  private boolean isMutualAuthenticationStep1(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.equals(apduMutualAuthenticationStep1)
-        || normalizedCommandApdu.startsWith(APDU_MUTUAL_AUTHENTICATION_STEP_1_PREFIX);
-  }
-
-  private boolean isMutualAuthenticationStep2(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.startsWith(APDU_MUTUAL_AUTHENTICATION_STEP_2_PREFIX);
-  }
-
-  private boolean isReadEndEntityCvCertificate(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.equals(apduReadEndEntityCvCertificate)
-        || normalizedCommandApdu.startsWith(APDU_READ_END_ENTITY_CV_CERTIFICATE_PREFIX);
-  }
-
-  private boolean isReadEfCChAutE256(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.equals(apduReadEfCChAutE256)
-        || normalizedCommandApdu.startsWith(APDU_READ_EF_C_CH_AUT_E256_PREFIX)
-        || normalizedCommandApdu.startsWith(APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX);
-  }
-
-  private boolean isInternalAuthenticate(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.startsWith(APDU_INTERNAL_AUTHENTICATE_PREFIX);
-  }
-
   private String signInternalAuthenticationChallenge(final String normalizedCommandApdu) {
-    if (egkAuthCvcPrivateKey == null) {
+    final byte[] egkAuthCvcPrivateKey = cardData.egkAuthCvcPrivateKey();
+    if (egkAuthCvcPrivateKey.length == 0) {
       throw new IllegalStateException("No CVC private key configured for virtual card.");
     }
     final var commandApdu = new CommandAPDU(HexFormat.of().parseHex(normalizedCommandApdu));
-    final byte[] tau = concatenate(commandApdu.getData(), new byte[1]);
-    return toHex(signBrainpoolP256r1EcdsaValue(tau));
+    final byte[] tau = VirtualCardPureHelper.concatenate(commandApdu.getData(), new byte[1]);
+    return VirtualCardPureHelper.toHex(signBrainpoolP256r1EcdsaValue(tau));
   }
 
   private byte[] signBrainpoolP256r1EcdsaValue(final byte[] value) {
+    final byte[] egkAuthCvcPrivateKey = cardData.egkAuthCvcPrivateKey();
     final BigInteger privateKey = toPositiveInteger(egkAuthCvcPrivateKey);
     if (privateKey.signum() == 0 || privateKey.compareTo(BRAINPOOL_P256R1_ORDER) >= 0) {
       throw new IllegalStateException("Invalid CVC private key configured for virtual card.");
@@ -414,7 +315,10 @@ public class VirtualCardService {
     if (s.signum() == 0) {
       return Optional.empty();
     }
-    return Optional.of(concatenate(toFixedLength(r), toFixedLength(s)));
+    return Optional.of(
+        VirtualCardPureHelper.concatenate(
+            VirtualCardPureHelper.toFixedLength(r, BRAINPOOL_P256R1_COORDINATE_LENGTH),
+            VirtualCardPureHelper.toFixedLength(s, BRAINPOOL_P256R1_COORDINATE_LENGTH)));
   }
 
   private static boolean isValidScalar(final BigInteger value) {
@@ -440,21 +344,15 @@ public class VirtualCardService {
     return new BigInteger(1, value);
   }
 
-  private byte[] toFixedLength(final BigInteger value) {
-    return toFixedLength(value.toByteArray(), BRAINPOOL_P256R1_COORDINATE_LENGTH);
-  }
-
-  private boolean isSecureMessagingProtectedCommand(final String normalizedCommandApdu) {
-    return normalizedCommandApdu.startsWith(APDU_SECURE_SELECT_DF_ESIGN_PREFIX)
-        || normalizedCommandApdu.startsWith(APDU_SECURE_READ_EF_C_CH_AUT_E256_PREFIX);
-  }
-
-  private void initializeSecureMessagingSession(final String normalizedCommandApdu) {
-    if (egkAuthCvcPrivateKey == null
-        || poppServiceEndEntityPublicKey == null
-        || pendingCardEphemeralPrivateKey == null) {
+  private void initializeSecureMessagingSession(
+      final String normalizedCommandApdu, final VirtualCardSessionState sessionState) {
+    final byte[] pendingCardEphemeralPrivateKey = sessionState.getPendingCardEphemeralPrivateKey();
+    final byte[] egkAuthCvcPrivateKey = cardData.egkAuthCvcPrivateKey();
+    if (poppServiceEndEntityPublicKey == null
+        || pendingCardEphemeralPrivateKey == null
+        || egkAuthCvcPrivateKey.length == 0) {
       log.warn("| Secure messaging session could not be initialized.");
-      secureMessagingSession = null;
+      sessionState.clearSecureMessagingSession();
       return;
     }
 
@@ -476,23 +374,24 @@ public class VirtualCardService {
       final byte[] sharedSecretEphemeral =
           Openhealth_cryptoKt.brainpoolP256r1Ecdh(
               pendingCardEphemeralPrivateKey, poppServiceEndEntityPublicKey);
-      final byte[] sharedSecret = concatenate(sharedSecretStatic, sharedSecretEphemeral);
-      secureMessagingSession = SecureMessagingSession.fromSharedSecret(sharedSecret);
+      final byte[] sharedSecret =
+          VirtualCardPureHelper.concatenate(sharedSecretStatic, sharedSecretEphemeral);
+      sessionState.setSecureMessagingSession(SecureMessagingSession.fromSharedSecret(sharedSecret));
     } catch (Asn1FfiException
         | CryptoException
         | IllegalArgumentException
         | NoSuchAlgorithmException e) {
       log.warn("| Failed to initialize secure messaging session.", e);
-      secureMessagingSession = null;
+      sessionState.clearSecureMessagingSession();
     } finally {
-      pendingCardEphemeralPrivateKey = null;
+      sessionState.clearPendingCardEphemeralPrivateKey();
     }
   }
 
-  private String buildEphemeralPublicKeyResponse() {
+  private String buildEphemeralPublicKeyResponse(final VirtualCardSessionState sessionState) {
     try (final var keyPair = Openhealth_cryptoKt.generateBrainpoolP256r1KeyPair()) {
-      pendingCardEphemeralPrivateKey = keyPair.privateKey();
-      return toHex(
+      sessionState.setPendingCardEphemeralPrivateKey(keyPair.privateKey());
+      return VirtualCardPureHelper.toHex(
           Openhealth_asn1Kt.writeTaggedObject(
               Asn1TagClass.APPLICATION,
               Asn1TagForm.CONSTRUCTED,
@@ -507,183 +406,11 @@ public class VirtualCardService {
     }
   }
 
-  private byte[] toFixedLength(byte[] value, int length) {
-    if (value.length == length) {
-      return value;
-    }
-    final byte[] result = new byte[length];
-    if (value.length > length) {
-      System.arraycopy(value, value.length - length, result, 0, length);
-    } else {
-      System.arraycopy(value, 0, result, length - value.length, value.length);
-    }
-    return result;
-  }
-
-  private String toHex(byte[] value) {
-    return HexFormat.of().withUpperCase().formatHex(value);
-  }
-
-  private static byte[] concatenate(byte[]... values) {
-    int totalLength = 0;
-    for (byte[] value : values) {
-      totalLength += value.length;
-    }
-
-    final byte[] result = new byte[totalLength];
-    int offset = 0;
-    for (byte[] value : values) {
-      System.arraycopy(value, 0, result, offset, value.length);
-      offset += value.length;
-    }
-    return result;
-  }
-
-  private Element getDOMRootElement(String xmlDoc)
-      throws IOException, SAXException, ParserConfigurationException {
-    DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-    dbFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-    DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-    Document doc = dBuilder.parse(new InputSource(new StringReader(xmlDoc)));
-    doc.getDocumentElement().normalize();
-    return doc.getDocumentElement();
-  }
-
-  private String getCertificateData(String xmlDoc, String certName)
-      throws IOException, SAXException, ParserConfigurationException {
-    Element e = getDOMRootElement(xmlDoc);
-    NodeList nList = e.getElementsByTagName("child");
-    for (int i = 0; i < nList.getLength(); i++) {
-      Element e2 = (Element) nList.item(i);
-      if (certName.equals(e2.getAttribute("id"))) {
-        NodeList nList2 = e2.getElementsByTagName("attribute");
-
-        for (int j = 0; j < nList2.getLength(); j++) {
-          Element e3 = (Element) nList2.item(j);
-          if ("body".equals(e3.getAttribute("id"))) {
-            return e3.getTextContent();
-          }
-        }
-      }
-    }
-
-    return null;
-  }
-
-  private byte[] loadEgkAuthCvcPrivateKey(String xmlDoc)
-      throws IOException, SAXException, ParserConfigurationException {
-    final String privateKeyHex = getChildAttribute(xmlDoc);
-    if (privateKeyHex == null) {
-      return null;
-    }
-    return toFixedLength(HexFormat.of().parseHex(privateKeyHex), 32);
-  }
-
-  private byte[] loadPoppServiceEndEntityPublicKey() {
-    if (egkAuthCvcPrivateKey == null) {
-      return null;
+  private static byte[] loadPoppServiceEndEntityPublicKey(final VirtualCardImageData cardData) {
+    if (cardData.egkAuthCvcPrivateKey().length == 0) {
+      return new byte[0];
     }
     return Arrays.copyOf(
         POPP_SERVICE_END_ENTITY_PUBLIC_KEY, POPP_SERVICE_END_ENTITY_PUBLIC_KEY.length);
-  }
-
-  private String getChildAttribute(String xmlDoc)
-      throws IOException, SAXException, ParserConfigurationException {
-    Element e = getDOMRootElement(xmlDoc);
-    NodeList nList = e.getElementsByTagName("child");
-    for (int i = 0; i < nList.getLength(); i++) {
-      Element child = (Element) nList.item(i);
-      if (!VirtualCardService.EGK_AUT_CVC_PRIVATE_KEY_OBJECT.equals(child.getAttribute("id"))) {
-        continue;
-      }
-      NodeList attributes = child.getElementsByTagName("attribute");
-      for (int j = 0; j < attributes.getLength(); j++) {
-        Element attribute = (Element) attributes.item(j);
-        if ("privateKey".equals(attribute.getAttribute("id"))) {
-          return attribute.getTextContent();
-        }
-      }
-    }
-    return null;
-  }
-
-  private static final class SecureMessagingSession {
-    private final byte[] kmac;
-    private final byte[] sscMacRsp = new byte[16];
-
-    private SecureMessagingSession(byte[] kmac) {
-      this.kmac = kmac;
-    }
-
-    private static SecureMessagingSession fromSharedSecret(final byte[] sharedSecret)
-        throws NoSuchAlgorithmException {
-      return new SecureMessagingSession(deriveSecureMessagingMacKey(sharedSecret));
-    }
-
-    private String protectResponse(String responseDataHex, String statusWordHex) {
-      try {
-        final byte[] responseData =
-            responseDataHex == null || responseDataHex.isEmpty()
-                ? EMPTY_BYTES
-                : HexFormat.of().parseHex(responseDataHex);
-        final byte[] statusWord = HexFormat.of().parseHex(statusWordHex);
-
-        incrementCounter(sscMacRsp);
-        incrementCounter(sscMacRsp);
-
-        final byte[] responseDataDo =
-            responseData.length == 0
-                ? EMPTY_BYTES
-                : Openhealth_asn1Kt.writeTaggedObject(
-                    Asn1TagClass.CONTEXT_SPECIFIC, Asn1TagForm.PRIMITIVE, 0x01, responseData);
-        final byte[] statusWordDo =
-            Openhealth_asn1Kt.writeTaggedObject(
-                Asn1TagClass.CONTEXT_SPECIFIC, Asn1TagForm.PRIMITIVE, 0x19, statusWord);
-        final byte[] macInput = concatenate(responseDataDo, statusWordDo);
-        final byte[] mac =
-            Openhealth_cryptoKt.aesCmac(kmac, concatenate(sscMacRsp, padIso(macInput)), 8);
-        final byte[] macDo =
-            Openhealth_asn1Kt.writeTaggedObject(
-                Asn1TagClass.CONTEXT_SPECIFIC, Asn1TagForm.PRIMITIVE, 0x0E, mac);
-
-        return HexFormat.of().formatHex(concatenate(responseDataDo, statusWordDo, macDo))
-            + statusWordHex;
-      } catch (Asn1FfiException | CryptoException e) {
-        throw new IllegalStateException("Failed to protect response", e);
-      }
-    }
-
-    @SuppressWarnings("java:S4790")
-    private static byte[] deriveSecureMessagingMacKey(final byte[] sharedSecret)
-        throws NoSuchAlgorithmException {
-      // This KDF must stay byte-compatible with the existing virtual-card secure-messaging flow.
-      // The previous implementation used EafiHashAlgorithm.SHA_1 over sharedSecret || 00000002 and
-      // truncated the result to 16 bytes for the AES-CMAC key.
-      return Arrays.copyOf(
-          MessageDigest.getInstance("SHA-1")
-              .digest(concatenate(sharedSecret, SECURE_MESSAGING_SUFFIX_MAC)),
-          16);
-    }
-
-    private static void incrementCounter(byte[] counter) {
-      for (int i = counter.length - 1; i >= 0; i--) {
-        counter[i]++;
-        if (counter[i] != 0) {
-          return;
-        }
-      }
-    }
-
-    private static byte[] padIso(byte[] value) {
-      final int paddedLength = ((value.length + 1 + 15) / 16) * 16;
-      final byte[] padded = Arrays.copyOf(value, paddedLength);
-      padded[value.length] = (byte) 0x80;
-      return padded;
-    }
-  }
-
-  @FunctionalInterface
-  private interface HealthCardCommandSupplier {
-    HealthCardCommand get() throws CommandBuilderException;
   }
 }

@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,7 +72,9 @@ public class EgkTransferEntryParser {
       }
     } catch (final IOException | ParseException e) {
       throw new ImportDataException(
-          sessionId, "Error streaming CMS eContent parse: " + e.getMessage(), "errorCode");
+          sessionId,
+          "Error streaming CMS eContent parse: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     return result;
   }
@@ -93,7 +96,8 @@ public class EgkTransferEntryParser {
       }
     }
     if (notAfter == null || cvcOctets == null || autBits == null) {
-      throw new ImportDataException(sessionId, "| Missing fields in egkInfo", "errorCode");
+      throw new ImportDataException(
+          sessionId, "| Missing fields in egkInfo", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     final Date notAfterDate = notAfter.getDate();
     return EgkTransferEntry.builder()

@@ -28,11 +28,16 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.Curve;
+import com.nimbusds.jose.jwk.ECKey;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.OctetSequenceKey;
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.gematik.refpopp.popp_client.controller.ErrorCode;
 import de.gematik.refpopp.popp_client.controller.PoppTokenValidationException;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,6 +185,169 @@ class EntityStatementParserTest {
     // when / then
     assertThatThrownBy(() -> sut.extractSubject(invalidJwt))
         .isInstanceOf(PoppTokenValidationException.class)
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSigningPublicKeyReturnsEcPublicKeyWhenJwksClaimIsValid() throws Exception {
+    // given
+    final ECKey signingKey = new ECKeyGenerator(Curve.P_256).keyID("signing-kid").generate();
+    var claims =
+        new JWTClaimsSet.Builder()
+            .claim(
+                "jwks", Map.of("keys", java.util.List.of(signingKey.toPublicJWK().toJSONObject())))
+            .build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when
+    final var result = sut.extractSigningPublicKey(jwt);
+
+    // then
+    assertThat(result).isEqualTo(signingKey.toECPublicKey());
+  }
+
+  @Test
+  void extractSigningPublicKeyThrowsWhenJwksClaimIsMissing() throws JOSEException {
+    // given
+    var claims = new JWTClaimsSet.Builder().subject("https://server.example.com").build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSigningPublicKey(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .hasMessageContaining("jwks claim is missing")
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSigningPublicKeyThrowsWhenNoSigningKeyExistsInJwks() throws JOSEException {
+    // given
+    final ECKey encryptionKey =
+        new ECKeyGenerator(Curve.P_256).keyID("enc-kid").keyUse(KeyUse.ENCRYPTION).generate();
+    var claims =
+        new JWTClaimsSet.Builder()
+            .claim(
+                "jwks",
+                Map.of("keys", java.util.List.of(encryptionKey.toPublicJWK().toJSONObject())))
+            .build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSigningPublicKey(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .hasMessageContaining("no signing key found")
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSigningPublicKeyThrowsWhenInputIsNotAValidJwt() {
+    // given
+    final String invalidJwt = "not-a-jwt";
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSigningPublicKey(invalidJwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSigningPublicKeyReturnsRsaPublicKeyWhenJwksContainsRsaKey() throws Exception {
+    // given
+    final var rsaKey = new RSAKeyGenerator(2048).keyID("rsa-kid").generate();
+    var claims =
+        new JWTClaimsSet.Builder()
+            .claim("jwks", Map.of("keys", List.of(rsaKey.toPublicJWK().toJSONObject())))
+            .build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when
+    final var result = sut.extractSigningPublicKey(jwt);
+
+    // then
+    assertThat(result).isEqualTo(rsaKey.toRSAPublicKey());
+  }
+
+  @Test
+  void extractSigningPublicKeyThrowsWhenJwksKeysListIsEmpty() throws JOSEException {
+    // given
+    var claims = new JWTClaimsSet.Builder().claim("jwks", Map.of("keys", List.of())).build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSigningPublicKey(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .hasMessageContaining("no signing key found")
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSigningPublicKeyThrowsWhenKeyTypeIsUnsupported() throws Exception {
+    // given - OctetSequenceKey (symmetric) is neither ECKey nor RSAKey
+    final var symmetricKey =
+        new OctetSequenceKey.Builder(new byte[32])
+            .keyID("sym-kid")
+            .keyUse(KeyUse.SIGNATURE)
+            .build();
+    var claims =
+        new JWTClaimsSet.Builder()
+            .claim("jwks", Map.of("keys", List.of(symmetricKey.toJSONObject())))
+            .build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSigningPublicKey(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.PUBLIC_KEY_UNSUPPORTED));
+  }
+
+  @Test
+  void extractSubjectThrowsWhenSubjectIsBlank() throws JOSEException {
+    // given
+    var claims = new JWTClaimsSet.Builder().subject("   ").build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSubject(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .hasMessageContaining("Missing sub claim")
+        .satisfies(
+            e ->
+                assertThat(((PoppTokenValidationException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
+  }
+
+  @Test
+  void extractSignedJwksUriThrowsWhenSignedJwksUriIsNotAString() throws JOSEException {
+    // given
+    var claims =
+        new JWTClaimsSet.Builder()
+            .subject("https://server.example.com")
+            .claim("metadata", Map.of("oauth_resource", Map.of("signed_jwks_uri", 42)))
+            .build();
+    final String jwt = buildSignedJwt(claims);
+
+    // when / then
+    assertThatThrownBy(() -> sut.extractSignedJwksUri(jwt))
+        .isInstanceOf(PoppTokenValidationException.class)
+        .hasMessageContaining("signed_jwks_uri")
         .satisfies(
             e ->
                 assertThat(((PoppTokenValidationException) e).getErrorCode())

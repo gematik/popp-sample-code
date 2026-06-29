@@ -54,7 +54,8 @@ public class ClientServerCommunicationService {
       try {
         secureWebSocketClient.connectBlocking();
       } catch (final RuntimeException e) {
-        log.error("Error connecting to WebSocket server: {}", e.getMessage(), e);
+        log.error("| Error connecting to WebSocket server: {}", e.getMessage(), e);
+        secureWebSocketClient.close();
         throw e;
       }
     }
@@ -62,18 +63,25 @@ public class ClientServerCommunicationService {
     log.debug("| Exiting connect()");
   }
 
+  public void disconnect() {
+    if (secureWebSocketClient != null) {
+      secureWebSocketClient.close();
+      secureWebSocketClient = null;
+    }
+  }
+
   public void sendMessage(final PoPPMessage poPPMessage) {
     log.debug("| Entering sendMessage()");
     try {
       final var messageAsString = objectMapper.writeValueAsString(poPPMessage);
       if (secureWebSocketClient == null || secureWebSocketClient.isClosed()) {
-        log.error("Websocket client is not connected");
+        log.error("| Websocket client is not connected");
         throw new IllegalStateException("Websocket client is not connected");
       }
-      log.info("Send message: {}", messageAsString);
+      log.info("| Send message: {}", messageAsString);
       secureWebSocketClient.send(messageAsString);
     } catch (final JacksonException ex) {
-      log.error("Error converting message object to string: {}", ex.getMessage());
+      log.error("| Error converting message object to string: {}", ex.getMessage());
       throw new IllegalStateException("Error converting message object to string");
     }
     log.debug("| Exiting sendMessage()");

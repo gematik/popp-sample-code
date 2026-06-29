@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 import lombok.Getter;
 
@@ -27,9 +28,9 @@ import lombok.Getter;
 public class ValidationException extends GeneralPoPPServerException {
 
   @Serial private static final long serialVersionUID = -7211631028910741535L;
-  private final String errorCode;
+  private final BdeErrorCode errorCode;
 
-  public ValidationException(final String message, final String errorCode) {
+  public ValidationException(final String message, final BdeErrorCode errorCode) {
     super(message, errorCode);
     this.errorCode = errorCode;
     this.exceptionTypeName = this.getClass().getTypeName();

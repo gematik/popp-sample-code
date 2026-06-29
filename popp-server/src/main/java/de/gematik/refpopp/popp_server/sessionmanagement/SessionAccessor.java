@@ -25,6 +25,7 @@ import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.
 import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey.COMMUNICATION_MODE;
 import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey.SCENARIO_COUNTER;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
@@ -196,6 +197,9 @@ public class SessionAccessor {
     return (T)
         sessionContainer
             .retrieveSessionData(sessionId, key, type)
-            .orElseThrow(() -> new ScenarioException(sessionId, errorMessage, "errorCode"));
+            .orElseThrow(
+                () ->
+                    new ScenarioException(
+                        sessionId, errorMessage, BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
   }
 }

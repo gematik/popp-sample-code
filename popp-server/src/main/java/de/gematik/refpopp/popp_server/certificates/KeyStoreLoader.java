@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.KeyStoreException;
 import java.security.KeyStore;
 import org.springframework.core.io.Resource;
@@ -39,7 +40,8 @@ public class KeyStoreLoader {
       truststore.load(is, truststorePassword.toCharArray());
       return truststore;
     } catch (final Exception e) {
-      throw new KeyStoreException("Could not load key store " + e.getMessage(), "errorCode");
+      throw new KeyStoreException(
+          "Could not load key store " + e.getMessage(), BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

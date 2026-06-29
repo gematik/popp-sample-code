@@ -36,21 +36,21 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.gematik.refpopp.popp_client.controller.ErrorCode;
 import de.gematik.refpopp.popp_client.controller.PoppTokenValidationException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.cert.Certificate;
-import java.util.Collections;
 import java.util.Date;
+import java.util.stream.Stream;
 import net.minidev.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class PoppTokenVerificationServiceTest {
 
   private EntityStatementClient entityStatementClientMock;
   private EntityStatementParser entityStatementParserMock;
   private SignedJwksClient signedJwksClientMock;
-  private KeyStore keyStoreMock;
 
   private PoppTokenVerificationService sut;
 
@@ -59,13 +59,9 @@ class PoppTokenVerificationServiceTest {
     entityStatementClientMock = mock(EntityStatementClient.class);
     entityStatementParserMock = mock(EntityStatementParser.class);
     signedJwksClientMock = mock(SignedJwksClient.class);
-    keyStoreMock = mock(KeyStore.class);
     sut =
         new PoppTokenVerificationService(
-            entityStatementClientMock,
-            entityStatementParserMock,
-            signedJwksClientMock,
-            keyStoreMock);
+            entityStatementClientMock, entityStatementParserMock, signedJwksClientMock);
   }
 
   @Test
@@ -229,18 +225,14 @@ class PoppTokenVerificationServiceTest {
                     .isEqualTo(ErrorCode.KID_NOT_FOUND));
   }
 
-  @Test
-  void verifyTokenThrowsWhenKeystoreHasNoAliases() throws KeyStoreException {
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("entityStatementSigningKeyFailures")
+  void verifyTokenThrowsWhenEntityStatementSigningKeyExtractionFails(
+      String scenario, PoppTokenValidationException exception) {
     // given
     final String token = "any-token";
-    when(entityStatementClientMock.fetchEntityStatementJwt()).thenReturn("entity-statement");
-    when(entityStatementParserMock.extractSignedJwksUri("entity-statement"))
-        .thenReturn("https://example.com/signed-jwks");
-    when(entityStatementParserMock.extractSubject("entity-statement"))
-        .thenReturn("https://server.example.com");
-    when(signedJwksClientMock.fetchSignedJwks("https://example.com/signed-jwks"))
-        .thenReturn("signed-jwks-jwt");
-    when(keyStoreMock.aliases()).thenReturn(Collections.emptyEnumeration());
+    final String entityStatement = setupVerifyTokenFailureDependencies();
+    when(entityStatementParserMock.extractSigningPublicKey(entityStatement)).thenThrow(exception);
 
     // when / then
     assertThatThrownBy(() -> sut.verifyToken(token))
@@ -248,52 +240,7 @@ class PoppTokenVerificationServiceTest {
         .satisfies(
             e ->
                 assertThat(((PoppTokenValidationException) e).getErrorCode())
-                    .isEqualTo(ErrorCode.INTERNAL_ERROR));
-  }
-
-  @Test
-  void verifyTokenThrowsWhenCertificateForAliasIsNull() throws KeyStoreException {
-    // given
-    final String token = "any-token";
-    when(entityStatementClientMock.fetchEntityStatementJwt()).thenReturn("entity-statement");
-    when(entityStatementParserMock.extractSignedJwksUri("entity-statement"))
-        .thenReturn("https://example.com/signed-jwks");
-    when(entityStatementParserMock.extractSubject("entity-statement"))
-        .thenReturn("https://server.example.com");
-    when(signedJwksClientMock.fetchSignedJwks("https://example.com/signed-jwks"))
-        .thenReturn("signed-jwks-jwt");
-    when(keyStoreMock.aliases()).thenReturn(Collections.enumeration(java.util.List.of("my-alias")));
-    when(keyStoreMock.getCertificate("my-alias")).thenReturn(null);
-
-    // when / then
-    assertThatThrownBy(() -> sut.verifyToken(token))
-        .isInstanceOf(PoppTokenValidationException.class)
-        .satisfies(
-            e ->
-                assertThat(((PoppTokenValidationException) e).getErrorCode())
-                    .isEqualTo(ErrorCode.INTERNAL_ERROR));
-  }
-
-  @Test
-  void verifyTokenThrowsWhenKeystoreThrowsException() throws KeyStoreException {
-    // given
-    final String token = "any-token";
-    when(entityStatementClientMock.fetchEntityStatementJwt()).thenReturn("entity-statement");
-    when(entityStatementParserMock.extractSignedJwksUri("entity-statement"))
-        .thenReturn("https://example.com/signed-jwks");
-    when(entityStatementParserMock.extractSubject("entity-statement"))
-        .thenReturn("https://server.example.com");
-    when(signedJwksClientMock.fetchSignedJwks("https://example.com/signed-jwks"))
-        .thenReturn("signed-jwks-jwt");
-    when(keyStoreMock.aliases()).thenThrow(new KeyStoreException("keystore error"));
-
-    // when / then
-    assertThatThrownBy(() -> sut.verifyToken(token))
-        .isInstanceOf(PoppTokenValidationException.class)
-        .satisfies(
-            e ->
-                assertThat(((PoppTokenValidationException) e).getErrorCode())
-                    .isEqualTo(ErrorCode.INTERNAL_ERROR));
+                    .isEqualTo(ErrorCode.TOKEN_MALFORMED));
   }
 
   @Test
@@ -310,11 +257,8 @@ class PoppTokenVerificationServiceTest {
     when(entityStatementParserMock.extractSubject(entityStatement))
         .thenReturn("https://server.example.com");
     when(signedJwksClientMock.fetchSignedJwks(jwksUri)).thenReturn(signedJwksJwt);
-
-    final Certificate certificateMock = mock(Certificate.class);
-    when(keyStoreMock.aliases()).thenReturn(Collections.enumeration(java.util.List.of("my-alias")));
-    when(keyStoreMock.getCertificate("my-alias")).thenReturn(certificateMock);
-    when(certificateMock.getPublicKey()).thenReturn(ecJwk.toECPublicKey());
+    when(entityStatementParserMock.extractSigningPublicKey(entityStatement))
+        .thenReturn(ecJwk.toECPublicKey());
 
     // when
     final var result = sut.verifyToken(poppToken);
@@ -485,10 +429,34 @@ class PoppTokenVerificationServiceTest {
     when(entityStatementParserMock.extractSubject(entityStatement))
         .thenReturn("https://server.example.com");
     when(signedJwksClientMock.fetchSignedJwks(jwksUri)).thenReturn(buildSignedJwks(ecJwk));
+    when(entityStatementParserMock.extractSigningPublicKey(entityStatement))
+        .thenReturn(ecJwk.toECPublicKey());
+  }
 
-    final Certificate certificateMock = mock(Certificate.class);
-    when(keyStoreMock.aliases()).thenReturn(Collections.enumeration(java.util.List.of("my-alias")));
-    when(keyStoreMock.getCertificate("my-alias")).thenReturn(certificateMock);
-    when(certificateMock.getPublicKey()).thenReturn(ecJwk.toECPublicKey());
+  private String setupVerifyTokenFailureDependencies() {
+    final String entityStatement = "entity-statement";
+    final String jwksUri = "https://example.com/signed-jwks";
+
+    when(entityStatementClientMock.fetchEntityStatementJwt()).thenReturn(entityStatement);
+    when(entityStatementParserMock.extractSignedJwksUri(entityStatement)).thenReturn(jwksUri);
+    when(entityStatementParserMock.extractSubject(entityStatement))
+        .thenReturn("https://server.example.com");
+    when(signedJwksClientMock.fetchSignedJwks(jwksUri)).thenReturn("signed-jwks-jwt");
+    return entityStatement;
+  }
+
+  private static Stream<Arguments> entityStatementSigningKeyFailures() {
+    return Stream.of(
+        Arguments.of(
+            Named.of("missing jwks claim", "missing jwks claim"),
+            new PoppTokenValidationException(ErrorCode.TOKEN_MALFORMED, "jwks missing")),
+        Arguments.of(
+            Named.of("missing signing key", "missing signing key"),
+            new PoppTokenValidationException(
+                ErrorCode.TOKEN_MALFORMED, "no signing key found in entity statement jwks claim")),
+        Arguments.of(
+            Named.of("invalid entity statement jwt", "invalid entity statement jwt"),
+            new PoppTokenValidationException(
+                ErrorCode.TOKEN_MALFORMED, "Failed to parse entity statement JWT")));
   }
 }

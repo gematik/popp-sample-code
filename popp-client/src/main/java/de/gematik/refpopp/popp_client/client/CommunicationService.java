@@ -24,6 +24,8 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.messages.*;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
+import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardServiceFactory;
+import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
 import de.gematik.refpopp.popp_client.client.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.events.TextMessageReceivedEvent;
 import de.gematik.refpopp.popp_client.client.events.WebSocketConnectionClosedEvent;
@@ -41,7 +43,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -60,8 +61,13 @@ public class CommunicationService {
   private final ClientServerCommunicationService clientServerCommunicationService;
   private final ConnectorCommunicationServiceWrapper connectorCommunicationServiceWrapper;
   private final VirtualCardService virtualCardService;
+  private final VirtualCardServiceFactory virtualCardServiceFactory;
 
   private final Map<String, CompletableFuture<String>> tokenQueue = new ConcurrentHashMap<>();
+  private final Map<String, VirtualCardService> virtualCardServicesBySession =
+      new ConcurrentHashMap<>();
+  private final Map<String, VirtualCardSessionState> virtualCardSessionStatesBySession =
+      new ConcurrentHashMap<>();
 
   @Value("${popp-client.token-wait-timeout-seconds:5}")
   private int tokenWaitTimeoutSeconds;
@@ -79,7 +85,7 @@ public class CommunicationService {
     try {
       return tokenFuture.get(tokenWaitTimeoutSeconds, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
-      Thread.currentThread().interrupt(); // ✓ restore interrupt flag
+      Thread.currentThread().interrupt();
       throw new TokenRetrievalException("Thread was interrupted while waiting for token", e);
     } catch (TimeoutException e) {
       throw new TokenRetrievalException("Token retrieval timed out", e);
@@ -87,6 +93,8 @@ public class CommunicationService {
       final var cause = e.getCause();
       throw new TokenRetrievalException(
           cause == null ? "Error while retrieving token" : cause.getMessage(), cause);
+    } finally {
+      clientServerCommunicationService.disconnect();
     }
   }
 
@@ -120,10 +128,12 @@ public class CommunicationService {
   public String startVirtualCard(
       final CardConnectionType cardConnectionType, final String clientSessionId, String imageFile) {
     log.info("| Using virtual card");
-    if (!virtualCardService.isConfigured() && (imageFile == null || imageFile.isEmpty())) {
-      throw new IllegalArgumentException("| No virtual card image configured");
-    } else if (imageFile != null && !imageFile.isEmpty()) {
-      virtualCardService.loadCardImage(imageFile);
+    final VirtualCardService selectedVirtualCardService =
+        (imageFile != null && !imageFile.isEmpty())
+            ? virtualCardServiceFactory.create(imageFile)
+            : virtualCardService;
+    if (!selectedVirtualCardService.isConfigured()) {
+      throw new IllegalArgumentException("No virtual card image configured");
     }
 
     clientServerCommunicationService.connect();
@@ -133,6 +143,8 @@ public class CommunicationService {
 
     final var sessionId = resolveSessionId(clientSessionId, cardConnectionType);
     putSessionIdIntoSSLSession(sessionId);
+    virtualCardServicesBySession.put(sessionId, selectedVirtualCardService);
+    virtualCardSessionStatesBySession.put(sessionId, new VirtualCardSessionState());
 
     CompletableFuture<String> tokenFuture = new CompletableFuture<>();
     tokenQueue.put(sessionId, tokenFuture);
@@ -159,7 +171,7 @@ public class CommunicationService {
       final var poPPMessage = mapper.readValue(eventPayload, PoPPMessage.class);
       handlePoPPMessage(poPPMessage);
     } catch (final JacksonException e) {
-      log.error("Error parsing message: {}", e.getMessage());
+      log.error("| Error parsing message: {}", e.getMessage());
       throw new IllegalArgumentException("Error parsing message", e);
     }
   }
@@ -189,19 +201,22 @@ public class CommunicationService {
       case final ConnectorScenarioMessage connectorScenarioMessage ->
           handleConnectorScenarioMessage(connectorScenarioMessage);
       case final ErrorMessage errorMessage -> handleErrorMessage(errorMessage);
-      default -> log.error("Unknown message type: {}", poPPMessage.getType());
+      default -> log.error("| Unknown message type: {}", poPPMessage.getType());
     }
   }
 
   private void handleErrorMessage(final ErrorMessage errorMessage) {
-    log.error("Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
+    log.error(
+        "| Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
     final var clientSessionId =
         (String) clientServerCommunicationService.getSSLSession().get(CLIENT_SESSION_ID);
     if (clientSessionId == null) {
-      log.warn("No clientSessionId found for server error message");
+      log.warn("| No clientSessionId found for server error message");
       return;
     }
     final var tokenFuture = tokenQueue.remove(clientSessionId);
+    virtualCardServicesBySession.remove(clientSessionId);
+    virtualCardSessionStatesBySession.remove(clientSessionId);
     if (tokenFuture != null) {
       tokenFuture.completeExceptionally(
           new IllegalStateException(
@@ -230,7 +245,7 @@ public class CommunicationService {
   private void useStandardTerminalAsMock(final String signedScenario) {
     final String[] tokenParts = signedScenario.split("\\.");
     if (tokenParts.length != 3) {
-      throw new IllegalArgumentException("| Invalid token format");
+      throw new IllegalArgumentException("Invalid token format");
     }
 
     final var payloadJson =
@@ -248,8 +263,20 @@ public class CommunicationService {
     final Object isVirtualCard = sslSession.get(VIRTUAL_CARD);
     List<String> responses;
     if (Boolean.TRUE.equals(isVirtualCard)) {
-      if (virtualCardService.isConfigured()) {
-        responses = virtualCardService.process(steps);
+      final var clientSessionId = (String) sslSession.get(CLIENT_SESSION_ID);
+      final var sessionVirtualCardService =
+          clientSessionId == null
+              ? virtualCardService
+              : virtualCardServicesBySession.getOrDefault(clientSessionId, virtualCardService);
+      if (sessionVirtualCardService.isConfigured()) {
+        if (clientSessionId == null) {
+          responses = sessionVirtualCardService.process(steps);
+        } else {
+          final var sessionState =
+              virtualCardSessionStatesBySession.computeIfAbsent(
+                  clientSessionId, ignored -> new VirtualCardSessionState());
+          responses = sessionVirtualCardService.process(steps, sessionState);
+        }
       } else {
         throw new IllegalStateException("No image file configured for virtual card.");
       }
@@ -273,6 +300,8 @@ public class CommunicationService {
     if (tokenFuture != null) {
       tokenFuture.complete(tokenMessage.getToken());
       tokenQueue.remove(clientSessionId);
+      virtualCardServicesBySession.remove(clientSessionId);
+      virtualCardSessionStatesBySession.remove(clientSessionId);
     } else {
       log.warn("| No token future found for clientSessionId {}", clientSessionId);
     }
@@ -293,7 +322,7 @@ public class CommunicationService {
         if (!unknownSession) {
           throw exception;
         }
-        log.info("Session {} is already closed.", clientSessionId);
+        log.info("| Session {} is already closed.", clientSessionId);
       }
     }
   }
@@ -307,12 +336,11 @@ public class CommunicationService {
       if (cardCommunicationService.getSecureChannel().isPresent()) {
         throw new IllegalStateException("Contact connection requested but card is contactless.");
       }
-    } else if (cardConnectionType.equals(CardConnectionType.CONTACTLESS_STANDARD)
-        || cardConnectionType.equals(CardConnectionType.CONTACTLESS_CONNECTOR)) {
-      if (cardCommunicationService.getSecureChannel().isEmpty()) {
-        throw new IllegalStateException(
-            "Contactless connection requested but card is contact-based.");
-      }
+    } else if ((cardConnectionType.equals(CardConnectionType.CONTACTLESS_STANDARD)
+            || cardConnectionType.equals(CardConnectionType.CONTACTLESS_CONNECTOR))
+        && cardCommunicationService.getSecureChannel().isEmpty()) {
+      throw new IllegalStateException(
+          "Contactless connection requested but card is contact-based.");
     }
   }
 
@@ -337,18 +365,5 @@ public class CommunicationService {
   private boolean usesConnectorSession(final CardConnectionType cardConnectionType) {
     return CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)
         || CardConnectionType.CONTACTLESS_CONNECTOR.equals(cardConnectionType);
-  }
-
-  private static boolean isValidSessionId(final String sessionUUID) {
-    if (!StringUtils.hasLength(sessionUUID)) {
-      return false;
-    }
-    try {
-      UUID.fromString(sessionUUID);
-      return true;
-    } catch (final IllegalArgumentException e) {
-      log.warn("| Not valid clientSessionId {}.", e.getLocalizedMessage());
-      return false;
-    }
   }
 }

@@ -23,7 +23,6 @@ package de.gematik.refpopp.popp_client.cardreader.card;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -37,6 +36,8 @@ import de.gematik.openhealth.healthcard.HealthCardCommand;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -47,7 +48,6 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.context.ApplicationEventPublisher;
 
 class VirtualCardServiceTest {
   private static final String GENERAL_AUTHENTICATE_STEP_1 =
@@ -64,22 +64,7 @@ class VirtualCardServiceTest {
 
   @BeforeEach
   void setUp() {
-    var eventPublisher = mock(ApplicationEventPublisher.class);
-
-    virtualCardService =
-        new VirtualCardService(
-            eventPublisher,
-            "IMG_eGK_G21_TU_root6 1.xml",
-            "00 a4 040c    07 D2760001448000",
-            "00 b0 9100    00",
-            "00 b0 8700    00",
-            "00 b0 8600    00",
-            "80 ca 0100    00   0000",
-            "00 22 41A4    06   840109  800154",
-            GENERAL_AUTHENTICATE_STEP_1,
-            GENERAL_AUTHENTICATE_STEP_2,
-            "00 a4 040c   0a   a000000167455349474e",
-            "00 b0 8400   00   0000");
+    virtualCardService = new VirtualCardService("IMG_eGK_G21_TU_root6 1.xml");
   }
 
   @Test
@@ -89,17 +74,34 @@ class VirtualCardServiceTest {
 
   @Test
   void isConfiguredFalse() {
-    virtualCardService.setCvCertificate(null);
-    virtualCardService.setAuthCertificate(null);
-    assertFalse(virtualCardService.isConfigured());
+    final var service =
+        serviceWithCardData(
+            null, null, APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE, APDU_RESPONSE_READ_VERSION, null);
+
+    assertFalse(service.isConfigured());
   }
 
   @Test
   void isConfiguredFalseWhenAuthCertificateIsMissing() {
-    virtualCardService.setCvCertificate("CV_CERT");
-    virtualCardService.setAuthCertificate(null);
+    final var service =
+        serviceWithCardData(
+            "CV_CERT",
+            null,
+            APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+            APDU_RESPONSE_READ_VERSION,
+            null);
 
-    assertFalse(virtualCardService.isConfigured());
+    assertFalse(service.isConfigured());
+  }
+
+  @Test
+  void constructorUsesEmptyCardDataWhenExplicitCardDataIsNull() {
+    final VirtualCardImageData cardData = null;
+    final var service = new VirtualCardService(cardData, new ApduMatcher());
+
+    Assertions.assertThat(service.isConfigured()).isFalse();
+    Assertions.assertThat(service.getCvCertificate()).isNull();
+    Assertions.assertThat(service.getAuthCertificate()).isNull();
   }
 
   @Test
@@ -141,27 +143,13 @@ class VirtualCardServiceTest {
 
   @Test
   void processReturnsStaticAndDynamicResponsesAndReportsConfiguredState() {
-    final var eventPublisher = mock(ApplicationEventPublisher.class);
-
     final var service =
-        new VirtualCardService(
-            eventPublisher,
-            "",
-            "00 A4 00 00",
-            "00 B0 00 00",
-            "00 B0 01 00",
-            "00 B0 02 00",
-            "00 B0 03 00",
-            "00 A4 00 01",
-            "00 82 00 00",
-            "00 82 00 01",
-            "00 A4 00 02",
-            "00 B0 04 00");
-
-    Assertions.assertThat(service.isConfigured()).isFalse();
-
-    service.setCvCertificate("CV_CERT");
-    service.setAuthCertificate("AUTH_CERT");
+        serviceWithCardData(
+            "CV_CERT",
+            "AUTH_CERT",
+            APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+            APDU_RESPONSE_READ_VERSION,
+            null);
 
     Assertions.assertThat(service.isConfigured()).isTrue();
     Assertions.assertThat(service.getCvCertificate()).isEqualTo("CV_CERT");
@@ -169,11 +157,13 @@ class VirtualCardServiceTest {
 
     final var steps =
         List.of(
-            new ScenarioStep("00 B0 02 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
-            new ScenarioStep("00 82 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
-            new ScenarioStep("00 B0 04 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
+            new ScenarioStep("00 B0 86 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
+            new ScenarioStep(
+                GENERAL_AUTHENTICATE_STEP_1, List.of(VirtualCardService.APDU_RESPONSE_OK)),
+            new ScenarioStep("00 B0 84 00 00 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
             new ScenarioStep("00 B0 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)),
-            new ScenarioStep("00 A4 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)));
+            new ScenarioStep(
+                "00 A4 04 0C 07 D2760001448000", List.of(VirtualCardService.APDU_RESPONSE_OK)));
 
     final var responses = service.process(steps);
 
@@ -190,12 +180,13 @@ class VirtualCardServiceTest {
 
   @Test
   void processSupportsOpenHealthDefaultsWithoutConfiguredCommandApdus() {
-    final var eventPublisher = mock(ApplicationEventPublisher.class);
     final var service =
-        new VirtualCardService(
-            eventPublisher, "IMG_eGK_G21_TU_root6 1.xml", "", "", "", "", "", "", "", "", "", "");
-    service.setCvCertificate("CV_CERT");
-    service.setAuthCertificate("AUTH_CERT");
+        serviceWithCardData(
+            "CV_CERT",
+            "AUTH_CERT",
+            APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+            APDU_RESPONSE_READ_VERSION,
+            null);
 
     final var responses =
         service.process(
@@ -235,21 +226,7 @@ class VirtualCardServiceTest {
 
   @Test
   void processReturnsOkForUnknownApdu() {
-    final var eventPublisher = mock(ApplicationEventPublisher.class);
-    final var service =
-        new VirtualCardService(
-            eventPublisher,
-            "",
-            "00 A4 00 00",
-            "00 B0 00 00",
-            "00 B0 01 00",
-            "00 B0 02 00",
-            "00 B0 03 00",
-            "00 A4 00 01",
-            "00 82 00 00",
-            "00 82 00 01",
-            "00 A4 00 02",
-            "00 B0 04 00");
+    final var service = new VirtualCardService("");
 
     final var responses =
         service.process(List.of(new ScenarioStep("DE AD BE EF", List.of("9000"))));
@@ -259,24 +236,12 @@ class VirtualCardServiceTest {
 
   @Test
   void processReturnsProtectedResponseForSecureMessagingRead() {
-    final var eventPublisher = mock(ApplicationEventPublisher.class);
-    final var service =
-        new VirtualCardService(
-            eventPublisher,
-            "IMG_eGK_G21_TU_root6 1.xml",
-            "00 a4 040c    07 D2760001448000",
-            "00 b0 9100    00",
-            "00 b0 8700    00",
-            "00 b0 8600    00",
-            "80 ca 0100    00   0000",
-            "00 22 41A4    06   840109  800154",
-            GENERAL_AUTHENTICATE_STEP_1,
-            GENERAL_AUTHENTICATE_STEP_2,
-            "00 a4 040c   0a   a000000167455349474e",
-            "00 b0 8400   00   0000");
+    final var service = new VirtualCardService("IMG_eGK_G21_TU_root6 1.xml");
+    final var sessionState = new VirtualCardSessionState();
 
     final var step1Response =
-        service.process(List.of(new ScenarioStep(GENERAL_AUTHENTICATE_STEP_1, List.of("9000"))));
+        service.process(
+            List.of(new ScenarioStep(GENERAL_AUTHENTICATE_STEP_1, List.of("9000"))), sessionState);
 
     Assertions.assertThat(step1Response.getFirst())
         .startsWith("7C")
@@ -287,7 +252,8 @@ class VirtualCardServiceTest {
             List.of(
                 new ScenarioStep(GENERAL_AUTHENTICATE_STEP_2, List.of("9000")),
                 new ScenarioStep("0C A4 04 0C 0A A000000167455349474E", List.of("9000")),
-                new ScenarioStep("0C B0 84 00 00", List.of("9000"))));
+                new ScenarioStep("0C B0 84 00 00", List.of("9000"))),
+            sessionState);
 
     Assertions.assertThat(handshakeResponses.get(0)).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(handshakeResponses.get(1)).endsWith(VirtualCardService.APDU_RESPONSE_OK);
@@ -400,8 +366,13 @@ class VirtualCardServiceTest {
 
   @Test
   void processInternalAuthenticateFailsWithInvalidCvcPrivateKey() throws Exception {
-    final var service = newService("");
-    service.setEgkAuthCvcPrivateKey(new byte[32]);
+    final var service =
+        serviceWithCardData(
+            null,
+            null,
+            APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+            APDU_RESPONSE_READ_VERSION,
+            new byte[32]);
     final var internalAuthenticate =
         commandApduHex(HealthCardCommand.Companion.internalAuthenticate(new byte[24]));
     final var steps =
@@ -431,9 +402,148 @@ class VirtualCardServiceTest {
     Assertions.assertThat(response).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
   }
 
+  @Test
+  void processReturnsOkForOpenHealthTrustedPrivateKeySelection() throws Exception {
+    final var service = newService("");
+    final var selectTrustedCvcKey =
+        commandApduHex(
+            HealthCardCommand.Companion.manageSecEnvSelectPrivateKey((byte) 0x09, (byte) 0x54));
+
+    final var response =
+        service
+            .process(
+                List.of(
+                    new ScenarioStep(
+                        selectTrustedCvcKey, List.of(VirtualCardService.APDU_RESPONSE_OK))))
+            .getFirst();
+
+    Assertions.assertThat(response).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+  }
+
+  @Test
+  void processReturnsOkForOpenHealthDfEsignSelection() throws Exception {
+    final var service = newService("");
+    final var selectDfEsign =
+        commandApduHex(
+            HealthCardCommand.Companion.selectAid(HexFormat.of().parseHex("A000000167455349474E")));
+
+    final var response =
+        service
+            .process(
+                List.of(
+                    new ScenarioStep(selectDfEsign, List.of(VirtualCardService.APDU_RESPONSE_OK))))
+            .getFirst();
+
+    Assertions.assertThat(response).isEqualTo(VirtualCardService.APDU_RESPONSE_OK);
+  }
+
+  @Test
+  void processMutualAuthenticationStep2WithInvalidHexClearsPendingEphemeralKey() {
+    final var service = newService("IMG_eGK_G21_TU_root6 1.xml");
+    final var sessionState = new VirtualCardSessionState();
+
+    service.process(
+        List.of(new ScenarioStep(GENERAL_AUTHENTICATE_STEP_1, List.of("9000"))), sessionState);
+    Assertions.assertThat(sessionState.getPendingCardEphemeralPrivateKey()).isNotNull();
+
+    final var responses =
+        service.process(
+            List.of(new ScenarioStep("00 86 00 00 45 ZZ", List.of("9000"))), sessionState);
+
+    Assertions.assertThat(responses).containsExactly(VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(sessionState.hasSecureMessagingSession()).isFalse();
+    Assertions.assertThat(sessionState.getPendingCardEphemeralPrivateKey()).isNull();
+  }
+
+  @Test
+  void tryCreateSignatureReturnsEmptyWhenEphemeralPrivateKeyIsInvalid() throws Exception {
+    final var service = newService("");
+    final var result =
+        invokeTryCreateSignature(
+            service,
+            BigInteger.ONE,
+            BigInteger.ONE,
+            new byte[] {0x00},
+            uncompressedPublicKeyWithX(BigInteger.ONE));
+
+    Assertions.assertThat(result).isEmpty();
+  }
+
+  @Test
+  void tryCreateSignatureReturnsEmptyWhenComputedRIsZero() throws Exception {
+    final var service = newService("");
+    final var result =
+        invokeTryCreateSignature(
+            service,
+            BigInteger.ONE,
+            BigInteger.ONE,
+            new byte[] {0x01},
+            uncompressedPublicKeyWithX(BigInteger.ZERO));
+
+    Assertions.assertThat(result).isEmpty();
+  }
+
+  @Test
+  void tryCreateSignatureReturnsEmptyWhenComputedSIsZero() throws Exception {
+    final var service = newService("");
+    final var curveOrder =
+        new BigInteger("A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7", 16);
+    final var result =
+        invokeTryCreateSignature(
+            service,
+            BigInteger.ONE,
+            curveOrder.subtract(BigInteger.ONE),
+            new byte[] {0x01},
+            uncompressedPublicKeyWithX(BigInteger.ONE));
+
+    Assertions.assertThat(result).isEmpty();
+  }
+
+  @Test
+  void truncateDigestShiftsWhenInputBitLengthExceedsCurveOrder() throws Exception {
+    final var value = new byte[64];
+    Arrays.fill(value, (byte) 0xFF);
+
+    final var truncated =
+        (BigInteger)
+            invokePrivateStatic("truncateDigest", new Class<?>[] {byte[].class}, (Object) value);
+
+    final var curveOrder =
+        new BigInteger("A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7", 16);
+    Assertions.assertThat(truncated.bitLength()).isLessThanOrEqualTo(curveOrder.bitLength());
+  }
+
+  @Test
+  void isValidScalarRejectsValuesOutsideCurveOrderRange() throws Exception {
+    final var curveOrder =
+        new BigInteger("A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7", 16);
+
+    final var zeroResult =
+        (boolean)
+            invokePrivateStatic(
+                "isValidScalar", new Class<?>[] {BigInteger.class}, BigInteger.ZERO);
+    final var tooLargeResult =
+        (boolean)
+            invokePrivateStatic("isValidScalar", new Class<?>[] {BigInteger.class}, curveOrder);
+
+    Assertions.assertThat(zeroResult).isFalse();
+    Assertions.assertThat(tooLargeResult).isFalse();
+  }
+
   private VirtualCardService newService(final String imageFile) {
+    return new VirtualCardService(imageFile);
+  }
+
+  private VirtualCardService serviceWithCardData(
+      final String cvCertificate,
+      final String authCertificate,
+      final String subCaCvCertificate,
+      final String version2,
+      final byte[] egkAuthCvcPrivateKey) {
     return new VirtualCardService(
-        mock(ApplicationEventPublisher.class), imageFile, "", "", "", "", "", "", "", "", "", "");
+        new VirtualCardImageData(
+            cvCertificate, authCertificate, subCaCvCertificate, version2, egkAuthCvcPrivateKey),
+        new ApduMatcher());
   }
 
   private void createServiceWithMissingClasspathImage() {
@@ -446,6 +556,52 @@ class VirtualCardServiceTest {
 
   private String commandApduHex(final HealthCardCommand command) throws ApduException {
     return HexFormat.of().formatHex(command.toApdu(false).toVec().cloneAsNonzeroizingVec());
+  }
+
+  private static byte[] uncompressedPublicKeyWithX(final BigInteger xCoordinate) {
+    final byte[] publicKey = new byte[65];
+    publicKey[0] = 0x04;
+    final byte[] xBytes = VirtualCardPureHelper.toFixedLength(xCoordinate, 32);
+    System.arraycopy(xBytes, 0, publicKey, 1, xBytes.length);
+    return publicKey;
+  }
+
+  private static Object invokePrivate(
+      final Object target,
+      final String methodName,
+      final Class<?>[] parameterTypes,
+      final Object... args)
+      throws Exception {
+    final Method method = target.getClass().getDeclaredMethod(methodName, parameterTypes);
+    method.setAccessible(true);
+    return method.invoke(target, args);
+  }
+
+  private static java.util.Optional<?> invokeTryCreateSignature(
+      final VirtualCardService service,
+      final BigInteger privateKey,
+      final BigInteger z,
+      final byte[] ephemeralPrivateKey,
+      final byte[] ephemeralPublicKey)
+      throws Exception {
+    final Object result =
+        invokePrivate(
+            service,
+            "tryCreateSignature",
+            new Class<?>[] {BigInteger.class, BigInteger.class, byte[].class, byte[].class},
+            privateKey,
+            z,
+            ephemeralPrivateKey,
+            ephemeralPublicKey);
+    return (java.util.Optional<?>) result;
+  }
+
+  private static Object invokePrivateStatic(
+      final String methodName, final Class<?>[] parameterTypes, final Object... args)
+      throws Exception {
+    final Method method = VirtualCardService.class.getDeclaredMethod(methodName, parameterTypes);
+    method.setAccessible(true);
+    return method.invoke(null, args);
   }
 
   private byte[] readProtectedField(final String responseHex, final int tagNumber) {

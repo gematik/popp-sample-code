@@ -30,6 +30,7 @@ import static de.gematik.refpopp.popp_server.scenario.common.provider.Communicat
 import de.gematik.openhealth.healthcard.CardDataException;
 import de.gematik.openhealth.healthcard.HealthCardVersion2;
 import de.gematik.openhealth.healthcard.Openhealth_healthcardKt;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
@@ -91,7 +92,9 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
       sessionAccessor.storeCommunicationMode(sessionId, G3);
     } else {
       throw new ScenarioException(
-          sessionId, "unsupported PTV object system: " + ptvObjSys, "errorCode");
+          sessionId,
+          "unsupported PTV object system: " + ptvObjSys,
+          BdeErrorCode.INVALID_PTV_OBJECT_SYSTEM);
     }
   }
 
@@ -111,7 +114,7 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
           sessionId,
           "unsupported version of content in EF.Version2: "
               + HEX_FORMAT.formatHex(efVersion.fillingInstructionsVersion()),
-          "errorCode");
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     return ptvObjSys;
   }
@@ -125,7 +128,10 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
     try {
       return Openhealth_healthcardKt.parseHealthCardVersion2(rspEfVersion2);
     } catch (final CardDataException e) {
-      throw new ScenarioException(sessionId, "invalid EF.Version2: " + e.getMessage(), "errorCode");
+      throw new ScenarioException(
+          sessionId,
+          "invalid EF.Version2: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

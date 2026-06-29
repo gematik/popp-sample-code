@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.certificates;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,6 +31,8 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.poppcommons.api.exceptions.CertificateParserException;
+import de.gematik.poppcommons.api.exceptions.PrivateKeyLoadingException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import java.io.IOException;
 import java.net.URL;
@@ -153,8 +156,6 @@ class CertificateProviderServiceTest {
       cvcDirectoryLoaderMock.verify(
           () -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)));
       verify(x509CertificateParserMock).parse(new ClassPathResource("rootCertificatePath"));
-      verify(cvCertificateParserMock).parse(new ClassPathResource("cvcSubCertificatePath"));
-      verify(cvCertificateParserMock).parse(new ClassPathResource("cvcEndEntityCertificatePath"));
       verify(configuredTrustedChannelIdentityValidatorMock)
           .validate(
               eq(cvcSubCertificateMock),
@@ -211,8 +212,6 @@ class CertificateProviderServiceTest {
       cvcDirectoryLoaderMock.verify(
           () -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)));
       verify(x509CertificateParserMock).parse(new ClassPathResource("rootCertificatePath"));
-      verify(cvCertificateParserMock).parse(new ClassPathResource("cvcSubCertificatePath"));
-      verify(cvCertificateParserMock).parse(new ClassPathResource("cvcEndEntityCertificatePath"));
       verify(configuredTrustedChannelIdentityValidatorMock)
           .validate(
               eq(cvcSubCertificateMock),
@@ -223,5 +222,202 @@ class CertificateProviderServiceTest {
       verify(keyStoreServiceMock)
           .getConnectorKeyStoreData(any(ClassPathResource.class), eq("connectorKeyStorePassword"));
     }
+  }
+
+  @Test
+  void loadCertificatesThrowsExceptionWhenParsingCvcSubCertificateFails() {
+    // given
+    ReflectionTestUtils.setField(sut, "identitiesLocation", "identitiesLocation");
+    ReflectionTestUtils.setField(
+        sut, "rootCertificateResource", new ClassPathResource("rootCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "cvcSubCertificateResource", new ClassPathResource("cvcSubCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut,
+        "cvcEndEntityCertificateResource",
+        new ClassPathResource("cvcEndEntityCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "connectorKeyStoreResource", new ClassPathResource("connectorKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "connectorKeyStorePassword", "connectorKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
+
+    when(resourceLoaderMock.getResource(anyString()))
+        .thenReturn(new FileSystemResource("identitiesLocation"));
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcSubCertificatePath")))
+        .thenThrow(new CertificateParserException("Parsing failed", new Exception("test")));
+
+    try (final var cvcDirectoryLoaderMock = mockStatic(CvcDirectory.class)) {
+      cvcDirectoryLoaderMock
+          .when(() -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)))
+          .thenReturn(cvcDirectoryMock);
+
+      // when and then
+      assertThatThrownBy(() -> sut.loadCertificates())
+          .isInstanceOf(CertificateParserException.class)
+          .hasMessageContaining("Failed to parse Sub-CA-CVC certificate");
+    }
+  }
+
+  @Test
+  void loadCertificatesThrowsExceptionWhenParsingCvcEndEntityCertificateFails() {
+    // given
+    ReflectionTestUtils.setField(sut, "identitiesLocation", "identitiesLocation");
+    ReflectionTestUtils.setField(
+        sut, "rootCertificateResource", new ClassPathResource("rootCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "cvcSubCertificateResource", new ClassPathResource("cvcSubCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut,
+        "cvcEndEntityCertificateResource",
+        new ClassPathResource("cvcEndEntityCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "connectorKeyStoreResource", new ClassPathResource("connectorKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "connectorKeyStorePassword", "connectorKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
+
+    when(resourceLoaderMock.getResource(anyString()))
+        .thenReturn(new FileSystemResource("identitiesLocation"));
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+    final var cvcSubCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcSubCertificatePath")))
+        .thenReturn(cvcSubCertificateMock);
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcEndEntityCertificatePath")))
+        .thenThrow(new CertificateParserException("Parsing failed", new Exception("test")));
+
+    try (final var cvcDirectoryLoaderMock = mockStatic(CvcDirectory.class)) {
+      cvcDirectoryLoaderMock
+          .when(() -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)))
+          .thenReturn(cvcDirectoryMock);
+
+      // when and then
+      assertThatThrownBy(() -> sut.loadCertificates())
+          .isInstanceOf(CertificateParserException.class)
+          .hasMessageContaining("Failed to parse End-Entity-CVC certificate");
+    }
+  }
+
+  @Test
+  void loadCertificatesThrowsExceptionWhenReadingPrivateKeyFails() throws IOException {
+    // given
+    ReflectionTestUtils.setField(sut, "identitiesLocation", "identitiesLocation");
+    ReflectionTestUtils.setField(
+        sut, "rootCertificateResource", new ClassPathResource("rootCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "cvcSubCertificateResource", new ClassPathResource("cvcSubCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut,
+        "cvcEndEntityCertificateResource",
+        new ClassPathResource("cvcEndEntityCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "connectorKeyStoreResource", new ClassPathResource("connectorKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "connectorKeyStorePassword", "connectorKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+
+    final var mockPrivateKeyResource = mock(ClassPathResource.class);
+    when(mockPrivateKeyResource.getInputStream()).thenThrow(new IOException("File not found"));
+    ReflectionTestUtils.setField(sut, "cvcPoppServicePrivateKeyResource", mockPrivateKeyResource);
+
+    when(resourceLoaderMock.getResource(anyString()))
+        .thenReturn(new FileSystemResource("identitiesLocation"));
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+    final var cvcSubCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final var cvcEndEntityCertificateMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcSubCertificatePath")))
+        .thenReturn(cvcSubCertificateMock);
+    when(cvCertificateParserMock.parse(new ClassPathResource("cvcEndEntityCertificatePath")))
+        .thenReturn(cvcEndEntityCertificateMock);
+
+    try (final var cvcDirectoryLoaderMock = mockStatic(CvcDirectory.class)) {
+      cvcDirectoryLoaderMock
+          .when(() -> CvcDirectory.load(any(Path.class), eq(cvCertificateParserMock)))
+          .thenReturn(cvcDirectoryMock);
+
+      // when and then
+      assertThatThrownBy(() -> sut.loadCertificates())
+          .isInstanceOf(PrivateKeyLoadingException.class)
+          .hasMessageContaining("Failed to load private key");
+    }
+  }
+
+  @Test
+  void findIdentityCvcByChrReturnsValidCertificate() {
+    // given
+    final var cvcMock = mock(de.gematik.openhealth.asn1.CvCertificate.class);
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+
+    when(cvcDirectoryMock.findByChr("some-chr")).thenReturn(java.util.Optional.of(cvcMock));
+
+    ReflectionTestUtils.setField(sut, "cvcDirectory", cvcDirectoryMock);
+
+    // when
+    final var result = sut.findIdentityCvcByChr("some-chr");
+
+    // then
+    assertThat(result).isEqualTo(cvcMock);
+  }
+
+  @Test
+  void findIdentityCvcByChrThrowsExceptionWhenNotFound() {
+    // given
+    final var cvcDirectoryMock = mock(CvcDirectory.class);
+    when(cvcDirectoryMock.findByChr("unknown-chr")).thenReturn(java.util.Optional.empty());
+
+    ReflectionTestUtils.setField(sut, "cvcDirectory", cvcDirectoryMock);
+
+    // when and then
+    assertThatThrownBy(
+            () -> {
+              try (var ignored = sut.findIdentityCvcByChr("unknown-chr")) {
+                org.junit.jupiter.api.Assertions.fail("Expected ScenarioException to be thrown");
+              }
+            })
+        .isInstanceOf(ScenarioException.class)
+        .hasMessageContaining("Unable to find trusted CVC for CHR unknown-chr");
+  }
+
+  @Test
+  void loadCertificatesThrowsExceptionWhenGettingUrlThrowsUriSyntaxException() throws Exception {
+    // given
+    ReflectionTestUtils.setField(sut, "identitiesLocation", "identitiesLocation");
+    ReflectionTestUtils.setField(
+        sut, "rootCertificateResource", new ClassPathResource("rootCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "cvcSubCertificateResource", new ClassPathResource("cvcSubCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut,
+        "cvcEndEntityCertificateResource",
+        new ClassPathResource("cvcEndEntityCertificatePath"));
+    ReflectionTestUtils.setField(
+        sut, "connectorKeyStoreResource", new ClassPathResource("connectorKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "connectorKeyStorePassword", "connectorKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "poppKeyStoreResource", new ClassPathResource("poppTokenKeyStorePath"));
+    ReflectionTestUtils.setField(sut, "poppKeyStorePassword", "poppKeyStorePassword");
+    ReflectionTestUtils.setField(
+        sut, "cvcPoppServicePrivateKeyResource", new ClassPathResource("pk.prv"));
+
+    final var classPathResourceMock = mock(ClassPathResource.class);
+    when(resourceLoaderMock.getResource(anyString())).thenReturn(classPathResourceMock);
+    when(classPathResourceMock.getURL())
+        .thenThrow(new java.net.MalformedURLException("Invalid URL"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.loadCertificates())
+        .isInstanceOf(ScenarioException.class)
+        .hasMessageContaining("Unable to load PKI_CVC");
   }
 }

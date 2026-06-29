@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 
 public class CertificateParserException extends ScenarioException {
@@ -27,22 +28,27 @@ public class CertificateParserException extends ScenarioException {
   @Serial private static final long serialVersionUID = 5572085110724179953L;
 
   public CertificateParserException(
-      final String sessionId, final String message, final String errorCode) {
+      final String sessionId, final String message, final BdeErrorCode errorCode) {
     super(sessionId, message, errorCode);
     this.exceptionTypeName = this.getClass().getTypeName();
   }
 
   public CertificateParserException(
-      final String sessionId, final String message, final String errorCode, Throwable cause) {
+      final String sessionId, final String message, final BdeErrorCode errorCode, Throwable cause) {
     super(sessionId, message, errorCode, cause);
     this.exceptionTypeName = this.getClass().getTypeName();
   }
 
-  public CertificateParserException(final String message, final String errorCode) {
+  public CertificateParserException(final String message, final BdeErrorCode errorCode) {
     super("N/A", message, errorCode);
   }
 
-  public CertificateParserException(final String message, final String errorCode, Throwable cause) {
+  public CertificateParserException(
+      final String message, final BdeErrorCode errorCode, Throwable cause) {
     super("N/A", message, errorCode, cause);
+  }
+
+  public CertificateParserException(final String message, Throwable cause) {
+    super("N/A", message, BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, cause);
   }
 }

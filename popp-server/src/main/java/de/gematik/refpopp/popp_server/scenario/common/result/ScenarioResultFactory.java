@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ValidationException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
@@ -77,7 +78,7 @@ public class ScenarioResultFactory {
       }
     }
     if (!sb.isEmpty()) {
-      throw new ValidationException(sb.toString(), "errorCode");
+      throw new ValidationException(sb.toString(), BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

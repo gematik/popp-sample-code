@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
@@ -158,7 +159,9 @@ class WebSocketHandlerTest {
         {"type":"Start","version":"1.0.0","cardConnectionType":"contact-connector"}
         """;
     final var message = new TextMessage(payload);
-    doThrow(ScenarioException.class).when(messageHandlerOrchestratorMock).orchestrate(any(), any());
+    doThrow(new ScenarioException("test", "error", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR))
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
     final var messageCapture = ArgumentCaptor.forClass(TextMessage.class);
 
     // when
@@ -263,7 +266,9 @@ class WebSocketHandlerTest {
         {"type":"Start","version":"1.0.0","cardConnectionType":"contact-connector"}
         """;
     final var message = new TextMessage(payload);
-    doThrow(ScenarioException.class).when(messageHandlerOrchestratorMock).orchestrate(any(), any());
+    doThrow(new ScenarioException("test", "error", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR))
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
 
     // when
     sut.handleTextMessage(sessionMock, message);

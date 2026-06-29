@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.scenario.contactbased.readcvc;
 
 import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
 import de.gematik.refpopp.popp_server.scenario.common.cvc.CvcProcessor;
@@ -61,9 +62,8 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
   }
 
   private void checkEhcG21Cards(final String sessionId, final ScenarioResult scenarioResult) {
-    final var endEntityCvc =
-        cvcProcessor.createAndValidateCvc(
-            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
+    cvcProcessor.createAndValidateCvc(
+        sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
     cvcProcessor.createAndValidateCvcCa(
         sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
     final var importableCvcs = buildTrustedChannelCvcChain(sessionId, scenarioResult);
@@ -79,7 +79,7 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
       throw new ScenarioException(
           sessionId,
           "Failed to prepare trusted-channel CVC chain: " + exceptionMessage(e),
-          "errorCode",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR,
           e);
     }
   }
@@ -94,7 +94,7 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
       throw new ScenarioException(
           sessionId,
           "Failed to prepare trusted-channel steps: " + exceptionMessage(e),
-          "errorCode",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR,
           e);
     }
   }

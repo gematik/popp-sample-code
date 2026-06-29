@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_server.scenario.contactless.authg2;
 
 import de.gematik.openhealth.asn1.CvCertificate;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.CvcSignatureVerifier;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashValidationService;
@@ -104,9 +105,13 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
         egkHashValidationService.validateAndProcess(
             cvc, aut, CommunicationMode.CONTACTLESS, sessionId);
     if (checkResult == CheckResult.MISMATCH || checkResult == CheckResult.BLOCKED) {
-      throw new ScenarioException(sessionId, "InvalidCertificatePairContactless", "errorCode");
+      throw new ScenarioException(
+          sessionId,
+          "InvalidCertificatePairContactless",
+          BdeErrorCode.INVALID_CERTIFICATE_PAIR_CONTACTLESS);
     } else if (checkResult == CheckResult.UNKNOWN) {
-      throw new ScenarioException(sessionId, "UnknownCertificates", "errorCode");
+      throw new ScenarioException(
+          sessionId, "UnknownCertificates", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -122,7 +127,8 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
     final var verified = verify(sessionId, endEntityCvc, nonce, signature);
 
     if (!verified) {
-      throw new ScenarioException(sessionId, "Signature of nonce is not valid", "errorCode");
+      throw new ScenarioException(
+          sessionId, "Signature of nonce is not valid", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -137,7 +143,9 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       return signatureVerifier.verifyCvcEcdsaValueSignature(certificate, tau, signature);
     } catch (final IllegalStateException e) {
       throw new ScenarioException(
-          sessionId, "Failed to verify nonce signature: " + e.getMessage(), "errorCode");
+          sessionId,
+          "Failed to verify nonce signature: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

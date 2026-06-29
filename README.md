@@ -172,6 +172,7 @@ connector:
       workplaceId: <WorkplaceId for Konnektor Context>
       mandantId: <MandantId for Konnektor Context>
     ct-id: <CardTerminalId for specific card terminal>
+    ct-slot: <CardTerminalSlot for specific card terminal>
 ```
 Example:
 
@@ -193,6 +194,7 @@ connector:
       workplaceId: "Workplace1"
       mandantId: "Mandant1"
     ct-id: "kt"  
+    ct-slot: "2"
 ```
 
 **Supported Konnektor functions**

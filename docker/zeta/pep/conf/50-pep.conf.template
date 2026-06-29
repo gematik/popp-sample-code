@@ -7,6 +7,7 @@ server {
     proxy_pass http://${POPP_SERVER_HOST}/ws;
 
     pep                  on;
+    include /etc/nginx/templates/proxy_headers.conf;
 
     # proxy_set_header ZETA-User-Info "Example user info";
     # proxy_set_header ZETA-PoPP-Token-Content $http_popp;
@@ -21,9 +22,7 @@ server {
     proxy_pass http://${POPP_SERVER_HOST}/;
 
     pep                  on;
-
-    proxy_set_header ZETA-User-Info "Example user info";
-    proxy_set_header ZETA-PoPP-Token-Content $http_popp;
+    include /etc/nginx/templates/proxy_headers.conf;
     }
 
     # Proxy OAuth Authorization Server metadata to Keycloak

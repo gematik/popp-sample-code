@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.handler;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.ErrorMessage;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
@@ -90,7 +91,8 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     } catch (final JacksonException e) {
       handleScenarioException(
           session,
-          new ScenarioException(session.getId(), "Error while processing JSON", "errorCode"));
+          new ScenarioException(
+              session.getId(), "Error while processing JSON", BdeErrorCode.INVALID_MESSAGE));
     }
     log.debug("| Exiting handleTextMessage()");
   }
@@ -112,7 +114,7 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     final var errorMessage =
         ErrorMessage.builder()
             .errorDetail("SessionId: " + e.getSessionId() + " " + e.getMessage())
-            .errorCode(e.getErrorCode())
+            .errorCode(String.valueOf(e.getErrorCode().getBdeCode()))
             .build();
     try {
       session.sendMessage(new TextMessage(mapper.writeValueAsString(errorMessage)));

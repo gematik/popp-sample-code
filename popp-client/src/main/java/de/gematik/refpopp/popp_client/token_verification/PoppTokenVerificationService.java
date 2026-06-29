@@ -30,16 +30,16 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import de.gematik.refpopp.popp_client.controller.ErrorCode;
 import de.gematik.refpopp.popp_client.controller.PoppTokenValidationException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class PoppTokenVerificationService {
 
   private final EntityStatementClient entityStatementClient;
@@ -48,29 +48,33 @@ public class PoppTokenVerificationService {
 
   private final SignedJwksClient signedJwksClient;
 
-  private final KeyStore keyStore;
-
   public PoppTokenVerificationService(
       EntityStatementClient entityStatementClient,
       EntityStatementParser entityStatementParser,
-      SignedJwksClient signedJwksClient,
-      KeyStore keyStore) {
+      SignedJwksClient signedJwksClient) {
     this.entityStatementClient = entityStatementClient;
     this.entityStatementParser = entityStatementParser;
     this.signedJwksClient = signedJwksClient;
-    this.keyStore = keyStore;
   }
 
   public PoppTokenVerificationResult verifyToken(@NonNull String token) {
+    log.info("| Verifying PoPP token...");
     var entityStatementJwt = entityStatementClient.fetchEntityStatementJwt();
+    log.info("| Entity Statement JWT: {}", entityStatementJwt);
     var jwksUri = entityStatementParser.extractSignedJwksUri(entityStatementJwt);
+    log.info("| JWKS URI: {}", jwksUri);
     var expectedIssuer = entityStatementParser.extractSubject(entityStatementJwt);
+    log.info("| Expected Issuer: {}", expectedIssuer);
     var signedJwks = signedJwksClient.fetchSignedJwks(jwksUri);
-    var entitySigningPublicKey = loadEntitySigningPublicKey();
+    log.info("| Signed JWKS: {}", signedJwks);
+    var entitySigningPublicKey = entityStatementParser.extractSigningPublicKey(entityStatementJwt);
 
     JWTClaimsSet claims;
+    log.info("| Verifying PoPP token signature...");
     claims = verify(signedJwks, entitySigningPublicKey, token);
+    log.info("| Verifying PoPP token claims...");
     validatePoppClaims(claims, expectedIssuer);
+    log.info("| PoPP token successfully verified");
 
     return new PoppTokenVerificationResult(
         true,
@@ -103,30 +107,6 @@ public class PoppTokenVerificationService {
     if (actorId == null || actorId.isBlank()) {
       throw new PoppTokenValidationException(ErrorCode.TOKEN_MALFORMED, "missing actorId claim");
     }
-  }
-
-  private PublicKey loadEntitySigningPublicKey() {
-    PublicKey entitySigningPublicKey;
-    try {
-      var aliases = keyStore.aliases();
-      if (!aliases.hasMoreElements()) {
-        throw new PoppTokenValidationException(
-            ErrorCode.INTERNAL_ERROR, "No aliases found in keystore");
-      }
-
-      var alias = aliases.nextElement();
-      var certificate = keyStore.getCertificate(alias);
-      if (certificate == null) {
-        throw new PoppTokenValidationException(
-            ErrorCode.INTERNAL_ERROR, "No certificate found for alias: " + alias);
-      }
-
-      entitySigningPublicKey = certificate.getPublicKey();
-    } catch (KeyStoreException e) {
-      throw new PoppTokenValidationException(
-          ErrorCode.INTERNAL_ERROR, "Failed to load entity signing public key from keystore", e);
-    }
-    return entitySigningPublicKey;
   }
 
   public JWTClaimsSet verify(

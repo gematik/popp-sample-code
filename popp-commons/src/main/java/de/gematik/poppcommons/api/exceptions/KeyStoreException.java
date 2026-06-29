@@ -20,13 +20,14 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 
 public class KeyStoreException extends GeneralPoPPServerException {
 
   @Serial private static final long serialVersionUID = -5559124535649355882L;
 
-  public KeyStoreException(final String message, final String errorCode) {
+  public KeyStoreException(final String message, final BdeErrorCode errorCode) {
     super(message, errorCode);
     this.exceptionTypeName = this.getClass().getTypeName();
   }

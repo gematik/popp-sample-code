@@ -28,6 +28,7 @@ import static de.gematik.poppcommons.api.enums.CardConnectionType.CONTACT_STANDA
 import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey.CARD_CONNECTION_TYPE;
 import static de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey.PATIENT_PROOF_TIME;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.enums.ProofMethod;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
@@ -129,7 +130,9 @@ class TokenClaims {
                 .orElseThrow(
                     () ->
                         new ScenarioException(
-                            sessionId, "No card connection type found", "errorCode"));
+                            sessionId,
+                            "No card connection type found",
+                            BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
     if (cardConnectionType == CONTACT_STANDARD || cardConnectionType == CONTACT_CONNECTOR) {
       return ProofMethod.EHC_PRACTITIONER_TRUSTEDCHANNEL.toString();
     } else if (cardConnectionType == CONTACTLESS_STANDARD
