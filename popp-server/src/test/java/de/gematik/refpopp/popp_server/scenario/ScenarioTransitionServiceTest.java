@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
@@ -79,7 +80,7 @@ class ScenarioTransitionServiceTest {
 
     // then
     assertThat(actual.getMessage()).isEqualTo("No scenario found");
-    assertThat(actual.getErrorCode()).isEqualTo("errorCode");
+    assertThat(actual.getErrorCode()).isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
   }
 
   @Test
@@ -119,7 +120,7 @@ class ScenarioTransitionServiceTest {
 
     // then
     assertThat(actual.getMessage()).isEqualTo("No next scenario found");
-    assertThat(actual.getErrorCode()).isEqualTo("errorCode");
+    assertThat(actual.getErrorCode()).isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     verify(cardScenarioProviderMock).getNextScenario(scenario1);
   }
 }

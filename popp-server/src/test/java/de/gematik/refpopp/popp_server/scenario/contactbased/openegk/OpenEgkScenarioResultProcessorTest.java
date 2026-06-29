@@ -27,9 +27,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
@@ -60,6 +62,15 @@ class OpenEgkScenarioResultProcessorTest {
     ReflectionTestUtils.setField(sut, "supportedG3Cards", List.of("050000"));
     sessionAccessorMock.storeSessionData(
         SESSION_ID, CARD_CONNECTION_TYPE, CardConnectionType.CONTACT_STANDARD);
+  }
+
+  @Test
+  void getScenarioIdReturnsOpenEgk() {
+    // When
+    final var result = sut.getScenarioId();
+
+    // Then
+    org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ScenarioId.OPEN_EGK);
   }
 
   @Test
@@ -218,13 +229,55 @@ class OpenEgkScenarioResultProcessorTest {
             SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
         .thenReturn(resultStep2);
     when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
-        .thenThrow(new ScenarioException("", "", ""));
+        .thenThrow(new ScenarioException("", "", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
 
     // When
     assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
 
     // Then
     Mockito.verify(sessionAccessorMock, Mockito.never()).storeCommunicationMode(anyString(), any());
+  }
+
+  @Test
+  void processThrowsScenarioExceptionWhenParsingFailsWithInvalidEfVersion2() {
+    // Given
+    final var invalidEfVersion = "abcdef".getBytes();
+    final var resultStep = new ScenarioResultStep("description", "9000", invalidEfVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", "abcdef".getBytes());
+    final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
+
+    when(scenarioResultFinderMock.find(
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
+        .thenReturn(resultStep);
+
+    // When and Then
+    assertThrows(ScenarioException.class, () -> sut.process(SESSION_ID, scenarioResult));
+  }
+
+  @Test
+  void processWithG3CardIgnoresCardConnectionType() {
+    // Given
+    final var efVersion = efVersion2("020000", "050000");
+    final var resultStep = new ScenarioResultStep("description", "9000", efVersion);
+    final var resultStep2 = new ScenarioResultStep("description2", "6985", efVersion);
+    final var scenarioResult = new ScenarioResult("scenario", List.of(resultStep, resultStep2));
+
+    when(scenarioResultFinderMock.find(
+            SESSION_ID, scenarioResult.scenarioResultSteps(), StepId.READ_VERSION))
+        .thenReturn(resultStep2);
+    when(sessionAccessorMock.getCardConnectionType(SESSION_ID))
+        .thenThrow(new IllegalStateException("getCardConnectionType should not be called for G3"));
+
+    // When
+    try {
+      sut.process(SESSION_ID, scenarioResult);
+    } catch (final ScenarioException e) {
+      fail("Should not throw exception");
+    }
+
+    // Then
+    Mockito.verify(sessionAccessorMock).storeCommunicationMode(SESSION_ID, CommunicationMode.G3);
+    Mockito.verify(sessionAccessorMock, Mockito.never()).getCardConnectionType(anyString());
   }
 
   private static byte[] efVersion2(

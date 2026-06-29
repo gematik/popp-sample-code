@@ -92,12 +92,11 @@ class KeyStoreServiceTest {
   @Test
   void getPoppKeyStoreDataThrowsExceptionWhenPasswordIsNull() {
     // given
-    final String keyStorePath = "path";
     final String keyStorePassword = null;
+    final var keyStoreResource = new ClassPathResource("path");
 
     // when and then
-    assertThatThrownBy(
-            () -> sut.getPoppKeyStoreData(new ClassPathResource(keyStorePath), keyStorePassword))
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResource, keyStorePassword))
         .isInstanceOf(KeyStoreException.class)
         .hasMessageContaining("password is null");
     verifyNoInteractions(keyStoreMock);
@@ -134,5 +133,187 @@ class KeyStoreServiceTest {
     assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
         .isInstanceOf(KeyStoreException.class)
         .hasMessageContaining("No certificate found under alias 'test-keystore'");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataSuccess() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("connector-keystore")).thenReturn(certificateMock);
+
+    // when
+    final var result = sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword);
+
+    // then
+    assertThat(result).isNotNull();
+    assertThat(result.privateKey()).isSameAs(privateKeyMock);
+    assertThat(result.certificate()).isSameAs(certificateMock);
+    verify(keyStoreMock).getCertificate("connector-keystore");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenPasswordIsNull() {
+    // given
+    final String keyStorePassword = null;
+    final var keyStoreResource = new ClassPathResource("path");
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResource, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("password is null");
+    verifyNoInteractions(keyStoreMock);
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenCertificateNotFound() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("connector-keystore")).thenReturn(null);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("No certificate found under alias 'connector-keystore'");
+  }
+
+  @Test
+  void getPoppKeyStoreDataThrowsExceptionWhenKeyNotFound() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
+
+    when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray())).thenReturn(null);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("No key found under alias 'test-keystore'");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenKeyNotFound() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(null);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("No key found under alias 'connector-keystore'");
+  }
+
+  @Test
+  void getPoppKeyStoreDataThrowsExceptionWhenKeyStoreOperationFails() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
+
+    when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
+        .thenThrow(new java.security.KeyStoreException("KeyStore operation failed"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Failed to load keystore data");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenKeyStoreOperationFails() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenThrow(new java.security.KeyStoreException("KeyStore operation failed"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Failed to load keystore data");
+  }
+
+  @Test
+  void getPoppKeyStoreDataHandlesFilenameWithMultipleDots() throws Exception {
+    // given - filename with multiple dots
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("my.test.keystore.p12");
+
+    when(keyStoreMock.getKey("my.test.keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("my.test.keystore")).thenReturn(certificateMock);
+
+    // when
+    final var result = sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword);
+
+    // then
+    assertThat(result).isNotNull();
+    assertThat(result.privateKey()).isSameAs(privateKeyMock);
+    verify(keyStoreMock).getKey("my.test.keystore", keyStorePassword.toCharArray());
+  }
+
+  @Test
+  void getConnectorKeyStoreDataHandlesFilenameWithMultipleDots() throws Exception {
+    // given - filename with multiple dots
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector.prod.keystore.jks");
+
+    when(keyStoreMock.getKey("connector.prod.keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("connector.prod.keystore")).thenReturn(certificateMock);
+
+    // when
+    final var result = sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword);
+
+    // then
+    assertThat(result).isNotNull();
+    assertThat(result.certificate()).isSameAs(certificateMock);
+    verify(keyStoreMock).getKey("connector.prod.keystore", keyStorePassword.toCharArray());
+  }
+
+  @Test
+  void getPoppKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificate()
+      throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
+
+    when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("test-keystore"))
+        .thenThrow(new java.security.KeyStoreException("Certificate retrieval failed"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Failed to load keystore data");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificate()
+      throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificate("connector-keystore"))
+        .thenThrow(new java.security.KeyStoreException("Certificate retrieval failed"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Failed to load keystore data");
   }
 }

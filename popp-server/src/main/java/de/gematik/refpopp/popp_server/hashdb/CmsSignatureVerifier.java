@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
@@ -78,7 +79,9 @@ public class CmsSignatureVerifier {
       return true;
     } catch (final Exception e) {
       throw new ImportDataException(
-          sessionId, "CMS verification failed: " + e.getMessage(), "errorCode");
+          sessionId,
+          "CMS verification failed: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 }

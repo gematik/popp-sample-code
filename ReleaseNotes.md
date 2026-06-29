@@ -5,6 +5,16 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.5.2
+
+### changed
+- Replaced hardcoded error code strings with error codes defined in the gemSpec_PoPP_Service specification.
+- The Zeta SDK client is now a singleton, and Zeta registration is performed only once. The registration data is stored using the SDK's built-in encrypted storage.
+- Updated ZETA version to 1.2.0
+
+### added
+- Added support for selecting a specific card slot via ct-slot when multiple card slots are available in a terminal
+
 ## Release 2.5.1
 
 ### fixed

@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ValidationException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
@@ -77,7 +78,7 @@ class StatusWordValidatorTest {
         assertThrows(ValidationException.class, () -> sut.validate(scenarioResult, scenario));
 
     // then
-    assertThat(exception.getErrorCode()).isEqualTo("errorCode");
+    assertThat(exception.getErrorCode()).isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     assertThat(exception.getMessage()).isEqualTo("Expected StatusWord [9000, 6281] but got 1234");
   }
 
@@ -97,7 +98,7 @@ class StatusWordValidatorTest {
         assertThrows(ValidationException.class, () -> sut.validate(scenarioResult, scenario));
 
     // then
-    assertThat(exception.getErrorCode()).isEqualTo("errorCode");
+    assertThat(exception.getErrorCode()).isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     assertThat(exception.getMessage())
         .isEqualTo("Number of expected results does not match number of received results");
   }

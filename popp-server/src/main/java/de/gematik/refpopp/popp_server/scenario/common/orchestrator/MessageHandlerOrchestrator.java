@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.orchestrator;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
@@ -43,7 +44,9 @@ public class MessageHandlerOrchestrator implements MessageOrchestrator {
     final var messageHandler = handlerProvider.getHandlerFor(message);
     if (messageHandler == null) {
       throw new ScenarioException(
-          session.getSessionId(), "Unsupported message type " + message.getType(), "errorCode");
+          session.getSessionId(),
+          "Unsupported message type " + message.getType(),
+          BdeErrorCode.UNSUPPORTED_WORKFLOW);
     }
 
     messageHandler.handle(message, session);

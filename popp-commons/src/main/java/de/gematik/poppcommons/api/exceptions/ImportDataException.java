@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 import lombok.Getter;
 
@@ -28,9 +29,10 @@ public class ImportDataException extends GeneralPoPPServerException {
 
   @Serial private static final long serialVersionUID = -8866107063738841094L;
   private final String sessionId;
-  private final String errorCode;
+  private final BdeErrorCode errorCode;
 
-  public ImportDataException(final String sessionId, final String message, final String errorCode) {
+  public ImportDataException(
+      final String sessionId, final String message, final BdeErrorCode errorCode) {
     super(message, errorCode);
     this.sessionId = sessionId;
     this.errorCode = errorCode;

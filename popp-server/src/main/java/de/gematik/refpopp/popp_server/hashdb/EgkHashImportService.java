@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import de.gematik.refpopp.popp_server.model.EgkEntry;
 import de.gematik.refpopp.popp_server.model.EgkEntryState;
@@ -132,11 +133,13 @@ public class EgkHashImportService {
 
   private boolean verifySignature(final Path path, final String sessionId) {
     try (final InputStream in = Files.newInputStream(path)) {
-      log.info("Verifying signature for sessionId {}", sessionId);
+      log.debug("| Verifying signature for sessionId {}", sessionId);
       return cmsSignatureVerifier.isSignatureValid(in, sessionId);
     } catch (final IOException e) {
       throw new ImportDataException(
-          sessionId, "Error reading file: " + e.getMessage(), "errorCode");
+          sessionId,
+          "Error reading file: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -156,12 +159,17 @@ public class EgkHashImportService {
     try {
       if (!exec.awaitTermination(1, TimeUnit.HOURS)) {
         exec.shutdownNow();
-        throw new ImportDataException(sessionId, "Timeout waiting for import threads", "errorCode");
+        throw new ImportDataException(
+            sessionId,
+            "Timeout waiting for import threads",
+            BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
       }
     } catch (final InterruptedException ie) {
       Thread.currentThread().interrupt();
       throw new ImportDataException(
-          sessionId, "Interrupted while waiting for threads", "errorCode");
+          sessionId,
+          "Interrupted while waiting for threads",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -177,7 +185,9 @@ public class EgkHashImportService {
       }
     } catch (final IOException e) {
       throw new ImportDataException(
-          sessionId, "Error streaming CMS eContent parse: " + e.getMessage(), "errorCode");
+          sessionId,
+          "Error streaming CMS eContent parse: " + e.getMessage(),
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 

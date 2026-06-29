@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 import lombok.Getter;
 
@@ -29,15 +30,15 @@ public abstract class GeneralPoPPServerException extends RuntimeException {
   @Serial private static final long serialVersionUID = -3455896777160551403L;
 
   protected String exceptionTypeName;
-  private final String errorCode;
+  private final BdeErrorCode errorCode;
 
-  protected GeneralPoPPServerException(final String message, final String errorCode) {
+  protected GeneralPoPPServerException(final String message, final BdeErrorCode errorCode) {
     super(message);
     this.errorCode = errorCode;
   }
 
   protected GeneralPoPPServerException(
-      final String message, final String errorCode, final Throwable cause) {
+      final String message, final BdeErrorCode errorCode, final Throwable cause) {
     super(message, cause);
     this.errorCode = errorCode;
   }

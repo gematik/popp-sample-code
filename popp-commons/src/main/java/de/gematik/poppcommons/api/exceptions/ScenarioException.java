@@ -20,6 +20,7 @@
 
 package de.gematik.poppcommons.api.exceptions;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import java.io.Serial;
 import lombok.Getter;
 
@@ -28,10 +29,11 @@ public class ScenarioException extends GeneralPoPPServerException {
 
   @Serial private static final long serialVersionUID = 6051798800374127014L;
 
-  private final String errorCode;
+  private final BdeErrorCode errorCode;
   private final String sessionId;
 
-  public ScenarioException(final String sessionId, final String message, final String errorCode) {
+  public ScenarioException(
+      final String sessionId, final String message, final BdeErrorCode errorCode) {
     super(message, errorCode);
     this.errorCode = errorCode;
     this.sessionId = sessionId;
@@ -39,7 +41,7 @@ public class ScenarioException extends GeneralPoPPServerException {
   }
 
   public ScenarioException(
-      final String sessionId, final String message, final String errorCode, Throwable cause) {
+      final String sessionId, final String message, final BdeErrorCode errorCode, Throwable cause) {
     super(message, errorCode, cause);
     this.errorCode = errorCode;
     this.sessionId = sessionId;

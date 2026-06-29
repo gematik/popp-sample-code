@@ -43,8 +43,7 @@ public class CvCertificateParser {
     try (final InputStream certStream = cvcResource.getInputStream()) {
       return cvcFactory.create(certStream.readAllBytes());
     } catch (final Exception e) {
-      log.error("Failed to parse CV certificate", e);
-      throw new CertificateParserException("Failed to parse CV certificate", "errorCode", e);
+      throw new CertificateParserException("Failed to parse CV certificate", e);
     }
   }
 
@@ -53,7 +52,7 @@ public class CvCertificateParser {
       return cvcFactory.create(Files.readAllBytes(cvcPath));
     } catch (final Exception e) {
       log.error("Failed to parse CV certificate from {}", cvcPath, e);
-      throw new CertificateParserException("Failed to parse CV certificate", "errorCode", e);
+      throw new CertificateParserException("Failed to parse CV certificate", e);
     }
   }
 }

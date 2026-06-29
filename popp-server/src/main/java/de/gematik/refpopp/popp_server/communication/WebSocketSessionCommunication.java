@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.communication;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import java.io.IOException;
@@ -44,7 +45,8 @@ public class WebSocketSessionCommunication implements SessionCommunication {
       final var textMessage = new TextMessage(mapper.writeValueAsString(message));
       session.sendMessage(textMessage);
     } catch (final IOException e) {
-      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode", e);
+      throw new ScenarioException(
+          session.getId(), e.getMessage(), BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, e);
     }
   }
 
@@ -58,7 +60,8 @@ public class WebSocketSessionCommunication implements SessionCommunication {
     try {
       session.close(CloseStatus.NORMAL);
     } catch (final IOException e) {
-      throw new ScenarioException(session.getId(), e.getMessage(), "errorCode", e);
+      throw new ScenarioException(
+          session.getId(), e.getMessage(), BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, e);
     }
   }
 }

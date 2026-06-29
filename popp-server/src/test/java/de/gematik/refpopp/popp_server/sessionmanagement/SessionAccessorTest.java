@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class SessionAccessorTest {
 
@@ -86,6 +88,19 @@ class SessionAccessorTest {
   }
 
   @Test
+  void getClientSessionIdThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getClientSessionId(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No client session ID found");
+  }
+
+  @Test
   void getPoppToken() {
     // given
     final var sessionId = "sessionId";
@@ -100,6 +115,19 @@ class SessionAccessorTest {
     assertThat(poppToken).isEqualTo("poppToken");
     verify(sessionContainerMock)
         .retrieveSessionData(sessionId, SessionStorageKey.JWT_TOKEN, String.class);
+  }
+
+  @Test
+  void getPoppTokenThrowsExceptionWhenTokenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getPoppToken(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No JWT token found");
   }
 
   @Test
@@ -121,6 +149,19 @@ class SessionAccessorTest {
   }
 
   @Test
+  void getCardConnectionTypeThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getCardConnectionType(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No card connection type found");
+  }
+
+  @Test
   void getCommunicationMode() {
     // given
     final var sessionId = "sessionId";
@@ -136,6 +177,19 @@ class SessionAccessorTest {
     verify(sessionContainerMock)
         .retrieveSessionData(
             sessionId, SessionStorageKey.COMMUNICATION_MODE, CommunicationMode.class);
+  }
+
+  @Test
+  void getCommunicationModeThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getCommunicationMode(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No card communication mode found");
   }
 
   @Test
@@ -155,6 +209,19 @@ class SessionAccessorTest {
   }
 
   @Test
+  void getPatientProofTimeThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getPatientProofTime(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No patient proof time found");
+  }
+
+  @Test
   void getOpenContactIccCvcList() {
     // given
     final var sessionId = "sessionId";
@@ -169,6 +236,20 @@ class SessionAccessorTest {
     assertThat(openContactIccCvcList).isPresent();
     final var stepDefinitions = openContactIccCvcList.get();
     assertThat(stepDefinitions).hasSize(1);
+  }
+
+  @Test
+  void getOpenContactIccCvcListReturnsEmptyWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when
+    final var result = sut.getOpenContactIccCvcList(sessionId);
+
+    // then
+    assertThat(result).isEmpty();
   }
 
   @Test
@@ -217,6 +298,19 @@ class SessionAccessorTest {
     assertThat(nonce).isNotEmpty();
     verify(sessionContainerMock)
         .retrieveSessionData(sessionId, SessionStorageKey.NONCE, byte[].class);
+  }
+
+  @Test
+  void getNonceThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getNonce(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No nonce found");
   }
 
   @Test
@@ -289,125 +383,32 @@ class SessionAccessorTest {
             CardConnectionType.CONTACT_CONNECTOR);
   }
 
-  @Test
-  void storeSequenceCounter() {
+  @ParameterizedTest
+  @ValueSource(ints = {1, 5})
+  void storeSequenceCounter(int value) {
     // given
     final var sessionId = "sessionId";
 
     // when
-    sut.storeSequenceCounter(sessionId, 1);
+    sut.storeSequenceCounter(sessionId, value);
 
     // then
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.SCENARIO_COUNTER, 1);
-  }
-
-  @Test
-  void storeJwtToken() {
-    // given
-    final var sessionId = "sessionId";
-
-    // when
-    sut.storeJwtToken(sessionId, "token");
-
-    // then
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.JWT_TOKEN, "token");
-  }
-
-  @Test
-  void storeCvc() {
-    // given
-    final var sessionId = "sessionId";
-    final var cvc = new byte[] {1, 2, 3};
-
-    // when
-    sut.storeCvc(sessionId, cvc);
-
-    // then
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.CVC, cvc);
-  }
-
-  @Test
-  void getCvc() {
-    // given
-    final var sessionId = "sessionId";
-    final var cvc = new byte[] {1, 2, 3};
-    when(sessionContainerMock.retrieveSessionData(sessionId, SessionStorageKey.CVC, byte[].class))
-        .thenReturn(Optional.of(cvc));
-
-    // when
-    final var result = sut.getCvc(sessionId);
-
-    // then
-    assertThat(result).isEqualTo(cvc);
     verify(sessionContainerMock)
-        .retrieveSessionData(sessionId, SessionStorageKey.CVC, byte[].class);
+        .storeSessionData(sessionId, SessionStorageKey.SCENARIO_COUNTER, value);
   }
 
-  @Test
-  void storeCvcCA_storesCvcCAInSession() {
+  @ParameterizedTest
+  @ValueSource(ints = {1, 42})
+  void storeScenarioCounter(int value) {
+    // given
     final var sessionId = "sessionId";
-    final var cvc = new byte[] {1, 2, 3};
 
-    sut.storeCvcCA(sessionId, cvc);
+    // when
+    sut.storeScenarioCounter(sessionId, value);
 
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.CVC_CA, cvc);
-  }
-
-  @Test
-  void getCvcCA_returnsStoredCvcCA() {
-    final var sessionId = "sessionId";
-    final var cvc = new byte[] {1, 2, 3};
-    when(sessionContainerMock.retrieveSessionData(
-            sessionId, SessionStorageKey.CVC_CA, byte[].class))
-        .thenReturn(Optional.of(cvc));
-
-    final var result = sut.getCvcCA(sessionId);
-
-    assertThat(result).isEqualTo(cvc);
+    // then
     verify(sessionContainerMock)
-        .retrieveSessionData(sessionId, SessionStorageKey.CVC_CA, byte[].class);
-  }
-
-  @Test
-  void storeAut() {
-    // given
-    final var sessionId = "sessionId";
-    final var aut = new byte[] {1, 2, 3};
-
-    // when
-    sut.storeAut(sessionId, aut);
-
-    // then
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.AUT, aut);
-  }
-
-  @Test
-  void getAut() {
-    // given
-    final var sessionId = "sessionId";
-    final var aut = new byte[] {1, 2, 3};
-    when(sessionContainerMock.retrieveSessionData(sessionId, SessionStorageKey.AUT, byte[].class))
-        .thenReturn(Optional.of(aut));
-
-    // when
-    final var result = sut.getAut(sessionId);
-
-    // then
-    assertThat(result).isEqualTo(aut);
-    verify(sessionContainerMock)
-        .retrieveSessionData(sessionId, SessionStorageKey.AUT, byte[].class);
-  }
-
-  @Test
-  void clearSessionData() {
-    // given
-    final var sessionId = "sessionId";
-
-    // when
-    sut.clearSessionData(sessionId);
-
-    // then
-    verify(sessionContainerMock).clearSession(sessionId);
+        .storeSessionData(sessionId, SessionStorageKey.SCENARIO_COUNTER, value);
   }
 
   @Test
@@ -441,18 +442,6 @@ class SessionAccessorTest {
   }
 
   @Test
-  void storeScenarioCounter() {
-    // given
-    final var sessionId = "sessionId";
-
-    // when
-    sut.storeScenarioCounter(sessionId, 1);
-
-    // then
-    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.SCENARIO_COUNTER, 1);
-  }
-
-  @Test
   void retrieveSessionData() {
     // given
     final var sessionId = "sessionId";
@@ -467,5 +456,141 @@ class SessionAccessorTest {
 
     // then
     assertThat(cardConnectionType).isPresent().contains(CardConnectionType.CONTACT_STANDARD);
+  }
+
+  @Test
+  void storeJwtToken() {
+    // given
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+
+    // when
+    sut.storeCvc(sessionId, cvc);
+
+    // then
+    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.CVC, cvc);
+  }
+
+  @Test
+  void getCvc() {
+    // given
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+    when(sessionContainerMock.retrieveSessionData(sessionId, SessionStorageKey.CVC, byte[].class))
+        .thenReturn(Optional.of(cvc));
+
+    // when
+    final var result = sut.getCvc(sessionId);
+
+    // then
+    assertThat(result).isEqualTo(cvc);
+    verify(sessionContainerMock)
+        .retrieveSessionData(sessionId, SessionStorageKey.CVC, byte[].class);
+  }
+
+  @Test
+  void getCvcThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getCvc(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No CVC found");
+  }
+
+  @Test
+  void storeCvcCA_storesCvcCAInSession() {
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+
+    sut.storeCvcCA(sessionId, cvc);
+
+    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.CVC_CA, cvc);
+  }
+
+  @Test
+  void getCvcCA_returnsStoredCvcCA() {
+    final var sessionId = "sessionId";
+    final var cvc = new byte[] {1, 2, 3};
+    when(sessionContainerMock.retrieveSessionData(
+            sessionId, SessionStorageKey.CVC_CA, byte[].class))
+        .thenReturn(Optional.of(cvc));
+
+    final var result = sut.getCvcCA(sessionId);
+
+    assertThat(result).isEqualTo(cvc);
+    verify(sessionContainerMock)
+        .retrieveSessionData(sessionId, SessionStorageKey.CVC_CA, byte[].class);
+  }
+
+  @Test
+  void getCvcCAThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getCvcCA(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No CVC CA found");
+  }
+
+  @Test
+  void storeAut() {
+    // given
+    final var sessionId = "sessionId";
+    final var aut = new byte[] {1, 2, 3};
+
+    // when
+    sut.storeAut(sessionId, aut);
+
+    // then
+    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.AUT, aut);
+  }
+
+  @Test
+  void getAut() {
+    // given
+    final var sessionId = "sessionId";
+    final var aut = new byte[] {1, 2, 3};
+    when(sessionContainerMock.retrieveSessionData(sessionId, SessionStorageKey.AUT, byte[].class))
+        .thenReturn(Optional.of(aut));
+
+    // when
+    final var result = sut.getAut(sessionId);
+
+    // then
+    assertThat(result).isEqualTo(aut);
+    verify(sessionContainerMock)
+        .retrieveSessionData(sessionId, SessionStorageKey.AUT, byte[].class);
+  }
+
+  @Test
+  void getAutThrowsExceptionWhenNotFound() {
+    // given
+    final var sessionId = "sessionId";
+    when(sessionContainerMock.retrieveSessionData(anyString(), any(), any()))
+        .thenReturn(Optional.empty());
+
+    // when and then
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.getAut(sessionId))
+        .isInstanceOf(de.gematik.poppcommons.api.exceptions.ScenarioException.class)
+        .hasMessageContaining("No AUT found");
+  }
+
+  @Test
+  void clearSessionData() {
+    // given
+    final var sessionId = "sessionId";
+
+    // when
+    sut.clearSessionData(sessionId);
+
+    // then
+    verify(sessionContainerMock).clearSession(sessionId);
   }
 }

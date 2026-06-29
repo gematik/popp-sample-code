@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.token;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.security.jwk.JwkKidGenerator;
@@ -63,7 +64,8 @@ final class TokenHeader {
       try {
         headers = createHeadersForPoppToken(publicKey);
       } catch (JoseException e) {
-        throw new ScenarioException(sessionId, "Could not create kid", "errorCode", e);
+        throw new ScenarioException(
+            sessionId, "Could not create kid", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, e);
       }
     } else {
       headers = createHeadersForConnectorToken(signerCertificate, sessionId);
@@ -80,7 +82,7 @@ final class TokenHeader {
       x5c = Base64.getEncoder().encodeToString(signerCertificate.getEncoded());
     } catch (final CertificateEncodingException e) {
       throw new CertificateParserException(
-          sessionId, "Could not encode certificate", "errorCode", e);
+          sessionId, "Could not encode certificate", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, e);
     }
     headers.put(Header.X5C.value, x5c);
     final var ocspResponse = readOcspResponse(sessionId);
@@ -103,7 +105,8 @@ final class TokenHeader {
     try (final var inputStream = response.getInputStream()) {
       return Base64.getEncoder().encodeToString(inputStream.readAllBytes());
     } catch (final Exception e) {
-      throw new ScenarioException(sessionId, "Could not read OCSP response", "errorCode");
+      throw new ScenarioException(
+          sessionId, "Could not read OCSP response", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
   }
 

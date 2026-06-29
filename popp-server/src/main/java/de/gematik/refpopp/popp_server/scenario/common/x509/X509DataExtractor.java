@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.x509;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
@@ -34,7 +35,8 @@ public final class X509DataExtractor {
   public X509Data extractFromCertificate(
       final X509Certificate certificate, final String sessionId) {
     if (certificate == null) {
-      throw new CertificateParserException(sessionId, "Certificate is null", "errorCode");
+      throw new CertificateParserException(
+          sessionId, "Certificate is null", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     final var issuerNames = certificate.getIssuerX500Principal().toString();
     final var subjectNames = certificate.getSubjectX500Principal().toString();

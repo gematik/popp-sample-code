@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.X509CertificateParser;
 import de.gematik.refpopp.popp_server.model.CheckResult;
@@ -116,7 +117,8 @@ public class EgkHashValidationService {
       final var md = MessageDigest.getInstance("SHA-256");
       return md.digest(data);
     } catch (final NoSuchAlgorithmException e) {
-      throw new ScenarioException(sessionId, "SHA-256 algorithm not found", "errorcode", e);
+      throw new ScenarioException(
+          sessionId, "SHA-256 algorithm not found", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR, e);
     }
   }
 }

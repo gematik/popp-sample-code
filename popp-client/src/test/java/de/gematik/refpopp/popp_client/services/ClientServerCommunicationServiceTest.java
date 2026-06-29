@@ -93,6 +93,20 @@ class ClientServerCommunicationServiceTest {
     // when / then
     final var thrown = assertThrows(RuntimeException.class, () -> sut.connect());
     org.assertj.core.api.Assertions.assertThat(thrown).isSameAs(connectionException);
+    verify(webSocketClientMock).close();
+  }
+
+  @Test
+  void disconnectClosesCurrentWebSocketClient() {
+    // given
+    when(webSocketClientMock.isOpen()).thenReturn(true);
+    sut.connect();
+
+    // when
+    sut.disconnect();
+
+    // then
+    verify(webSocketClientMock).close();
   }
 
   @Test

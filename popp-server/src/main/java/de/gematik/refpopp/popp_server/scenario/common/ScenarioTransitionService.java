@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
@@ -38,7 +39,10 @@ public class ScenarioTransitionService {
   public Scenario getCurrentScenario(final String sessionId) {
     return sessionContainer
         .retrieveScenario(sessionId)
-        .orElseThrow(() -> new ScenarioException(sessionId, "No scenario found", "errorCode"));
+        .orElseThrow(
+            () ->
+                new ScenarioException(
+                    sessionId, "No scenario found", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
   }
 
   public Scenario getNextScenario(
@@ -47,6 +51,11 @@ public class ScenarioTransitionService {
       final CardScenarioProvider scenarioProvider) {
     return scenarioProvider
         .getNextScenario(currentScenario)
-        .orElseThrow(() -> new ScenarioException(sessionId, "No next scenario found", "errorCode"));
+        .orElseThrow(
+            () ->
+                new ScenarioException(
+                    sessionId,
+                    "No next scenario found",
+                    BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
   }
 }

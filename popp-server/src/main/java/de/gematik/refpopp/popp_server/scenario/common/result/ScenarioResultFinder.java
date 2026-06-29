@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.result;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
@@ -39,7 +40,9 @@ public class ScenarioResultFinder {
         .orElseThrow(
             () ->
                 new ScenarioException(
-                    sessionId, "APDU Result of " + name + " not found", "errorCode"));
+                    sessionId,
+                    "APDU Result of " + name + " not found",
+                    BdeErrorCode.UNSUPPORTED_WORKFLOW));
   }
 
   public ScenarioResultStep find(

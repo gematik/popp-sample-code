@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_server.hashdb;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ImportDataException;
 import java.util.List;
 import java.util.function.Consumer;
@@ -29,7 +30,10 @@ import org.springframework.stereotype.Component;
 public class BatchFlusherFactory {
   <T> BatchFlusher<T> create(final int batchSize, final Consumer<List<T>> flushAction) {
     if (batchSize <= 0) {
-      throw new ImportDataException("N/A", "Batch size must be greater than zero", "errorCode");
+      throw new ImportDataException(
+          "N/A",
+          "Batch size must be greater than zero",
+          BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
     }
     return new BatchFlusher<>(batchSize, flushAction);
   }

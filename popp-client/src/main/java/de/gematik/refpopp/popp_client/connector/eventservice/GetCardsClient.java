@@ -31,6 +31,7 @@ import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
 import de.gematik.ws.conn.connectorcontext.v2.ContextType;
 import de.gematik.ws.conn.eventservice.v7.GetCards;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
+import java.math.BigInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,12 +51,15 @@ public class GetCardsClient extends SoapClient {
   private final ServiceEndpointProvider serviceEndpointProvider;
   private final String ctId;
 
+  private final Integer ctSlot;
+
   public GetCardsClient(
       final Jaxb2Marshaller eventServiceMarshaller,
       final Context context,
       final ServiceEndpointProvider serviceEndpointProvider,
       @Autowired(required = false) @Qualifier("httpClientWithBC") HttpClient httpClient,
-      @Value("${connector.terminal-configuration.ct-id:}") String ctId) {
+      @Value("${connector.terminal-configuration.ct-id:}") String ctId,
+      @Value("${connector.terminal-configuration.ct-slot:}") Integer slot) {
     super(
         eventServiceMarshaller,
         () -> buildSoapAction(serviceEndpointProvider, SoapActions.GET_CARDS),
@@ -63,6 +67,7 @@ public class GetCardsClient extends SoapClient {
     this.context = context;
     this.serviceEndpointProvider = serviceEndpointProvider;
     this.ctId = ctId;
+    this.ctSlot = slot;
   }
 
   public DetermineCardHandleResponse performGetCards() {
@@ -90,6 +95,9 @@ public class GetCardsClient extends SoapClient {
     getCards.setContext(contextType);
     if (!ctId.isBlank()) {
       getCards.setCtId(ctId);
+      if (ctSlot != null && ctSlot > 0) {
+        getCards.setSlotId(BigInteger.valueOf(ctSlot));
+      }
     }
     getCards.setCardType(CardTypeType.EGK);
 

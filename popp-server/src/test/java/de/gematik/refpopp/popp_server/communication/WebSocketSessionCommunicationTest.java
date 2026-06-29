@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import java.io.IOException;
@@ -81,7 +82,8 @@ class WebSocketSessionCommunicationTest {
         assertThrows(ScenarioException.class, () -> sut.sendMessage(message));
 
     // then
-    assertThat(scenarioException.getErrorCode()).isEqualTo("errorCode");
+    assertThat(scenarioException.getErrorCode())
+        .isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
   }
 
   @Test
@@ -105,7 +107,7 @@ class WebSocketSessionCommunicationTest {
   @Test
   void closeSessionThrowsIOException() throws IOException {
     // given
-    final var expectedErrorCode = "errorCode";
+    final var expectedErrorCode = BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR;
     doThrow(new IOException("error message")).when(webSocketSessionMock).close(CloseStatus.NORMAL);
 
     // when

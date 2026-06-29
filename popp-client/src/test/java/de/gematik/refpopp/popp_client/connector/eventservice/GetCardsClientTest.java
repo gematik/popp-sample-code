@@ -38,6 +38,7 @@ import de.gematik.ws.conn.cardservice.v8.CardInfoType;
 import de.gematik.ws.conn.cardservicecommon.v2.CardTypeType;
 import de.gematik.ws.conn.eventservice.v7.GetCards;
 import de.gematik.ws.conn.eventservice.v7.GetCardsResponse;
+import java.math.BigInteger;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,7 @@ class GetCardsClientTest {
     contextMock = mock(Context.class);
     sut =
         new GetCardsClient(
-            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "ct-id");
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "ct-id", 1);
   }
 
   @Test
@@ -132,7 +133,7 @@ class GetCardsClientTest {
 
   @Test
   void performGetCardsWithNonBlankCtIdSetsCtIdInRequest() {
-    // given – sut is created with ctId="ct" in setUp
+    // given
     final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
     when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
     when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
@@ -151,10 +152,10 @@ class GetCardsClientTest {
 
   @Test
   void performGetCardsWithBlankCtIdDoesNotSetCtIdInRequest() {
-    // given – create sut with blank ctId
+    // given
     final GetCardsClient sutWithBlankCtId =
         new GetCardsClient(
-            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "");
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "", 1);
     final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
     when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
     when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
@@ -169,6 +170,123 @@ class GetCardsClientTest {
 
     // then
     assertThat(requestCaptor.getValue().getCtId()).isNull();
+  }
+
+  @Test
+  void performGetCardsWithCtIdAndSlotSetsSlotIdInRequest() {
+    // given
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sut);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getSlotId()).isEqualTo(BigInteger.ONE);
+  }
+
+  @Test
+  void performGetCardsWithBlankCtIdDoesNotSetSlotIdInRequest() {
+    // given
+    final GetCardsClient sutWithBlankCtId =
+        new GetCardsClient(
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "", 1);
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithBlankCtId);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getSlotId()).isNull();
+  }
+
+  @Test
+  void performGetCardsWithCtIdAndNullSlotDoesNotSetSlotIdInRequest() {
+    // given
+    final GetCardsClient sutWithNullSlot =
+        new GetCardsClient(
+            eventServiceMarshallerMock,
+            contextMock,
+            serviceEndpointProviderMock,
+            null,
+            "ct-id",
+            null);
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithNullSlot);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getSlotId()).isNull();
+  }
+
+  @Test
+  void performGetCardsWithCtIdAndZeroSlotDoesNotSetSlotIdInRequest() {
+    // given
+    final GetCardsClient sutWithZeroSlot =
+        new GetCardsClient(
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "ct-id", 0);
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithZeroSlot);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getSlotId()).isNull();
+  }
+
+  @Test
+  void performGetCardsWithCtIdAndNegativeSlotDoesNotSetSlotIdInRequest() {
+    // given
+    final GetCardsClient sutWithNegativeSlot =
+        new GetCardsClient(
+            eventServiceMarshallerMock,
+            contextMock,
+            serviceEndpointProviderMock,
+            null,
+            "ct-id",
+            -1);
+    final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
+    when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
+    when(soapResponseMock.getCards().getCard()).thenReturn(List.of());
+    final GetCardsClient spySut = spy(sutWithNegativeSlot);
+    final ArgumentCaptor<GetCards> requestCaptor = ArgumentCaptor.forClass(GetCards.class);
+    doReturn(soapResponseMock)
+        .when(spySut)
+        .sendRequest(requestCaptor.capture(), anyString(), eq(GetCardsResponse.class));
+
+    // when
+    spySut.performGetCards();
+
+    // then
+    assertThat(requestCaptor.getValue().getSlotId()).isNull();
   }
 
   @Test
@@ -198,7 +316,7 @@ class GetCardsClientTest {
     when(contextMock.getWorkplaceId()).thenReturn("workplaceId");
     final GetCardsClient sutWithContext =
         new GetCardsClient(
-            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "");
+            eventServiceMarshallerMock, contextMock, serviceEndpointProviderMock, null, "", null);
     final var soapResponseMock = mock(GetCardsResponse.class, RETURNS_DEEP_STUBS);
     when(serviceEndpointProviderMock.getEventServiceFullEndpoint()).thenReturn("service.endpoint");
     when(soapResponseMock.getCards().getCard()).thenReturn(List.of());

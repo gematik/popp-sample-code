@@ -22,6 +22,7 @@ package de.gematik.refpopp.popp_server.scenario.common.cvc;
 
 import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.openhealth.crypto.CryptoException;
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
@@ -94,7 +95,9 @@ public class CvcProcessor {
       cvcChainValidator.validate(cvc, issuer);
     } catch (final CryptoException e) {
       throw new ScenarioException(
-          sessionId, "Failed to validate CVC chain: " + e.getMessage(), "errorCode");
+          sessionId,
+          "Failed to validate CVC chain: " + e.getMessage(),
+          BdeErrorCode.INVALID_END_ENTITY_CVC);
     }
   }
 }
