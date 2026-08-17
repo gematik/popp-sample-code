@@ -5,6 +5,12 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.7.1
+
+### added
+- Updated ZETA version to 1.2.5
+- When using gematik PoPP-Service, ZETA components will now request an OCSP response for the SMC-B.
+
 ## Release 2.7.0
 
 ### added
