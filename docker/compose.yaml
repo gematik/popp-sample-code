@@ -51,7 +51,7 @@ services:
 
   popp-zeta-ingress:
     container_name: popp-zeta-ingress
-    image: "nginx:1.31.1"
+    image: "nginx:1.31.3"
     ports:
       - "443:443"
     volumes:
@@ -95,6 +95,8 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      OCSP_KEYSTORE_LOCATION: /var/trust-data/ocsp-signers.p12
+      OCSP_KEYSTORE_PASSWORD: no_secret_for_trust_only
       KC_HTTP_ENABLED: true
       GENESIS_HASH: "4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c"
       KC_DB: "postgres"
@@ -136,6 +138,7 @@ services:
       - ./zeta/realm:/opt/keycloak/data/import
       - ./zeta/smcb:/opt/keycloak/conf/smcb
       - ./zeta/tpm/:/opt/keycloak/conf/tpm
+      - ./zeta/ocsp-signers.p12:/var/trust-data/ocsp-signers.p12
     networks:
       - popp-network
     healthcheck:
@@ -149,7 +152,7 @@ services:
 
   popp-zeta-pdp-db:
     container_name: popp-zeta-pdp-db
-    image: postgres:16.2
+    image: postgres:16.14
     ports:
       - "2301:5432"
     volumes:
@@ -163,7 +166,7 @@ services:
 
   popp-zeta-pdp-opa:
     container_name: popp-zeta-pdp-opa
-    image: openpolicyagent/opa:1.17.1
+    image: openpolicyagent/opa:1.19.0
     environment:
       HTTP_PROXY: ""
       HTTPS_PROXY: ""
