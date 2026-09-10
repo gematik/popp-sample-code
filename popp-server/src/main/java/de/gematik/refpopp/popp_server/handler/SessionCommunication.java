@@ -24,7 +24,15 @@ public interface SessionCommunication {
 
   void sendMessage(Object message);
 
+  /**
+   * The session id used as the state key. For a request scoped communication this is the logical
+   * session id ({@code transportSessionId::clientSessionId}); otherwise it equals the transport
+   * session id.
+   */
   String getSessionId();
+
+  /** The transport (WebSocket) session id, identifying the underlying connection. */
+  String getTransportSessionId();
 
   void closeSession();
 }

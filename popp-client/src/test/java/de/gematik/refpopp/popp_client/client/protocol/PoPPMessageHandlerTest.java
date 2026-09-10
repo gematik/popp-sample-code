@@ -22,27 +22,15 @@ package de.gematik.refpopp.popp_client.client.protocol;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import de.gematik.poppcommons.api.enums.CardConnectionType;
-import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
-import de.gematik.poppcommons.api.messages.ErrorMessage;
-import de.gematik.poppcommons.api.messages.PoPPMessage;
-import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
-import de.gematik.poppcommons.api.messages.ScenarioStep;
-import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
-import de.gematik.poppcommons.api.messages.TokenMessage;
+import de.gematik.poppcommons.api.messages.*;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,10 +49,6 @@ class PoPPMessageHandlerTest {
 
   private PoPPMessageHandler sut;
 
-  private CommunicationSslSession wrapSslSession(final Map<String, Object> sslSession) {
-    return new CommunicationSslSession(sslSession);
-  }
-
   @BeforeEach
   void setUp() {
     sut =
@@ -78,23 +62,25 @@ class PoPPMessageHandlerTest {
 
   @Test
   void handleTokenMessageCompletesTokenAndStopsConnectorSession() {
-    final var sslSession = new HashMap<String, Object>();
-    sslSession.put("clientSessionId", "session-id");
-    sslSession.put("cardConnectionType", CardConnectionType.CONTACT_CONNECTOR);
-    final var wrappedSession = wrapSslSession(sslSession);
-    when(clientServerCommunicationService.getSslSession()).thenReturn(wrappedSession);
-    when(sessionRegistry.completeToken("session-id", "token")).thenReturn(true);
+    // given
+    final var clientSessionId = "session-id";
+    final var context = new ClientRequestContext(clientSessionId);
+    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
+    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(true);
 
-    sut.handle(new TokenMessage("token", "pn"));
+    // when
+    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
 
-    verify(sessionRegistry).completeToken("session-id", "token");
-    verify(connectorSessionLifecycle).stopSessionIfRequired(wrappedSession);
+    // then
+    verify(sessionRegistry).completeToken(clientSessionId, "token");
+    verify(connectorSessionLifecycle).stopSessionIfRequired(context);
     verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
   }
 
   @Test
   void handleStandardScenarioMessageDelegatesToProcessorAndSendsResponse() {
-    final var sslSession = new HashMap<String, Object>();
+    // given
     final var message =
         StandardScenarioMessage.builder()
             .version("1.0.0")
@@ -103,46 +89,57 @@ class PoPPMessageHandlerTest {
             .timeSpan(0)
             .steps(List.of(new ScenarioStep("00A4040000", List.of("9000"))))
             .build();
-    final var wrappedSession = wrapSslSession(sslSession);
-    when(clientServerCommunicationService.getSslSession()).thenReturn(wrappedSession);
-    when(standardScenarioProcessor.process(message, wrappedSession)).thenReturn(List.of("9000"));
+    final var clientSessionId = message.getClientSessionId();
+    final var context = new ClientRequestContext(clientSessionId);
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
+    when(standardScenarioProcessor.process(message, context)).thenReturn(List.of("9000"));
 
+    // when
     sut.handle(message);
 
-    verify(standardScenarioProcessor).process(message, wrappedSession);
+    // then
     final var responseCaptor = ArgumentCaptor.forClass(ScenarioResponseMessage.class);
     verify(clientServerCommunicationService).sendMessage(responseCaptor.capture());
     assertThat(responseCaptor.getValue().getSteps()).containsExactly("9000");
-    verifyNoInteractions(connectorScenarioProcessor, sessionRegistry, connectorSessionLifecycle);
+    verifyNoInteractions(connectorScenarioProcessor, connectorSessionLifecycle);
   }
 
   @Test
   void handleConnectorScenarioMessageDelegatesToProcessorAndSendsResponse() {
-    final var sslSession = new HashMap<String, Object>();
-    final var message = new ConnectorScenarioMessage("1.0.0", "signed-scenario");
-    final var wrappedSession = wrapSslSession(sslSession);
-    when(clientServerCommunicationService.getSslSession()).thenReturn(wrappedSession);
-    when(connectorScenarioProcessor.process(message, wrappedSession)).thenReturn(List.of("9000"));
+    // given
+    final var clientSessionId = "session-id";
+    final var message = new ConnectorScenarioMessage("1.0.0", "signed-scenario", clientSessionId);
+    final var context = new ClientRequestContext(clientSessionId);
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
+    when(connectorScenarioProcessor.process(message, context)).thenReturn(List.of("9000"));
 
+    // when
     sut.handle(message);
 
-    verify(connectorScenarioProcessor).process(message, wrappedSession);
+    // then
+    verify(connectorScenarioProcessor).process(message, context);
     final var responseCaptor = ArgumentCaptor.forClass(ScenarioResponseMessage.class);
     verify(clientServerCommunicationService).sendMessage(responseCaptor.capture());
     assertThat(responseCaptor.getValue().getSteps()).containsExactly("9000");
-    verifyNoInteractions(standardScenarioProcessor, sessionRegistry, connectorSessionLifecycle);
+    verifyNoInteractions(standardScenarioProcessor, connectorSessionLifecycle);
   }
 
   @Test
   void handleErrorMessageFailsTokenWhenClientSessionIdExists() {
-    final var sslSession = new HashMap<String, Object>();
-    sslSession.put("clientSessionId", "session-id");
-    when(clientServerCommunicationService.getSslSession()).thenReturn(wrapSslSession(sslSession));
+    // given
+    final var clientSessionId = "session-id";
 
-    sut.handle(ErrorMessage.builder().errorCode("errorCode").errorDetail("errorDetail").build());
+    // when
+    sut.handle(
+        ErrorMessage.builder()
+            .clientSessionId(clientSessionId)
+            .errorCode("errorCode")
+            .errorDetail("errorDetail")
+            .build());
 
+    // then
     final var exceptionCaptor = ArgumentCaptor.forClass(IllegalStateException.class);
-    verify(sessionRegistry).failToken(eq("session-id"), exceptionCaptor.capture());
+    verify(sessionRegistry).failToken(eq(clientSessionId), exceptionCaptor.capture());
     assertThat(exceptionCaptor.getValue()).hasMessage("Server error errorCode: errorDetail");
     verifyNoInteractions(
         standardScenarioProcessor, connectorScenarioProcessor, connectorSessionLifecycle);
@@ -150,11 +147,10 @@ class PoPPMessageHandlerTest {
 
   @Test
   void handleErrorMessageDoesNothingWithoutClientSessionId() {
-    final var sslSession = new HashMap<String, Object>();
-    when(clientServerCommunicationService.getSslSession()).thenReturn(wrapSslSession(sslSession));
-
+    // given / when
     sut.handle(ErrorMessage.builder().errorCode("errorCode").errorDetail("errorDetail").build());
 
+    // then
     verifyNoInteractions(
         sessionRegistry,
         standardScenarioProcessor,
@@ -164,16 +160,126 @@ class PoPPMessageHandlerTest {
 
   @Test
   void handleUnknownMessageDoesNothing() {
+    // given
     final PoPPMessage unknownMessage = mock(PoPPMessage.class);
     doReturn(null).when(unknownMessage).getType();
 
+    // when
     sut.handle(unknownMessage);
 
+    // then
     verifyNoInteractions(
         clientServerCommunicationService,
         sessionRegistry,
         standardScenarioProcessor,
         connectorScenarioProcessor,
         connectorSessionLifecycle);
+  }
+
+  @Test
+  void handleTokenMessageDoesNothingWhenClientSessionIdMissing() {
+    // given
+    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(false);
+
+    // when
+    sut.handle(new TokenMessage("token", "pn"));
+
+    // then
+    verify(sessionRegistry).completeSolePendingToken("token");
+    verify(sessionRegistry, never()).completeToken(anyString(), anyString());
+    verifyNoInteractions(connectorSessionLifecycle, standardScenarioProcessor);
+  }
+
+  @Test
+  void handleTokenMessageUsesFallbackWhenClientSessionIdDoesNotMatchWaiter() {
+    // given
+    final var clientSessionId = "session-id";
+    final var context = new ClientRequestContext(clientSessionId);
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
+    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(false);
+    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(true);
+
+    // when
+    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+
+    // then
+    verify(sessionRegistry).completeToken(clientSessionId, "token");
+    verify(sessionRegistry).completeSolePendingToken("token");
+    verify(connectorSessionLifecycle).stopSessionIfRequired(context);
+    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+  }
+
+  @Test
+  void handleTokenMessageLogsWarningWhenNoWaiterFoundAtAll() {
+    // given
+    final var clientSessionId = "session-id";
+    final var context = new ClientRequestContext(clientSessionId);
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
+    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(false);
+    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(false);
+
+    // when
+    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+
+    // then
+    verify(sessionRegistry).completeToken(clientSessionId, "token");
+    verify(sessionRegistry).completeSolePendingToken("token");
+    verify(connectorSessionLifecycle).stopSessionIfRequired(context);
+    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+  }
+
+  @Test
+  void handleTokenMessageWithNullClientSessionIdUsesFallbackSuccessfully() {
+    // given
+    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(true);
+
+    // when
+    sut.handle(new TokenMessage(null, "token", "pn"));
+
+    // then
+    verify(sessionRegistry).completeSolePendingToken("token");
+    verify(sessionRegistry, never()).completeToken(anyString(), anyString());
+    verify(sessionRegistry, never()).getRequestContext(any());
+    verify(connectorSessionLifecycle, never()).stopSessionIfRequired(any());
+    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+  }
+
+  @Test
+  void handleTokenMessageWithoutContextDoesNotStopSession() {
+    // given
+    final var clientSessionId = "session-id";
+    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(null);
+    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(true);
+
+    // when
+    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+
+    // then
+    verify(sessionRegistry).completeToken(clientSessionId, "token");
+    verify(connectorSessionLifecycle, never()).stopSessionIfRequired(any());
+    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+  }
+
+  @Test
+  void handleStandardScenarioWithNullContextStillSendsResponse() {
+    // given
+    final var message =
+        StandardScenarioMessage.builder()
+            .version("1.0.0")
+            .clientSessionId("session-id")
+            .sequenceCounter(0)
+            .timeSpan(0)
+            .steps(List.of(new ScenarioStep("00A4040000", List.of("9000"))))
+            .build();
+    when(sessionRegistry.getRequestContext(message.getClientSessionId())).thenReturn(null);
+    when(standardScenarioProcessor.process(message, null)).thenReturn(List.of("9000"));
+
+    // when
+    sut.handle(message);
+
+    // then
+    final var responseCaptor = ArgumentCaptor.forClass(ScenarioResponseMessage.class);
+    verify(clientServerCommunicationService).sendMessage(responseCaptor.capture());
+    assertThat(responseCaptor.getValue().getClientSessionId()).isEqualTo("session-id");
   }
 }

@@ -22,7 +22,7 @@ package de.gematik.refpopp.popp_client.client.protocol;
 
 import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -42,17 +42,16 @@ public class ConnectorScenarioProcessor {
   private final StandardScenarioProcessor standardScenarioProcessor;
 
   public List<String> process(
-      final ConnectorScenarioMessage connectorScenarioMessage,
-      final CommunicationSslSession sslSession) {
+      final ConnectorScenarioMessage connectorScenarioMessage, final ClientRequestContext context) {
     final var signedScenario = connectorScenarioMessage.getSignedScenario();
-    if (sslSession.isConnectorMock()) {
-      return useStandardTerminalAsMock(signedScenario, sslSession);
+    if (context != null && context.isConnectorMock()) {
+      return useStandardTerminalAsMock(signedScenario, context);
     }
     return connectorCommunicationServiceWrapper.secureSendApdu(signedScenario);
   }
 
   private List<String> useStandardTerminalAsMock(
-      final String signedScenario, final CommunicationSslSession sslSession) {
+      final String signedScenario, final ClientRequestContext context) {
     final String[] tokenParts = signedScenario.split("\\.");
     if (tokenParts.length != 3) {
       throw new IllegalArgumentException("Invalid token format");
@@ -62,6 +61,6 @@ public class ConnectorScenarioProcessor {
         new String(Base64.getUrlDecoder().decode(tokenParts[1]), StandardCharsets.UTF_8);
     final var claims = mapper.readValue(payloadJson, new TypeReference<Map<String, Object>>() {});
     final var message = mapper.convertValue(claims.get("message"), StandardScenarioMessage.class);
-    return standardScenarioProcessor.process(message, sslSession);
+    return standardScenarioProcessor.process(message, context);
   }
 }

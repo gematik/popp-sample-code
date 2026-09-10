@@ -27,7 +27,7 @@ import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.scenario.common.card.ScenarioStepCommandResolver;
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
-import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.ConnectorTokenCreator;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import org.springframework.stereotype.Component;
 
@@ -37,15 +37,15 @@ public class ScenarioMessageFactory {
   public static final String VERSION = "1.0.0";
 
   private final SessionAccessor sessionAccessor;
-  private final JwtTokenCreator tokenCreator;
+  private final ConnectorTokenCreator connectorTokenCreator;
   private final ScenarioStepCommandResolver scenarioStepCommandResolver;
 
   public ScenarioMessageFactory(
       final SessionAccessor sessionAccessor,
-      final JwtTokenCreator tokenCreator,
+      final ConnectorTokenCreator connectorTokenCreator,
       final ScenarioStepCommandResolver scenarioStepCommandResolver) {
     this.sessionAccessor = sessionAccessor;
-    this.tokenCreator = tokenCreator;
+    this.connectorTokenCreator = connectorTokenCreator;
     this.scenarioStepCommandResolver = scenarioStepCommandResolver;
   }
 
@@ -67,8 +67,9 @@ public class ScenarioMessageFactory {
   private ConnectorScenarioMessage createConnectorScenarioMessage(
       final StandardScenarioMessage standardScenarioMessage, final String sessionId) {
     final var connectorToken =
-        tokenCreator.createConnectorToken(standardScenarioMessage, sessionId);
-    return new ConnectorScenarioMessage(VERSION, connectorToken);
+        connectorTokenCreator.createConnectorToken(standardScenarioMessage, sessionId);
+    return new ConnectorScenarioMessage(
+        VERSION, connectorToken, standardScenarioMessage.getClientSessionId());
   }
 
   private StandardScenarioMessage createStandardScenarioMessage(

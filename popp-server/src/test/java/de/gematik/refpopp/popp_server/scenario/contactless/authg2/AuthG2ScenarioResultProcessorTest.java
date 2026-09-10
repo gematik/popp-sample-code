@@ -40,7 +40,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
-import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.PoppTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
@@ -53,7 +53,7 @@ class AuthG2ScenarioResultProcessorTest {
 
   private CvcProcessor cvcProcessorMock;
   private X509CertificateProcessor x509CertificateProcessorMock;
-  private JwtTokenCreator tokenCreatorMock;
+  private PoppTokenCreator tokenCreatorMock;
   private SessionAccessor sessionAccessorMock;
   private AuthG2ScenarioResultProcessor sut;
   private EgkHashValidationService egkHashValidationServiceMock;
@@ -63,7 +63,7 @@ class AuthG2ScenarioResultProcessorTest {
   void setUp() {
     cvcProcessorMock = mock(CvcProcessor.class);
     x509CertificateProcessorMock = mock(X509CertificateProcessor.class);
-    tokenCreatorMock = mock(JwtTokenCreator.class);
+    tokenCreatorMock = mock(PoppTokenCreator.class);
     sessionAccessorMock = mock(SessionAccessor.class);
     egkHashValidationServiceMock = mock(EgkHashValidationService.class);
     signatureVerifierMock = mock(CvcSignatureVerifier.class);
@@ -90,9 +90,6 @@ class AuthG2ScenarioResultProcessorTest {
     final var scenarioResult = createScenarioResult();
     final var cvcMock = mock(CvCertificate.class);
     final var x509DataMock = mock(X509Data.class);
-    when(cvcProcessorMock.createAndValidateCvcCa(
-            sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
-        .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);
@@ -181,9 +178,6 @@ class AuthG2ScenarioResultProcessorTest {
     final var sessionId = "sessionId";
     final var scenarioResult = createScenarioResult();
     final var cvcMock = mock(CvCertificate.class);
-    when(cvcProcessorMock.createAndValidateCvcCa(
-            sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE))
-        .thenReturn(cvcMock);
     when(cvcProcessorMock.createAndValidateCvc(
             sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE))
         .thenReturn(cvcMock);

@@ -61,8 +61,7 @@ public class PoPPMessageHandler {
   private void handleErrorMessage(final ErrorMessage errorMessage) {
     log.error(
         "| Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
-    final var clientSessionId =
-        clientServerCommunicationService.getSslSession().getClientSessionId();
+    final var clientSessionId = errorMessage.getClientSessionId();
     if (clientSessionId == null) {
       log.warn("| No clientSessionId found for server error message");
       return;
@@ -75,33 +74,56 @@ public class PoPPMessageHandler {
 
   private void handleConnectorScenarioMessage(
       final ConnectorScenarioMessage connectorScenarioMessage) {
-    final var sslSession = clientServerCommunicationService.getSslSession();
+    final var clientSessionId = connectorScenarioMessage.getClientSessionId();
+    final var context = sessionRegistry.getRequestContext(clientSessionId);
     final List<String> responses =
-        connectorScenarioProcessor.process(connectorScenarioMessage, sslSession);
-    sendScenarioResponseMessage(responses);
+        connectorScenarioProcessor.process(connectorScenarioMessage, context);
+    sendScenarioResponseMessage(clientSessionId, responses);
   }
 
   private void handleStandardScenarioMessage(
       final StandardScenarioMessage standardScenarioMessage) {
-    final var sslSession = clientServerCommunicationService.getSslSession();
+    final var clientSessionId = standardScenarioMessage.getClientSessionId();
+    final var context = sessionRegistry.getRequestContext(clientSessionId);
     final List<String> responses =
-        standardScenarioProcessor.process(standardScenarioMessage, sslSession);
-    sendScenarioResponseMessage(responses);
+        standardScenarioProcessor.process(standardScenarioMessage, context);
+    sendScenarioResponseMessage(clientSessionId, responses);
   }
 
-  private void sendScenarioResponseMessage(final List<String> responses) {
-    final var responseMessage = new ScenarioResponseMessage(responses);
+  private void sendScenarioResponseMessage(
+      final String clientSessionId, final List<String> responses) {
+    final var responseMessage = new ScenarioResponseMessage(clientSessionId, responses);
     clientServerCommunicationService.sendMessage(responseMessage);
   }
 
   private void handleTokenMessage(final TokenMessage tokenMessage) {
     log.info("| Received PoPP token: {}", tokenMessage.getToken());
-    final var sslSession = clientServerCommunicationService.getSslSession();
-    final var clientSessionId = sslSession.getClientSessionId();
+    final var clientSessionId = tokenMessage.getClientSessionId();
     log.info("| ClientSessionId: {}", clientSessionId);
-    if (!sessionRegistry.completeToken(clientSessionId, tokenMessage.getToken())) {
-      log.warn("| No token future found for clientSessionId {}", clientSessionId);
+
+    final var context =
+        clientSessionId == null ? null : sessionRegistry.getRequestContext(clientSessionId);
+    if (context != null) {
+      connectorSessionLifecycle.stopSessionIfRequired(context);
     }
-    connectorSessionLifecycle.stopSessionIfRequired(sslSession);
+
+    if (clientSessionId != null
+        && sessionRegistry.completeToken(clientSessionId, tokenMessage.getToken())) {
+      return;
+    }
+
+    // Fallback: some servers do not echo back the client's clientSessionId (or send none at all).
+    // If exactly one token request is in flight, complete it so the waiting caller is not stuck
+    // until the request times out.
+    if (sessionRegistry.completeSolePendingToken(tokenMessage.getToken())) {
+      log.warn(
+          "| Server did not echo back the clientSessionId '{}' in the token response (or sent none"
+              + " at all); falling back to complete the single pending token request to prevent the"
+              + " caller from hanging until timeout",
+          clientSessionId);
+      return;
+    }
+
+    log.warn("| No token future found for clientSessionId {}", clientSessionId);
   }
 }

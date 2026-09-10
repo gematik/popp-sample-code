@@ -25,6 +25,7 @@ import java.util.List;
 /** A single healthcare provider found by a VZD search. */
 public record VzdEntry(
     String telematikId,
+    String iknr,
     String organizationName,
     List<String> phoneNumbers,
     VzdAddress address,

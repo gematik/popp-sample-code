@@ -85,10 +85,12 @@ public abstract class AbstractScenarioProcessingService {
 
   protected void processLastScenario(final SessionCommunication session) {
     log.debug("| Entering processLastScenario()");
-    final var poppToken = getPoppToken(session.getSessionId());
-    final var tokenMessage = new TokenMessage(poppToken, "pn");
+    final var logicalSessionId = session.getSessionId();
+    final var poppToken = getPoppToken(logicalSessionId);
+    final var clientSessionId = getClientSessionId(logicalSessionId);
+    final var tokenMessage = new TokenMessage(clientSessionId, poppToken, "pn");
     sendMessage(tokenMessage, session);
-    closeSession(session);
+    clearRequestState(logicalSessionId);
     log.debug("| Exiting processLastScenario()");
   }
 
@@ -112,6 +114,10 @@ public abstract class AbstractScenarioProcessingService {
 
   protected String getPoppToken(final String sessionId) {
     return sessionAccessor.getPoppToken(sessionId);
+  }
+
+  protected void clearRequestState(final String sessionId) {
+    sessionAccessor.clearRequestState(sessionId);
   }
 
   protected void closeSession(final SessionCommunication sessionCommunication) {

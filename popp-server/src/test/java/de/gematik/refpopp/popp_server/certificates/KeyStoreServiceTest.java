@@ -54,6 +54,8 @@ class KeyStoreServiceTest {
 
   @Mock private X509Certificate certificateMock;
 
+  @Mock private X509Certificate issuerCertificateMock;
+
   private AutoCloseable closeable;
 
   @BeforeEach
@@ -77,7 +79,8 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("test-keystore")).thenReturn(certificateMock);
+    when(keyStoreMock.getCertificateChain("test-keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock, issuerCertificateMock});
 
     // when
     final var result = sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword);
@@ -86,7 +89,9 @@ class KeyStoreServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.privateKey()).isSameAs(privateKeyMock);
     assertThat(result.certificate()).isSameAs(certificateMock);
-    verify(keyStoreMock).getCertificate("test-keystore");
+    assertThat(result.certificateChain()).containsExactly(certificateMock, issuerCertificateMock);
+    assertThat(result.issuerCertificate()).isEmpty();
+    verify(keyStoreMock).getCertificateChain("test-keystore");
   }
 
   @Test
@@ -127,12 +132,45 @@ class KeyStoreServiceTest {
     when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
     when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("test-keystore")).thenReturn(null);
+    when(keyStoreMock.getCertificateChain("test-keystore")).thenReturn(null);
 
     // when and then
     assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
         .isInstanceOf(KeyStoreException.class)
         .hasMessageContaining("No certificate found under alias 'test-keystore'");
+  }
+
+  @Test
+  void getPoppKeyStoreDataThrowsExceptionWhenCertificateChainIsEmpty() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
+    when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificateChain("test-keystore")).thenReturn(new X509Certificate[0]);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("No certificate found under alias 'test-keystore'");
+  }
+
+  @Test
+  void getPoppKeyStoreDataThrowsExceptionWhenCertificateChainContainsNonX509Certificate()
+      throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    final var nonX509Certificate = mock(java.security.cert.Certificate.class);
+    when(keyStoreResourceMock.getFilename()).thenReturn("test-keystore.p12");
+    when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificateChain("test-keystore"))
+        .thenReturn(new java.security.cert.Certificate[] {nonX509Certificate});
+
+    // when and then
+    assertThatThrownBy(() -> sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("contains a non-X.509 certificate");
   }
 
   @Test
@@ -143,7 +181,9 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("connector-keystore")).thenReturn(certificateMock);
+    when(keyStoreMock.getCertificateChain("connector-keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
+    when(keyStoreMock.getCertificate("issuer-ca")).thenReturn(issuerCertificateMock);
 
     // when
     final var result = sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword);
@@ -152,7 +192,80 @@ class KeyStoreServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.privateKey()).isSameAs(privateKeyMock);
     assertThat(result.certificate()).isSameAs(certificateMock);
-    verify(keyStoreMock).getCertificate("connector-keystore");
+    assertThat(result.certificateChain()).containsExactly(certificateMock);
+    assertThat(result.issuerCertificate()).contains(issuerCertificateMock);
+    verify(keyStoreMock).getCertificateChain("connector-keystore");
+    verify(keyStoreMock).getCertificate("issuer-ca");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataLoadsIssuerCertificateFromConfiguredKeystore() {
+    // given
+    final var keyStoreResource =
+        new ClassPathResource("certificates/signer/popp-Server-nist-komp61.jks");
+    final var keyStorePassword = "gematik";
+    final var keyStore = new KeyStoreLoader(keyStoreResource, keyStorePassword).load();
+    sut = new KeyStoreService(keyStore, keyStore);
+
+    // when
+    final var result = sut.getConnectorKeyStoreData(keyStoreResource, keyStorePassword);
+
+    // then
+    assertThat(result.issuerCertificate()).isPresent();
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenIssuerCertificateIsNotFound() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificateChain("connector-keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
+    when(keyStoreMock.getCertificate("issuer-ca")).thenReturn(null);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("No certificate found under alias 'issuer-ca'");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenIssuerCertificateIsNotX509() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    final var nonX509Certificate = mock(java.security.cert.Certificate.class);
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificateChain("connector-keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
+    when(keyStoreMock.getCertificate("issuer-ca")).thenReturn(nonX509Certificate);
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Certificate under alias 'issuer-ca' is not an X.509 certificate");
+  }
+
+  @Test
+  void getConnectorKeyStoreDataThrowsExceptionWhenLoadingIssuerCertificateFails() throws Exception {
+    // given
+    final var keyStorePassword = "password";
+    when(keyStoreResourceMock.getFilename()).thenReturn("connector-keystore.jks");
+    when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
+        .thenReturn(privateKeyMock);
+    when(keyStoreMock.getCertificateChain("connector-keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
+    when(keyStoreMock.getCertificate("issuer-ca"))
+        .thenThrow(new java.security.KeyStoreException("Issuer retrieval failed"));
+
+    // when and then
+    assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
+        .isInstanceOf(KeyStoreException.class)
+        .hasMessageContaining("Failed to load certificate under alias 'issuer-ca'")
+        .hasMessageContaining("Issuer retrieval failed");
   }
 
   @Test
@@ -176,7 +289,7 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("connector-keystore")).thenReturn(null);
+    when(keyStoreMock.getCertificateChain("connector-keystore")).thenReturn(null);
 
     // when and then
     assertThatThrownBy(() -> sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword))
@@ -251,7 +364,8 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("my.test.keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("my.test.keystore")).thenReturn(certificateMock);
+    when(keyStoreMock.getCertificateChain("my.test.keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
 
     // when
     final var result = sut.getPoppKeyStoreData(keyStoreResourceMock, keyStorePassword);
@@ -270,7 +384,9 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("connector.prod.keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("connector.prod.keystore")).thenReturn(certificateMock);
+    when(keyStoreMock.getCertificateChain("connector.prod.keystore"))
+        .thenReturn(new X509Certificate[] {certificateMock});
+    when(keyStoreMock.getCertificate("issuer-ca")).thenReturn(issuerCertificateMock);
 
     // when
     final var result = sut.getConnectorKeyStoreData(keyStoreResourceMock, keyStorePassword);
@@ -278,11 +394,12 @@ class KeyStoreServiceTest {
     // then
     assertThat(result).isNotNull();
     assertThat(result.certificate()).isSameAs(certificateMock);
+    assertThat(result.issuerCertificate()).contains(issuerCertificateMock);
     verify(keyStoreMock).getKey("connector.prod.keystore", keyStorePassword.toCharArray());
   }
 
   @Test
-  void getPoppKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificate()
+  void getPoppKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificateChain()
       throws Exception {
     // given
     final var keyStorePassword = "password";
@@ -290,7 +407,7 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("test-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("test-keystore"))
+    when(keyStoreMock.getCertificateChain("test-keystore"))
         .thenThrow(new java.security.KeyStoreException("Certificate retrieval failed"));
 
     // when and then
@@ -300,7 +417,7 @@ class KeyStoreServiceTest {
   }
 
   @Test
-  void getConnectorKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificate()
+  void getConnectorKeyStoreDataThrowsExceptionWhenKeyStoreExceptionIsThrownFromGetCertificateChain()
       throws Exception {
     // given
     final var keyStorePassword = "password";
@@ -308,7 +425,7 @@ class KeyStoreServiceTest {
 
     when(keyStoreMock.getKey("connector-keystore", keyStorePassword.toCharArray()))
         .thenReturn(privateKeyMock);
-    when(keyStoreMock.getCertificate("connector-keystore"))
+    when(keyStoreMock.getCertificateChain("connector-keystore"))
         .thenThrow(new java.security.KeyStoreException("Certificate retrieval failed"));
 
     // when and then

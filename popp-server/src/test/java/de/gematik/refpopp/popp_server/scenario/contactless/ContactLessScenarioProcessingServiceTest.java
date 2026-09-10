@@ -143,6 +143,6 @@ class ContactLessScenarioProcessingServiceTest {
     verify(clientCommunicationServiceMock)
         .sendMessage(messageCaptor.capture(), same(sessionCommunicationMock));
     assertThat(messageCaptor.getValue()).isNotNull();
-    verify(sessionCommunicationMock).closeSession();
+    verify(sessionAccessorMock).clearRequestState("sessionId");
   }
 }

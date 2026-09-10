@@ -18,7 +18,6 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 /*
-
 package de.gematik.refpopp.popp_client.services;
 
 import static org.junit.jupiter.api.Assertions.*;

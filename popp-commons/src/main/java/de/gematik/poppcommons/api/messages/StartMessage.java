@@ -41,7 +41,7 @@ import lombok.NonNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @NoArgsConstructor
-public class StartMessage extends PoPPMessage implements Serializable {
+public class StartMessage extends PoPPMessage implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = 1L;
 

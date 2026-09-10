@@ -42,9 +42,18 @@ import lombok.NonNull;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class ScenarioResponseMessage extends PoPPMessage implements Serializable {
+public final class ScenarioResponseMessage extends PoPPMessage
+    implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = 1L;
+
+  /**
+   * Correlates this response with the token request it belongs to. Echoed back from the
+   * "clientSessionId" of the received StandardScenarioMessage/ConnectorScenarioMessage so the
+   * server can route the response to the correct (potentially parallel) logical session.
+   */
+  @JsonProperty("clientSessionId")
+  private String clientSessionId;
 
   /**
    * List of ISO/IEC 7816-4 response APDU as hexadecimal strings. The responses from the smartcard.
@@ -58,8 +67,18 @@ public final class ScenarioResponseMessage extends PoPPMessage implements Serial
   private List<String> steps;
 
   public ScenarioResponseMessage(final List<String> steps) {
+    this(null, steps);
+  }
+
+  public ScenarioResponseMessage(final String clientSessionId, final List<String> steps) {
+    this.clientSessionId = clientSessionId;
     this.steps = steps;
     this.type = SCENARIO_RESPONSE_MESSAGE;
+  }
+
+  @Override
+  public String getClientSessionId() {
+    return clientSessionId;
   }
 
   public List<String> getSteps() {

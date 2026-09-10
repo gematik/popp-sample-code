@@ -54,4 +54,20 @@ class VirtualCardImageDataTest {
 
     assertThat(data.egkAuthCvcPrivateKey()).isEmpty();
   }
+
+  @Test
+  void constructorStoresPublicKeyIdentifiers() {
+    final VirtualCardImageData data =
+        new VirtualCardImageData(
+            "cv",
+            "auth",
+            "sub",
+            "version",
+            new byte[] {0x01},
+            "4445475858870222",
+            "0000000000000013");
+
+    assertThat(data.rcaCsKeyIdentifier()).isEqualTo("4445475858870222");
+    assertThat(data.rcaAdminCmsCsKeyIdentifier()).isEqualTo("0000000000000013");
+  }
 }

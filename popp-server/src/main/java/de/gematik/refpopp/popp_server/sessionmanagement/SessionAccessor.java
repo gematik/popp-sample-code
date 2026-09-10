@@ -35,7 +35,6 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.Session
 import java.util.List;
 import java.util.Optional;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -47,7 +46,7 @@ public class SessionAccessor {
     this.sessionContainer = sessionContainer;
   }
 
-  public String getPoppToken(@NonNull final String sessionId) {
+  public String getPoppToken(final String sessionId) {
     return getSessionDataOrThrow(
         sessionId,
         SessionContainer.SessionStorageKey.JWT_TOKEN,
@@ -107,9 +106,7 @@ public class SessionAccessor {
   }
 
   public <T> void storeSessionData(
-      @NonNull final String sessionId,
-      @NonNull final SessionContainer.SessionStorageKey key,
-      @NonNull final T value) {
+      final String sessionId, final SessionContainer.SessionStorageKey key, final T value) {
     sessionContainer.storeSessionData(sessionId, key, value);
   }
 
@@ -122,11 +119,11 @@ public class SessionAccessor {
     storeSessionData(sessionId, SessionStorageKey.COMMUNICATION_MODE, communicationMode);
   }
 
-  public void storeScenarioCounter(@NonNull final String sessionId, final int value) {
+  public void storeScenarioCounter(final String sessionId, final int value) {
     sessionContainer.storeSessionData(sessionId, SCENARIO_COUNTER, value);
   }
 
-  public void storeJwtToken(@NonNull final String sessionId, @NonNull final String jwtToken) {
+  public void storeJwtToken(final String sessionId, final String jwtToken) {
     sessionContainer.storeSessionData(
         sessionId, SessionContainer.SessionStorageKey.JWT_TOKEN, jwtToken);
   }
@@ -137,17 +134,33 @@ public class SessionAccessor {
   }
 
   public <T> Optional<T> retrieveSessionData(
-      @NonNull final String sessionId,
-      @NonNull final SessionContainer.SessionStorageKey key,
-      @NonNull final Class<T> type) {
+      final String sessionId, final SessionContainer.SessionStorageKey key, final Class<T> type) {
     return sessionContainer.retrieveSessionData(sessionId, key, type);
   }
 
-  public void clearSessionData(@NonNull final String sessionId) {
+  public void clearSessionData(final String sessionId) {
     sessionContainer.clearSession(sessionId);
   }
 
-  public void storeScenario(@NonNull final String sessionId, @NonNull final Scenario scenario) {
+  public void clearRequestState(final String sessionId) {
+    sessionContainer.clearRequestState(sessionId);
+  }
+
+  public void clearConnection(final String transportSessionId) {
+    sessionContainer.clearConnection(transportSessionId);
+  }
+
+  /**
+   * Copies connection scoped data (currently the ZETA user info) from the transport session into a
+   * logical session, so that request scoped token generation can read it under the logical id.
+   */
+  public void copyConnectionScopedData(
+      final String transportSessionId, final String logicalSessionId) {
+    sessionContainer.copySessionData(
+        transportSessionId, logicalSessionId, SessionStorageKey.ZETA_USER_INFO);
+  }
+
+  public void storeScenario(final String sessionId, final Scenario scenario) {
     sessionContainer.storeScenario(sessionId, scenario);
   }
 
@@ -190,10 +203,10 @@ public class SessionAccessor {
   }
 
   private <T> T getSessionDataOrThrow(
-      @NonNull final String sessionId,
-      @NonNull final SessionContainer.SessionStorageKey key,
-      @NonNull final Class<T> type,
-      @NonNull final String errorMessage) {
+      final String sessionId,
+      final SessionContainer.SessionStorageKey key,
+      final Class<T> type,
+      final String errorMessage) {
     return (T)
         sessionContainer
             .retrieveSessionData(sessionId, key, type)

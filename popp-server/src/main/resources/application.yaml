@@ -45,6 +45,12 @@ jwt-token:
   connector:
     typ: "JWT"
 
+certificates:
+  ocsp:
+    provider: ${OCSP_PROVIDER:rest} # rest, classpath
+    rest:
+      timeout: ${OCSP_TIMEOUT:10s}
+
 federation:
   org-name: "gematik GmbH"
   issuer: "http://popp-server:8443"
@@ -57,8 +63,8 @@ vzd:
   token:
     token-url: ${TOKEN_URL:https://auth-ref.vzd.ti-dienste.de:9443/auth/realms/Service-Authenticate/protocol/openid-connect/token}
     service-auth-url: ${SERVICE_AUTH_URL:https://fhir-directory-ref.vzd.ti-dienste.de/service-authenticate}
-    client-id: ${CLIENT_ID:}
-    client-secret: ${CLIENT_SECRET:}
+    client-id: ${VZD_CLIENT_ID:}
+    client-secret: ${VZD_CLIENT_SECRET:}
     skew-seconds: ${TOKEN_SKEW_SECONDS:30}
 
 scenario-vars:

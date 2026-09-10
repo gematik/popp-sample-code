@@ -63,11 +63,11 @@ public class CvcProcessor {
     return cvc;
   }
 
-  public CvCertificate createAndValidateCvcCa(
+  public void createAndValidateCvcCa(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
-    final var cvc = createCvcCa(sessionId, scenarioResult, stepId);
-    validateCvc(sessionId, cvc);
-    return cvc;
+    try (final var cvc = createCvcCa(sessionId, scenarioResult, stepId)) {
+      validateCvc(sessionId, cvc);
+    }
   }
 
   private CvCertificate createCvc(

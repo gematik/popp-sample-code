@@ -39,6 +39,10 @@ import org.xml.sax.SAXException;
 @Component
 public final class VirtualCardImageLoader {
   private static final String EGK_AUT_CVC_PRIVATE_KEY_OBJECT = "PrK.eGK.AUT_CVC.E256";
+  private static final String RCA_CS_PUBLIC_KEY_OBJECT = "PuK.RCA.CS.E256";
+  private static final String RCA_ADMIN_CMS_CS_PUBLIC_KEY_OBJECT = "PuK.RCA.ADMINCMS.CS.E256";
+  private static final String SUB_CA_CV_CERTIFICATE_OBJECT = "EF.C.CA_eGK.CS.E256";
+  private static final String ALTERNATIVE_SUB_CA_CV_CERTIFICATE_OBJECT = "EF.C.CA.CS.E256";
 
   VirtualCardImageData load(final String imageFile)
       throws IOException, SAXException, ParserConfigurationException {
@@ -47,9 +51,11 @@ public final class VirtualCardImageLoader {
       return new VirtualCardImageData(
           getCertificateData(xmlString, "EF.C.eGK.AUT_CVC.E256"),
           getCertificateData(xmlString, "EF.C.CH.AUT.E256"),
-          getCertificateData(xmlString, "EF.C.CA_eGK.CS.E256"),
+          getSubCaCvCertificate(xmlString),
           getCertificateData(xmlString, "EF.Version2"),
-          loadEgkAuthCvcPrivateKey(xmlString));
+          loadEgkAuthCvcPrivateKey(xmlString),
+          loadPublicKeyIdentifier(xmlString, RCA_CS_PUBLIC_KEY_OBJECT),
+          loadPublicKeyIdentifier(xmlString, RCA_ADMIN_CMS_CS_PUBLIC_KEY_OBJECT));
     }
   }
 
@@ -117,28 +123,50 @@ public final class VirtualCardImageLoader {
     return null;
   }
 
+  private String getSubCaCvCertificate(final String xmlDoc)
+      throws IOException, SAXException, ParserConfigurationException {
+    final var subCaCvCertificate = getCertificateData(xmlDoc, SUB_CA_CV_CERTIFICATE_OBJECT);
+    return subCaCvCertificate != null
+        ? subCaCvCertificate
+        : getCertificateData(xmlDoc, ALTERNATIVE_SUB_CA_CV_CERTIFICATE_OBJECT);
+  }
+
   private byte[] loadEgkAuthCvcPrivateKey(final String xmlDoc)
       throws IOException, SAXException, ParserConfigurationException {
-    final var privateKeyHex = getChildAttribute(xmlDoc);
+    final var privateKeyHex =
+        getChildAttribute(xmlDoc, EGK_AUT_CVC_PRIVATE_KEY_OBJECT, "privateKey");
     if (privateKeyHex == null) {
       return new byte[0];
     }
     return VirtualCardPureHelper.toFixedLength(HexFormat.of().parseHex(privateKeyHex), 32);
   }
 
-  private String getChildAttribute(final String xmlDoc)
+  private String loadPublicKeyIdentifier(final String xmlDoc, final String publicKeyObjectId)
+      throws IOException, SAXException, ParserConfigurationException {
+    final String keyIdentifier =
+        VirtualCardPureHelper.normalize(
+            getChildAttribute(xmlDoc, publicKeyObjectId, "keyIdentifier"));
+    if (!keyIdentifier.matches("[0-9A-F]{16}")) {
+      throw new IOException(
+          "Missing or invalid keyIdentifier for " + publicKeyObjectId + " in card image.");
+    }
+    return keyIdentifier;
+  }
+
+  private String getChildAttribute(
+      final String xmlDoc, final String childId, final String attributeId)
       throws IOException, SAXException, ParserConfigurationException {
     final var rootElement = getDOMRootElement(xmlDoc);
     final var children = rootElement.getElementsByTagName("child");
     for (int i = 0; i < children.getLength(); i++) {
       final var child = (Element) children.item(i);
-      if (!EGK_AUT_CVC_PRIVATE_KEY_OBJECT.equals(child.getAttribute("id"))) {
+      if (!childId.equals(child.getAttribute("id"))) {
         continue;
       }
       final var attributes = child.getElementsByTagName("attribute");
       for (int j = 0; j < attributes.getLength(); j++) {
         final var attribute = (Element) attributes.item(j);
-        if ("privateKey".equals(attribute.getAttribute("id"))) {
+        if (attributeId.equals(attribute.getAttribute("id"))) {
           return attribute.getTextContent();
         }
       }

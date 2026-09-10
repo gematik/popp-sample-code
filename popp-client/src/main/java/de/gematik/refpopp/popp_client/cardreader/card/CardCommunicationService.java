@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
@@ -48,6 +49,15 @@ public class CardCommunicationService {
   private CardChannel cardChannel;
   private SecureChannel secureChannel;
 
+  /**
+   * Serializes access to the single physical card channel. Multiple (parallel) token requests share
+   * the same reader and card; their APDU exchanges must not interleave, otherwise the stateful card
+   * (selected file, secure-channel state, PACE) would get corrupted. A fair lock preserves request
+   * ordering and avoids starvation. The lock is reentrant so that a batch ({@link #process(List)})
+   * may call {@link #process(ScenarioStep)} without deadlocking.
+   */
+  private final ReentrantLock cardLock = new ReentrantLock(true);
+
   public CardCommunicationService() {
     log.debug("| Entering CardService()");
     log.debug("| Exiting CardService()");
@@ -56,50 +66,72 @@ public class CardCommunicationService {
   @EventListener
   public void handleCardRemovedEvent(final CardRemovedEvent event) {
     log.debug("| Entering handleCardRemovedEvent()");
-    cardChannel = null;
-    secureChannel = null;
+    cardLock.lock();
+    try {
+      cardChannel = null;
+      secureChannel = null;
+    } finally {
+      cardLock.unlock();
+    }
     log.debug("| Exiting handleCardRemovedEvent()");
   }
 
   @EventListener
   public void handleCardConnectionEvent(final CardConnectedEvent event) {
     log.debug("| Entering handleCardConnectionEvent()");
-    this.cardChannel = event.getCardChannel().orElse(null);
+    cardLock.lock();
+    try {
+      this.cardChannel = event.getCardChannel().orElse(null);
 
-    if (isContactless()) {
-      log.info("| Detected contactless reader - Initialize PACE");
-      initializePACE();
-    } else {
-      log.info("| Detected contact-based reader - No PACE necessary");
+      if (isContactless()) {
+        log.info("| Detected contactless reader - Initialize PACE");
+        initializePACE();
+      } else {
+        log.info("| Detected contact-based reader - No PACE necessary");
+      }
+    } finally {
+      cardLock.unlock();
     }
 
     log.debug("| Exiting handleCardConnectionEvent()");
   }
 
   public String process(final ScenarioStep scenarioStep) {
-    final var normalizedCommandApdu = normalize(scenarioStep.getCommandApdu());
-    log.info("| APDU command: {}", normalizedCommandApdu);
-    final var commandApdu = new CommandAPDU(HEX_FORMAT.parseHex(normalizedCommandApdu));
-    final var responseAPDU = sendApdu(commandApdu);
-    final var actualStatusWord = Integer.toHexString(responseAPDU.getSW());
+    cardLock.lock();
+    try {
+      final var normalizedCommandApdu = normalize(scenarioStep.getCommandApdu());
+      log.info("| APDU command: {}", normalizedCommandApdu);
+      final var commandApdu = new CommandAPDU(HEX_FORMAT.parseHex(normalizedCommandApdu));
+      final var responseAPDU = sendApdu(commandApdu);
+      final var actualStatusWord = Integer.toHexString(responseAPDU.getSW());
 
-    final var responseData = responseAPDU.getData();
-    if (responseData.length > 0) {
-      log.info("| APDU Response data: {}", HEX_FORMAT.formatHex(responseAPDU.getData()));
+      final var responseData = responseAPDU.getData();
+      if (responseData.length > 0) {
+        log.info("| APDU Response data: {}", HEX_FORMAT.formatHex(responseAPDU.getData()));
+      }
+
+      checkStatusWord(scenarioStep.getExpectedStatusWords(), actualStatusWord);
+
+      return HEX_FORMAT.formatHex(responseAPDU.getBytes());
+    } finally {
+      cardLock.unlock();
     }
-
-    checkStatusWord(scenarioStep.getExpectedStatusWords(), actualStatusWord);
-
-    return HEX_FORMAT.formatHex(responseAPDU.getBytes());
   }
 
   public List<String> process(final List<ScenarioStep> scenarioStep) {
-    final var responses = new ArrayList<String>();
-    for (final var step : scenarioStep) {
-      responses.add(process(step));
-    }
+    // Lock the whole batch so all APDUs of one scenario message are exchanged atomically with the
+    // physical card, without another parallel request's APDUs interleaving.
+    cardLock.lock();
+    try {
+      final var responses = new ArrayList<String>();
+      for (final var step : scenarioStep) {
+        responses.add(process(step));
+      }
 
-    return responses;
+      return responses;
+    } finally {
+      cardLock.unlock();
+    }
   }
 
   private static void checkStatusWord(

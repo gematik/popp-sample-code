@@ -104,6 +104,62 @@ of dual-interface readers you must specify the full name to make sure that the r
 
 When generating a PoPP token with your Konnektor, the SMC-B from your Konnektor will be used for the ZETA SDK communication.
 
+**OCSP response for ConnectorScenarioMessages**
+
+The PoPP-Server adds a Base64-encoded DER OCSP response to the `stpl` header of JWT-based ConnectorScenarioMessages.
+By default, the server reads the OCSP responder URL from the Authority Information Access (AIA) extension of the
+signer certificate and requests the response from that URL. The provider and failure behavior can be configured in
+the PoPP-Server YAML configuration. Choose exactly one of the following provider modes.
+
+**Option 1: Retrieve the OCSP response from the responder (`rest`)**
+
+```yaml
+certificates:
+  ocsp:
+    provider: ${OCSP_PROVIDER:rest}
+    rest:
+      timeout: ${OCSP_TIMEOUT:10s}
+```
+
+This mode requests the current response from the OCSP responder URL contained in the certificate.
+`certificates.ocsp.rest.timeout` configures the timeout for each request. If the responder remains unavailable,
+the request fails with an `OCSP_TIMEOUT` error by default.
+
+To use a static classpath response as a fallback, configure the optional fallback resource:
+
+```yaml
+certificates:
+  ocsp:
+    provider: rest
+    rest:
+      timeout: 10s
+      fallback:
+        resource: classpath:/certificates/ocsp/resp.der
+```
+
+The presence of `certificates.ocsp.rest.fallback.resource` enables the fallback. Omit the entire `fallback` section
+to disable it.
+
+**Option 2: Always use a static OCSP response (`classpath`)**
+
+```yaml
+certificates:
+  ocsp:
+    provider: classpath
+    classpath:
+      resource: classpath:/certificates/ocsp/resp.der
+```
+
+This mode does not contact the responder. It always reads the static response configured by
+`certificates.ocsp.classpath.resource`. The `classpath:` prefix is required. The REST timeout and fallback settings
+do not apply.
+
+The `dev` profile uses the `rest` provider by default and enables its classpath fallback by configuring
+`certificates.ocsp.rest.fallback.resource` as `classpath:/certificates/ocsp/resp.der`. If the OCSP responder remains
+unavailable, this static response is used. The fallback resource is validated at application startup and must be
+available as a readable classpath resource. To use the `classpath` provider instead, configure
+`certificates.ocsp.classpath.resource` separately as shown in option 2.
+
 **Optional: Certificates for TLS**
 
 The PoPP-Client supports TLS connections using [ECC](https://gemspec.gematik.de/docs/gemILF/gemILF_PS/latest/#A_17094-01) for communication with your Konnektor. To enable and configure this, follow the steps below:
@@ -231,6 +287,75 @@ curl -H 'Content-Type: application/json' \
 
 If you don't specify a new card image in the request, it will automatically use the one in the application*.yaml.
 If you specify a new card image, it will overwrite the one in the application*.yaml.
+
+#### d) VZD search
+
+The PoPP-Server provides a mobile search endpoint for retrieving healthcare company information
+from the reference FHIR directory (VZD). The server obtains the required VZD access token and
+forwards the FHIR search request with that token. Authentication is performed in two steps: first
+with the OAuth 2.0 `client_credentials` grant and then against the VZD service-authenticate
+endpoint. Access tokens are cached until shortly before they expire.
+
+**Required credentials**
+
+Valid VZD credentials must be provided before using the search:
+
+- `VZD_CLIENT_ID`
+- `VZD_CLIENT_SECRET`
+
+To obtain the required credentials, open a ticket via the [gematik Service Desk](https://service.gematik.de/servicedesk/customer/portal/27).
+
+The defaults for both variables are empty. The PoPP-Server can start without them, but every VZD
+search will fail because no access token can be obtained. Do not store credentials in the
+repository.
+
+For Bash-compatible shells, set them in the environment from which the PoPP-Server or Docker
+Compose is started:
+
+```bash
+export VZD_CLIENT_ID="<VZD client ID>"
+export VZD_CLIENT_SECRET="<VZD client secret>"
+```
+
+For Windows PowerShell:
+
+```powershell
+$env:VZD_CLIENT_ID = "<VZD client ID>"
+$env:VZD_CLIENT_SECRET = "<VZD client secret>"
+```
+
+`docker/compose.yaml` passes these variables to the `popp-server` container. When running the
+PoPP-Server locally, Spring reads the same environment variables directly.
+
+The reference environment endpoints are configured by default. They can be overridden if needed:
+
+| Environment variable | Purpose | Default |
+|---|---|---|
+| `TOKEN_URL` | OAuth token endpoint for the TI provider token | `https://auth-ref.vzd.ti-dienste.de:9443/auth/realms/Service-Authenticate/protocol/openid-connect/token` |
+| `SERVICE_AUTH_URL` | Endpoint for exchanging the TI provider token for the VZD access token | `https://fhir-directory-ref.vzd.ti-dienste.de/service-authenticate` |
+| `TOKEN_SKEW_SECONDS` | Safety margin subtracted from the access-token lifetime | `30` |
+
+**Using the search**
+
+The mobile endpoint accepts a complete FHIR-VZD search or pagination URL in the required
+`searchrequest` query parameter:
+
+```text
+GET http://localhost:8443/popp/patient/api/v1/mobile/fhirvzdsearch?searchrequest=<FHIR-VZD URL>
+```
+
+For example, the following request searches active healthcare services for `Berlin`, includes
+their organization and location, and requests up to 20 results:
+
+```bash
+curl --get "http://localhost:8443/popp/patient/api/v1/mobile/fhirvzdsearch" \
+  --data-urlencode "searchrequest=https://fhir-directory-ref.vzd.ti-dienste.de/search/HealthcareService?organization.active=true&_include=HealthcareService:organization&_include=HealthcareService:location&_text=Berlin&_count=20&_offset=0&_format=json"
+```
+
+The response contains the matching organizations with their name, Telematik-ID, IKNR, address and
+contact data. A URL returned for the next result page can be passed back unchanged as
+`searchrequest`. Searches with more than 100 total results are rejected with HTTP status `422`; in
+this case, narrow the FHIR search criteria.
 
 ## Execution
 

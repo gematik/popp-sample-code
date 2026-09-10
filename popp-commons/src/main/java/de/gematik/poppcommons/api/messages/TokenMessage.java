@@ -37,9 +37,17 @@ import lombok.NonNull;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PRIVATE, force = true)
-public final class TokenMessage extends PoPPMessage implements Serializable {
+public final class TokenMessage extends PoPPMessage
+    implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = 1L;
+
+  /**
+   * Correlates this token with the request it was issued for. Allows the client to complete the
+   * correct (potentially parallel) pending request over a shared connection.
+   */
+  @JsonProperty("clientSessionId")
+  private String clientSessionId;
 
   /** PoPP token as JWT compact serialization. */
   @JsonProperty("token")
@@ -52,6 +60,11 @@ public final class TokenMessage extends PoPPMessage implements Serializable {
   private String pn;
 
   public TokenMessage(final String token, final String pn) {
+    this(null, token, pn);
+  }
+
+  public TokenMessage(final String clientSessionId, final String token, final String pn) {
+    this.clientSessionId = clientSessionId;
     this.token = token;
     this.pn = pn;
     this.type = TOKEN_MESSAGE;

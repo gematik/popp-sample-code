@@ -26,6 +26,7 @@ import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrches
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -43,6 +44,18 @@ public class WebSocketConfig implements WebSocketConfigurer {
   private final ObjectMapper objectMapper;
 
   private final CardScenarioProvider scenarioProvider;
+
+  /** Number of worker threads processing incoming WebSocket messages concurrently. */
+  @Value("${popp-server.message-processing.pool-size:16}")
+  private int messageProcessingPoolSize;
+
+  /** Max time (ms) an outbound send may take before the session is closed as too slow. */
+  @Value("${popp-server.message-processing.send-time-limit-ms:20000}")
+  private int sendTimeLimitMs;
+
+  /** Max buffered outbound bytes per connection before the session is closed. */
+  @Value("${popp-server.message-processing.send-buffer-size-limit-bytes:524288}")
+  private int sendBufferSizeLimit;
 
   public WebSocketConfig(
       final SessionContainer sessionContainer,
@@ -62,8 +75,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
     log.debug("| Exiting registerWebSocketHandlers()");
   }
 
-  @Bean
+  @Bean(destroyMethod = "shutdown")
   WebSocketHandler webSocketHandler() {
-    return new WebSocketHandler(sessionContainer, egkOrchestrator, objectMapper, scenarioProvider);
+    return new WebSocketHandler(
+        sessionContainer,
+        egkOrchestrator,
+        objectMapper,
+        scenarioProvider,
+        messageProcessingPoolSize,
+        sendTimeLimitMs,
+        sendBufferSizeLimit);
   }
 }

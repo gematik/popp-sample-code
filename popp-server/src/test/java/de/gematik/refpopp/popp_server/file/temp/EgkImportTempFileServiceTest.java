@@ -75,7 +75,7 @@ class EgkImportTempFileServiceTest {
     try {
       Files.writeString(notADir, "dummy");
     } catch (final IOException e) {
-      fail("Failed");
+      fail("Failed to create test file: " + e.getMessage());
     }
     final String path = notADir.toString();
 

@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.messages.ConnectorScenarioMessage;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -64,16 +64,27 @@ class ConnectorScenarioProcessorTest {
   void processUsesConnectorWrapperWhenSessionIsNotMocked() {
     final var signedScenario = "header.payload.signature";
     final var message = new ConnectorScenarioMessage("1.0.0", signedScenario);
-    final var sslSession = mock(CommunicationSslSession.class);
-    when(sslSession.isConnectorMock()).thenReturn(false);
+    final var context = mock(ClientRequestContext.class);
+    when(context.isConnectorMock()).thenReturn(false);
     when(connectorCommunicationServiceWrapper.secureSendApdu(signedScenario))
         .thenReturn(List.of("9000"));
 
-    final var result = sut.process(message, sslSession);
+    final var result = sut.process(message, context);
 
     assertThat(result).containsExactly("9000");
     verify(connectorCommunicationServiceWrapper).secureSendApdu(signedScenario);
     verifyNoInteractions(standardScenarioProcessor);
+  }
+
+  @Test
+  void processRejectsWhenPayloadBase64Invalid() {
+    final var signedScenario = "header.!nv@l!d!!.signature";
+    final var message = new ConnectorScenarioMessage("1.0.0", signedScenario);
+    final var context = mock(ClientRequestContext.class);
+    when(context.isConnectorMock()).thenReturn(true);
+
+    assertThrows(IllegalArgumentException.class, () -> sut.process(message, context));
+    verifyNoInteractions(connectorCommunicationServiceWrapper, standardScenarioProcessor);
   }
 
   @Test
@@ -88,18 +99,18 @@ class ConnectorScenarioProcessorTest {
             .build();
     final var signedScenario = createSignedScenario(standardScenarioMessage);
     final var message = new ConnectorScenarioMessage("1.0.0", signedScenario);
-    final var sslSession = mock(CommunicationSslSession.class);
-    when(sslSession.isConnectorMock()).thenReturn(true);
+    final var context = mock(ClientRequestContext.class);
+    when(context.isConnectorMock()).thenReturn(true);
     when(standardScenarioProcessor.process(
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(sslSession)))
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(context)))
         .thenReturn(List.of("9000"));
 
-    final var result = sut.process(message, sslSession);
+    final var result = sut.process(message, context);
 
     assertThat(result).containsExactly("9000");
     final var captor = ArgumentCaptor.forClass(StandardScenarioMessage.class);
     verify(standardScenarioProcessor)
-        .process(captor.capture(), org.mockito.ArgumentMatchers.eq(sslSession));
+        .process(captor.capture(), org.mockito.ArgumentMatchers.eq(context));
     assertThat(captor.getValue().getVersion()).isEqualTo("1.0.0");
     assertThat(captor.getValue().getClientSessionId()).isEqualTo("session-id");
     assertThat(captor.getValue().getSteps())
@@ -110,11 +121,25 @@ class ConnectorScenarioProcessorTest {
   @Test
   void processRejectsSignedScenarioWithoutThreeJwtParts() {
     final var message = new ConnectorScenarioMessage("1.0.0", "invalid-token");
-    final var sslSession = mock(CommunicationSslSession.class);
-    when(sslSession.isConnectorMock()).thenReturn(true);
+    final var context = mock(ClientRequestContext.class);
+    when(context.isConnectorMock()).thenReturn(true);
 
-    assertThrows(IllegalArgumentException.class, () -> sut.process(message, sslSession));
+    assertThrows(IllegalArgumentException.class, () -> sut.process(message, context));
     verifyNoInteractions(connectorCommunicationServiceWrapper, standardScenarioProcessor);
+  }
+
+  @Test
+  void processUsesConnectorWrapperWhenContextIsNull() {
+    final var signedScenario = "header.payload.signature";
+    final var message = new ConnectorScenarioMessage("1.0.0", signedScenario);
+    when(connectorCommunicationServiceWrapper.secureSendApdu(signedScenario))
+        .thenReturn(List.of("9000"));
+
+    final var result = sut.process(message, null);
+
+    assertThat(result).containsExactly("9000");
+    verify(connectorCommunicationServiceWrapper).secureSendApdu(signedScenario);
+    verifyNoInteractions(standardScenarioProcessor);
   }
 
   private String createSignedScenario(final StandardScenarioMessage standardScenarioMessage) {

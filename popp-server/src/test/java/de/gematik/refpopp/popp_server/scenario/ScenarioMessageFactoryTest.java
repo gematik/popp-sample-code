@@ -36,7 +36,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScena
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
-import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.ConnectorTokenCreator;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,13 +46,13 @@ class ScenarioMessageFactoryTest {
 
   private ScenarioMessageFactory sut;
   private SessionAccessor sessionAccessorMock;
-  private JwtTokenCreator tokenCreatorMock;
+  private ConnectorTokenCreator tokenCreatorMock;
   private ScenarioStepCommandResolver scenarioStepCommandResolverMock;
 
   @BeforeEach
   void setUp() {
     sessionAccessorMock = mock(SessionAccessor.class);
-    tokenCreatorMock = mock(JwtTokenCreator.class);
+    tokenCreatorMock = mock(ConnectorTokenCreator.class);
     scenarioStepCommandResolverMock = mock(ScenarioStepCommandResolver.class);
     sut =
         new ScenarioMessageFactory(
@@ -105,6 +105,28 @@ class ScenarioMessageFactoryTest {
 
     // when
     final var actual = sut.create(scenario, clientSessionId, sequenceCounter, timeSpan, sessionId);
+
+    // then
+    assertThat(actual).isInstanceOf(ConnectorScenarioMessage.class);
+    verify(sessionAccessorMock).getCardConnectionType(sessionId);
+    verify(scenarioStepCommandResolverMock).serializeCommandApdu(sessionId, state);
+    verify(tokenCreatorMock)
+        .createConnectorToken(any(StandardScenarioMessage.class), eq(sessionId));
+  }
+
+  @Test
+  void createCreatesConnectorScenarioMessageForContactlessConnection() {
+    // given
+    final var sessionId = "sessionId";
+    final var state = new StepDefinition(StepId.SELECT_MASTER_FILE);
+    final var scenario = new Scenario(ScenarioId.OPEN_EGK, List.of(state));
+    when(sessionAccessorMock.getCardConnectionType(sessionId))
+        .thenReturn(CardConnectionType.CONTACTLESS_CONNECTOR);
+    when(scenarioStepCommandResolverMock.serializeCommandApdu(sessionId, state))
+        .thenReturn("commandApdu");
+
+    // when
+    final var actual = sut.create(scenario, "clientSessionId", 1, 5000, sessionId);
 
     // then
     assertThat(actual).isInstanceOf(ConnectorScenarioMessage.class);

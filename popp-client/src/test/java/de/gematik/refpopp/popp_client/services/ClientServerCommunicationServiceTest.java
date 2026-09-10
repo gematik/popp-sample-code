@@ -62,13 +62,16 @@ class ClientServerCommunicationServiceTest {
   @Test
   void alreadyConnected() {
     // given
-    when(webSocketClientMock.isOpen()).thenReturn(true);
+    when(webSocketClientMock.isClosed()).thenReturn(false);
 
     // when
     sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+    when(webSocketClientMock.isOpen()).thenReturn(true);
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
 
     // then
-    verify(webSocketClientMock, never()).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+    verify(webSocketClientMock).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+    verify(webSocketClientMock, times(1)).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
   }
 
   @Test
@@ -111,6 +114,15 @@ class ClientServerCommunicationServiceTest {
 
     // then
     verify(webSocketClientMock).close();
+  }
+
+  @Test
+  void disconnectWithoutOpenClientIsNoOp() {
+    // when
+    sut.disconnect();
+
+    // then
+    verifyNoInteractions(webSocketClientMock);
   }
 
   @Test
@@ -179,7 +191,7 @@ class ClientServerCommunicationServiceTest {
     sut.connect(CardConnectionType.CONTACT_VIRTUAL);
 
     // then
-    verify(webSocketClientMock, never()).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+    verify(webSocketClientMock).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
   }
 
   @Test

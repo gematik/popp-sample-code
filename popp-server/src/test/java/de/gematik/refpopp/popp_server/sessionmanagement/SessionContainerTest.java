@@ -23,11 +23,14 @@ package de.gematik.refpopp.popp_server.sessionmanagement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.Scenario;
+import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractCardScenarios.StepDefinition;
 import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioId;
+import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.ParameterizedTypeReference;
 
 class SessionContainerTest {
 
@@ -226,5 +229,89 @@ class SessionContainerTest {
     // then
     assertThat(sessionContainer.containsDataInSessionStorage(sessionId, SessionStorageKey.DEFAULT))
         .isFalse();
+  }
+
+  @Test
+  void clearRequestStateRemovesLogicalSession() {
+    // given
+    final var logical = LogicalSessionId.of("transport", "client");
+    sessionContainer.storeScenario(logical, new Scenario(ScenarioId.READ_CVC, List.of()));
+    sessionContainer.storeSessionData(logical, SessionStorageKey.CLIENT_SESSION_ID, "c");
+
+    // when
+    sessionContainer.clearRequestState(logical);
+
+    // then
+    assertThat(sessionContainer.retrieveScenario(logical)).isEmpty();
+    assertThat(
+            sessionContainer.containsDataInSessionStorage(
+                logical, SessionStorageKey.CLIENT_SESSION_ID))
+        .isFalse();
+  }
+
+  @Test
+  void clearConnectionRemovesTransportAndDerivedLogicalSessions() {
+    // given
+    final var transport = "transport-1";
+    final var logical1 = LogicalSessionId.of(transport, "client1");
+    final var logical2 = LogicalSessionId.of(transport, "client2");
+
+    // store transport scoped and logical scoped entries
+    sessionContainer.storeScenario(transport, new Scenario(ScenarioId.OPEN_EGK, List.of()));
+    sessionContainer.storeScenario(logical1, new Scenario(ScenarioId.READ_CVC, List.of()));
+    sessionContainer.storeScenario(logical2, new Scenario(ScenarioId.READ_X509, List.of()));
+    sessionContainer.storeSessionData(transport, SessionStorageKey.ZETA_USER_INFO, "user");
+    sessionContainer.storeSessionData(logical1, SessionStorageKey.CVC, new byte[] {1});
+
+    // when
+    sessionContainer.clearConnection(transport);
+
+    // then
+    // transport and logical sessions should be removed
+    assertThat(sessionContainer.retrieveScenario(transport)).isEmpty();
+    assertThat(sessionContainer.retrieveScenario(logical1)).isEmpty();
+    assertThat(sessionContainer.retrieveScenario(logical2)).isEmpty();
+    assertThat(
+            sessionContainer.containsDataInSessionStorage(
+                transport, SessionStorageKey.ZETA_USER_INFO))
+        .isFalse();
+    assertThat(sessionContainer.containsDataInSessionStorage(logical1, SessionStorageKey.CVC))
+        .isFalse();
+  }
+
+  @Test
+  void copySessionDataCopiesValueWhenPresent() {
+    // given
+    final var from = "from";
+    final var to = "to";
+    final var key = SessionStorageKey.CVC_CA;
+    final var cvc = new byte[] {7, 8};
+    sessionContainer.storeSessionData(from, key, cvc);
+
+    // when
+    sessionContainer.copySessionData(from, to, key);
+
+    // then
+    final var result = sessionContainer.retrieveSessionData(to, key, byte[].class);
+    assertThat(result).isPresent().contains(cvc);
+  }
+
+  @Test
+  void retrieveSessionDataRespectsParameterizedType() {
+    // given
+    final var sessionId = "s-param";
+    final var list = List.of(new StepDefinition(StepId.MSE_APDU, "data".getBytes()));
+    sessionContainer.storeSessionData(sessionId, SessionStorageKey.OPEN_CONTACT_ICC_CVC_LIST, list);
+
+    // when
+    final ParameterizedTypeReference<List<StepDefinition>> typeRef =
+        new ParameterizedTypeReference<>() {};
+    final var result =
+        sessionContainer.retrieveSessionData(
+            sessionId, SessionStorageKey.OPEN_CONTACT_ICC_CVC_LIST, typeRef.getType());
+
+    // then
+    assertThat(result).isPresent();
+    assertThat(result.get()).isInstanceOf(List.class);
   }
 }

@@ -37,7 +37,6 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.enums.ProofMethod;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
-import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.util.Map;
@@ -47,7 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-class TokenClaimsTest {
+class PoppTokenClaimsTest {
 
   SessionContainer sessionContainer;
   X509Data x509Data;
@@ -62,14 +61,14 @@ class TokenClaimsTest {
   String authorizationDetails = "details";
   X509Data.Subject subject;
 
-  TokenClaims sut;
+  PoppTokenClaims sut;
 
   @BeforeEach
   void setUp() {
     sessionId = UUID.randomUUID().toString();
     sessionContainer = mock(SessionContainer.class);
     x509Data = mock(X509Data.class);
-    sut = new TokenClaims(sessionContainer);
+    sut = new PoppTokenClaims(sessionContainer);
     subject =
         new X509Data.Subject(
             "Hans Maier",
@@ -240,17 +239,5 @@ class TokenClaimsTest {
     assertThat(claims)
         .containsEntry(ACTOR_ID.getKeyValue(), actorId)
         .containsEntry(ACTOR_PROFESSION_OID.getKeyValue(), actorProfessionOid);
-  }
-
-  @Test
-  void createConnectorClaims() {
-    // given
-    final var standardScenarioMessage = StandardScenarioMessage.builder().build();
-
-    // when
-    final var connectorClaims = sut.createConnectorClaims(standardScenarioMessage);
-
-    // then
-    assertThat(connectorClaims).containsEntry("message", standardScenarioMessage);
   }
 }
