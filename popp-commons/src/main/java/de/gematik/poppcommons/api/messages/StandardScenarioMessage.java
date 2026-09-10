@@ -43,7 +43,8 @@ import lombok.NonNull;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode(callSuper = true)
-public final class StandardScenarioMessage extends PoPPMessage implements Serializable {
+public final class StandardScenarioMessage extends PoPPMessage
+    implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = 5254368164751960542L;
 
@@ -52,10 +53,7 @@ public final class StandardScenarioMessage extends PoPPMessage implements Serial
   @NonNull
   private String version;
 
-  /**
-   * Session identifier for the scenario message. The value is taken from
-   * "StartMessage.clientSessionId".
-   */
+  /** Session identifier for the scenario message. */
   @JsonProperty("clientSessionId")
   @NonNull
   private String clientSessionId;

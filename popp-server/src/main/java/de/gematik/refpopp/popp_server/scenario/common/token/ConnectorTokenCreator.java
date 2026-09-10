@@ -20,26 +20,24 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.token;
 
+import de.gematik.poppcommons.api.enums.BdeErrorCode;
+import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
-import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
-import java.security.interfaces.ECPublicKey;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
-public class TokenCreator implements JwtTokenCreator {
+public class ConnectorTokenCreator {
 
   private final CertificateProviderService certificateProviderService;
-  private final TokenClaims tokenClaims;
-  private final TokenHeader tokenHeader;
+  private final ConnectorTokenClaims tokenClaims;
+  private final ConnectorTokenHeader tokenHeader;
   private final JwtTokenBuilder jwtTokenBuilder;
 
-  TokenCreator(
+  ConnectorTokenCreator(
       final CertificateProviderService certificateProviderService,
-      final TokenClaims tokenClaims,
-      final TokenHeader tokenHeader,
+      final ConnectorTokenClaims tokenClaims,
+      final ConnectorTokenHeader tokenHeader,
       final JwtTokenBuilder jwtTokenBuilder) {
     this.certificateProviderService = certificateProviderService;
     this.tokenClaims = tokenClaims;
@@ -47,32 +45,27 @@ public class TokenCreator implements JwtTokenCreator {
     this.jwtTokenBuilder = jwtTokenBuilder;
   }
 
-  @Override
-  public String createPoppToken(final X509Data x509Data, final String sessionId) {
-    final var keyStoreData = certificateProviderService.getKeyStoreDataPoppToken();
-    final var privateKey = keyStoreData.privateKey();
-    final var signerCertificate = keyStoreData.certificate();
-    final var publicKey = (ECPublicKey) signerCertificate.getPublicKey();
-
-    final var headers =
-        tokenHeader.createHeader(signerCertificate, publicKey, sessionId, TokenType.POPP);
-    final var claims = tokenClaims.createPoppClaims(x509Data, sessionId);
-
-    return jwtTokenBuilder.buildJwtToken(headers, claims, privateKey);
-  }
-
-  @Override
   public String createConnectorToken(
       final StandardScenarioMessage scenarioMessage, final String sessionId) {
     final var keyStoreData = certificateProviderService.getKeyStoreDataConnector();
-    final var privateKey = keyStoreData.privateKey();
-    final var signerCertificate = keyStoreData.certificate();
-    final var publicKey = (ECPublicKey) signerCertificate.getPublicKey();
-
+    final var issuerCertificate =
+        keyStoreData
+            .issuerCertificate()
+            .orElseThrow(
+                () ->
+                    new ScenarioException(
+                        sessionId,
+                        "Missing issuer certificate",
+                        BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
     final var headers =
-        tokenHeader.createHeader(signerCertificate, publicKey, sessionId, TokenType.CONNECTOR);
-    final var claims = tokenClaims.createConnectorClaims(scenarioMessage);
+        tokenHeader.create(signerCertificate(keyStoreData), sessionId, issuerCertificate);
+    final var claims = tokenClaims.create(scenarioMessage);
 
-    return jwtTokenBuilder.buildJwtToken(headers, claims, privateKey);
+    return jwtTokenBuilder.buildJwtToken(headers, claims, keyStoreData.privateKey());
+  }
+
+  private java.security.cert.X509Certificate signerCertificate(
+      final de.gematik.refpopp.popp_server.certificates.KeyStoreData keyStoreData) {
+    return keyStoreData.certificate();
   }
 }

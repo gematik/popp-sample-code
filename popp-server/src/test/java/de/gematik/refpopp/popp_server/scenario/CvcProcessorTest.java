@@ -98,7 +98,7 @@ class CvcProcessorTest {
   }
 
   @Test
-  void createAndValidateCvcCaSuccess() throws CryptoException {
+  void createAndValidateCvcCaSuccess() throws Exception {
     // given
     final var sessionId = "sessionId";
     final var scenarioResultStep =
@@ -113,14 +113,13 @@ class CvcProcessorTest {
       cvcSupportMock.when(() -> CvCertificateSupport.car(cvcMock)).thenReturn("issuer");
 
       // when
-      final var cvc =
-          sut.createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
+      sut.createAndValidateCvcCa(sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
 
       // then
-      assertThat(cvc).isNotNull();
       verify(cvcFactoryMock).create("data".getBytes());
       verify(sessionAccessorMock).storeCvcCA(sessionId, "data".getBytes());
       verify(cvcChainValidatorMock).validate(cvcMock, issuerMock);
+      verify(cvcMock).close();
     }
   }
 

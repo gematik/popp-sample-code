@@ -3,12 +3,19 @@ server:
   tomcat:
     max-http-form-post-size: 2147483648 # 2GB
 
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 springdoc:
   api-docs:
     enabled: true
 
 popp-server:
   url: wss://popp.dev.poppservice.de:443/popp/practitioner/api/v1/token-generation-ehc
+
 connector:
   end-point-url: ${CONNECTOR_END_POINT_URL:http://ti-konnektor/cardservice}
 

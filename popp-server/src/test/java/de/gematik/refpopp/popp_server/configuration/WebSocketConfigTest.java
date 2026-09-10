@@ -27,16 +27,26 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import de.gematik.refpopp.popp_server.handler.WebSocketHandler;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
 @ExtendWith(MockitoExtension.class)
 class WebSocketConfigTest {
 
   @InjectMocks private WebSocketConfig webSocketConfig;
+
+  @BeforeEach
+  void setUp() {
+    // @Value fields are not processed by Mockito's @InjectMocks; set sensible defaults for tests
+    ReflectionTestUtils.setField(webSocketConfig, "messageProcessingPoolSize", 1);
+    ReflectionTestUtils.setField(webSocketConfig, "sendTimeLimitMs", 20000);
+    ReflectionTestUtils.setField(webSocketConfig, "sendBufferSizeLimit", 524288);
+  }
 
   @Test
   void registerWebSocketHandlersRegistersHandler() {

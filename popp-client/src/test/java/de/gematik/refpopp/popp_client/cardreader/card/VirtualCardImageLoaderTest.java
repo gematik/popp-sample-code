@@ -28,7 +28,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class VirtualCardImageLoaderTest {
 
@@ -45,6 +49,37 @@ class VirtualCardImageLoaderTest {
     assertThat(data.subCaCvCertificate()).isNotBlank().startsWith("7F21");
     assertThat(data.version2()).isNotBlank().startsWith("ef2b");
     assertThat(data.egkAuthCvcPrivateKey()).hasSize(32);
+    assertThat(data.rcaCsKeyIdentifier()).isEqualTo("4445475858870222");
+    assertThat(data.rcaAdminCmsCsKeyIdentifier()).isEqualTo("0000000000000013");
+  }
+
+  @Test
+  void loadParsesSubCaCvCertificateFromPrimaryObjectId() throws Exception {
+    final VirtualCardImageLoader loader = new VirtualCardImageLoader();
+    final Path imageFile = Files.createTempFile("virtual-card-loader", ".xml");
+    try {
+      Files.writeString(
+          imageFile,
+          """
+          <card>
+            <child id="EF.C.CA.CS.E256">
+              <attributes><attribute id="body">7F21</attribute></attributes>
+            </child>
+            <child id="PuK.RCA.CS.E256">
+              <attributes><attribute id="keyIdentifier">4445475858870222</attribute></attributes>
+            </child>
+            <child id="PuK.RCA.ADMINCMS.CS.E256">
+              <attributes><attribute id="keyIdentifier">0000000000000013</attribute></attributes>
+            </child>
+          </card>
+          """);
+
+      final VirtualCardImageData data = loader.load(imageFile.toString());
+
+      assertThat(data.subCaCvCertificate()).isEqualTo("7F21");
+    } finally {
+      Files.deleteIfExists(imageFile);
+    }
   }
 
   @Test
@@ -67,6 +102,9 @@ class VirtualCardImageLoaderTest {
       assertThat(fromFile.version2()).isEqualTo(fromClasspath.version2());
       assertThat(fromFile.egkAuthCvcPrivateKey())
           .containsExactly(fromClasspath.egkAuthCvcPrivateKey());
+      assertThat(fromFile.rcaCsKeyIdentifier()).isEqualTo(fromClasspath.rcaCsKeyIdentifier());
+      assertThat(fromFile.rcaAdminCmsCsKeyIdentifier())
+          .isEqualTo(fromClasspath.rcaAdminCmsCsKeyIdentifier());
     } finally {
       Files.deleteIfExists(tempFile);
     }
@@ -79,5 +117,81 @@ class VirtualCardImageLoaderTest {
     assertThatThrownBy(() -> loader.load("missing-virtual-card.xml"))
         .isInstanceOf(FileNotFoundException.class)
         .hasMessageContaining("missing-virtual-card.xml");
+  }
+
+  @Test
+  void loadRejectsMissingRcaCsKeyIdentifier() throws Exception {
+    final VirtualCardImageLoader loader = new VirtualCardImageLoader();
+    final Path imageFile = Files.createTempFile("virtual-card-loader", ".xml");
+    try {
+      Files.writeString(imageFile, "<card />");
+
+      assertThatThrownBy(() -> loader.load(imageFile.toString()))
+          .isInstanceOf(java.io.IOException.class)
+          .hasMessageContaining("PuK.RCA.CS.E256");
+    } finally {
+      Files.deleteIfExists(imageFile);
+    }
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("invalidRcaCsKeyIdentifierCases")
+  void loadRejectsInvalidRcaCsKeyIdentifier(
+      String testCase,
+      String rcaCsKeyIdentifier,
+      String rcaAdminCmsCsKeyIdentifier,
+      String expectedMessage)
+      throws Exception {
+    final VirtualCardImageLoader loader = new VirtualCardImageLoader();
+    final Path imageFile = Files.createTempFile("virtual-card-loader", ".xml");
+    try {
+      Files.writeString(imageFile, cardImage(rcaCsKeyIdentifier, rcaAdminCmsCsKeyIdentifier));
+
+      assertThatThrownBy(() -> loader.load(imageFile.toString()))
+          .isInstanceOf(java.io.IOException.class)
+          .hasMessageContaining(expectedMessage);
+    } finally {
+      Files.deleteIfExists(imageFile);
+    }
+  }
+
+  private static Stream<Arguments> invalidRcaCsKeyIdentifierCases() {
+    return Stream.of(
+        Arguments.of(
+            "invalid RCA CS key identifier",
+            "not-a-key-identifier",
+            "0000000000000013",
+            "PuK.RCA.CS.E256"),
+        Arguments.of(
+            "missing RCA AdminCMS CS key identifier",
+            "4445475858870222",
+            null,
+            "PuK.RCA.ADMINCMS.CS.E256"),
+        Arguments.of(
+            "invalid RCA AdminCMS CS key identifier",
+            "4445475858870222",
+            "not-a-key-identifier",
+            "PuK.RCA.ADMINCMS.CS.E256"));
+  }
+
+  private static String cardImage(String rcaCsKeyIdentifier, String rcaAdminCmsCsKeyIdentifier) {
+    final String adminCmsChild =
+        rcaAdminCmsCsKeyIdentifier == null
+            ? ""
+            : """
+            <child id="PuK.RCA.ADMINCMS.CS.E256">
+              <attributes><attribute id="keyIdentifier">%s</attribute></attributes>
+            </child>
+            """
+                .formatted(rcaAdminCmsCsKeyIdentifier);
+    return """
+    <card>
+      <child id="PuK.RCA.CS.E256">
+        <attributes><attribute id="keyIdentifier">%s</attribute></attributes>
+      </child>
+      %s
+    </card>
+    """
+        .formatted(rcaCsKeyIdentifier, adminCmsChild);
   }
 }

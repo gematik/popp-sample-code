@@ -63,6 +63,7 @@ public class VzdSearchService {
   private static final String APPLICATION_FHIR_JSON = "application/fhir+json";
   private static final String BEARER = "Bearer ";
   private static final String OFFSET = "_offset";
+  private static final int MAX_MOBILE_SEARCH_RESULTS = 100;
   private final VzdTokenService vzdTokenService;
   private final RestClient restClient;
   private final VzdTokenProperties properties;
@@ -176,15 +177,33 @@ public class VzdSearchService {
     var accessToken = vzdTokenService.getAccessToken();
 
     try {
-      var pageUri = URI.create(url);
+      // Extract only safe, typed scalars from the user-supplied URL.
+      // The URI that reaches executeFhirSearch is rebuilt entirely from the
+      // trusted configured base — no user-controlled string ever flows into
+      // the HTTP sink, which eliminates the SSRF taint path.
+      var userParams = UriComponentsBuilder.fromUriString(url).build().getQueryParams();
+      var count = parseIntOrNull(userParams.getFirst(COUNT));
+      var offset = parseIntOrNull(userParams.getFirst(OFFSET));
 
-      log.info("| Searching VZD by page URL at {}", url);
-      var bundle = executeFhirSearch(pageUri, accessToken);
+      var builder = createSearchUriBuilder();
+      if (count != null) {
+        builder.queryParam(COUNT, count);
+      }
+      if (offset != null) {
+        builder.queryParam(OFFSET, offset);
+      }
+      builder.queryParam(FORMAT, "json");
 
-      var queryParams = UriComponentsBuilder.fromUri(pageUri).build().getQueryParams();
-      var count = parseIntOrNull(queryParams.getFirst(COUNT));
+      var safeUri = builder.build().toUri();
 
-      return toDto(withSyntheticNextLinkIfFullPage(bundle, pageUri, count));
+      log.info("| Searching VZD by page URL at {}", safeUri);
+      var bundle = executeFhirSearch(safeUri, accessToken);
+
+      var result = toDto(withSyntheticNextLinkIfFullPage(bundle, safeUri, count));
+      if (result.total() > MAX_MOBILE_SEARCH_RESULTS) {
+        throw new TooManyVzdSearchResultsException(result.total());
+      }
+      return result;
     } catch (RestClientException e) {
       throw new VzdSearchException("VZD search by page URL failed for " + url, e);
     }
@@ -201,7 +220,7 @@ public class VzdSearchService {
   private FhirBundle executeFhirSearch(URI uri, String accessToken) {
     return restClient
         .get()
-        .uri(uri.toString())
+        .uri(uri)
         .header(HttpHeaders.ACCEPT, MediaType.parseMediaType(APPLICATION_FHIR_JSON).toString())
         .header(HttpHeaders.AUTHORIZATION, BEARER + accessToken)
         .retrieve()
@@ -322,10 +341,28 @@ public class VzdSearchService {
 
     return new VzdEntry(
         extractTelematikId(organization),
+        extractIknr(organization),
         organization != null ? organization.name() : null,
         extractPhoneNumbers(organization),
-        toAddress(organization),
+        resolveAddress(location, organization),
         toLocation(location));
+  }
+
+  private VzdAddress resolveAddress(FhirResource location, FhirResource organization) {
+    var locationAddress = toAddress(location);
+    return locationAddress != null ? locationAddress : toAddress(organization);
+  }
+
+  private String extractIknr(FhirResource organization) {
+    if (organization == null || organization.identifier() == null) {
+      return null;
+    }
+    return organization.identifier().stream()
+        .map(FhirIdentifier::value)
+        .filter(StringUtils::hasText)
+        .filter(v -> v.matches("^\\d{9}$"))
+        .findFirst()
+        .orElse(null);
   }
 
   private String extractTelematikId(FhirResource organization) {
@@ -351,13 +388,11 @@ public class VzdSearchService {
         .toList();
   }
 
-  private VzdAddress toAddress(FhirResource organization) {
-    if (organization == null
-        || organization.address() == null
-        || organization.address().isEmpty()) {
+  private VzdAddress toAddress(FhirResource resource) {
+    if (resource == null || resource.address() == null || resource.address().isEmpty()) {
       return null;
     }
-    var address = organization.address().getFirst();
+    var address = resource.address().getFirst();
     var line = address.line() == null ? null : String.join(" ", address.line());
     return new VzdAddress(line, address.postalCode(), address.city());
   }

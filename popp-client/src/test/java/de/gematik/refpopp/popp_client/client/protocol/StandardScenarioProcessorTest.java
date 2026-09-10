@@ -33,9 +33,8 @@ import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
-import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,11 +70,11 @@ class StandardScenarioProcessorTest {
             .timeSpan(0)
             .steps(steps)
             .build();
-    final var sslSession = new CommunicationSslSession(new HashMap<>());
-    sslSession.setVirtualCard(false);
+    final var context = new ClientRequestContext(null);
+    context.setVirtualCard(false);
     when(cardCommunicationService.process(steps)).thenReturn(List.of("9000"));
 
-    final var result = sut.process(message, sslSession);
+    final var result = sut.process(message, context);
 
     assertThat(result).containsExactly("9000");
     verify(cardCommunicationService).process(steps);
@@ -93,12 +92,12 @@ class StandardScenarioProcessorTest {
             .timeSpan(0)
             .steps(steps)
             .build();
-    final var sslSession = new CommunicationSslSession(new HashMap<>());
-    sslSession.setVirtualCard(true);
+    final var context = new ClientRequestContext(null);
+    context.setVirtualCard(true);
     when(virtualCardService.isConfigured()).thenReturn(true);
     when(virtualCardService.process(steps)).thenReturn(List.of("9000"));
 
-    final var result = sut.process(message, sslSession);
+    final var result = sut.process(message, context);
 
     assertThat(result).containsExactly("9000");
     verify(virtualCardService).isConfigured();
@@ -117,9 +116,8 @@ class StandardScenarioProcessorTest {
             .timeSpan(0)
             .steps(steps)
             .build();
-    final var sslSession = new CommunicationSslSession(new HashMap<>());
-    sslSession.setVirtualCard(true);
-    sslSession.setClientSessionId("session-id");
+    final var context = new ClientRequestContext("session-id");
+    context.setVirtualCard(true);
     final var sessionState = new VirtualCardSessionState();
     final var sessionVirtualCardService = mock(VirtualCardService.class);
     when(sessionRegistry.getVirtualCardServiceOrDefault("session-id", virtualCardService))
@@ -128,7 +126,7 @@ class StandardScenarioProcessorTest {
     when(sessionRegistry.getOrCreateVirtualCardSessionState("session-id")).thenReturn(sessionState);
     when(sessionVirtualCardService.process(steps, sessionState)).thenReturn(List.of("9000"));
 
-    final var result = sut.process(message, sslSession);
+    final var result = sut.process(message, context);
 
     assertThat(result).containsExactly("9000");
     final var sessionStateCaptor = ArgumentCaptor.forClass(VirtualCardSessionState.class);
@@ -151,11 +149,11 @@ class StandardScenarioProcessorTest {
             .timeSpan(0)
             .steps(steps)
             .build();
-    final var sslSession = new CommunicationSslSession(new HashMap<>());
-    sslSession.setVirtualCard(true);
+    final var context = new ClientRequestContext(null);
+    context.setVirtualCard(true);
     when(virtualCardService.isConfigured()).thenReturn(false);
 
-    assertThatThrownBy(() -> sut.process(message, sslSession))
+    assertThatThrownBy(() -> sut.process(message, context))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("No image file configured for virtual card.");
 

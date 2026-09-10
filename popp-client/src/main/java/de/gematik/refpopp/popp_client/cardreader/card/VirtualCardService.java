@@ -59,6 +59,7 @@ public class VirtualCardService {
           .parseHex(
               "0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
   private static final byte[] EGK_AID = HexFormat.of().parseHex("D2760001448000");
+  private static final String LIST_PUBLIC_KEY_ENTRY_PREFIX = "e0154f07d2760001448000b60a8308";
   private static final byte[] DF_ESIGN_AID = HexFormat.of().parseHex("A000000167455349474E");
   private static final byte[] POPP_SERVICE_END_ENTITY_PUBLIC_KEY =
       HexFormat.of()
@@ -71,8 +72,6 @@ public class VirtualCardService {
 
   public static final String APDU_RESPONSE_OK = "9000";
 
-  public static final String APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS =
-      "e0154f07d2760001448000b60a83084445475858870222e0154f07d2760001448000b60a83084445475858120223e0194f07d2760001448000a40e830c000a80276001011699902101e0194f07d2760001448000a40e830c4d6f7270686f414343455353e0164f07d2760001448000b60b83094d6f7270686f564552e0154f07d2760001448000b60a83084445475858860220e0154f07d2760001448000b60a83080000000000000013";
   private static final String APDU_SELECT_MASTER_FILE =
       VirtualCardApduHelper.buildApduHex(
           () -> HealthCardCommand.Companion.selectAid(EGK_AID), false);
@@ -256,9 +255,27 @@ public class VirtualCardService {
       return cardData.subCaCvCertificate();
     }
     if (normalizedCommandApdu.equals(APDU_RETRIEVE_PUBLIC_KEY_IDENTIFIERS)) {
-      return APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS;
+      return buildRetrievePublicKeyIdentifiersResponse(
+          cardData.rcaCsKeyIdentifier(), cardData.rcaAdminCmsCsKeyIdentifier());
     }
     return "";
+  }
+
+  static String buildRetrievePublicKeyIdentifiersResponse(
+      final String rcaCsKeyIdentifier, final String rcaAdminCmsCsKeyIdentifier) {
+    if (rcaCsKeyIdentifier == null || !rcaCsKeyIdentifier.matches("[0-9A-Fa-f]{16}")) {
+      throw new IllegalStateException(
+          "No valid RCA CS key identifier configured for virtual card.");
+    }
+    if (rcaAdminCmsCsKeyIdentifier == null
+        || !rcaAdminCmsCsKeyIdentifier.matches("[0-9A-Fa-f]{16}")) {
+      throw new IllegalStateException(
+          "No valid RCA AdminCMS CS key identifier configured for virtual card.");
+    }
+    return LIST_PUBLIC_KEY_ENTRY_PREFIX
+        + rcaCsKeyIdentifier
+        + LIST_PUBLIC_KEY_ENTRY_PREFIX
+        + rcaAdminCmsCsKeyIdentifier;
   }
 
   private String signInternalAuthenticationChallenge(final String normalizedCommandApdu) {

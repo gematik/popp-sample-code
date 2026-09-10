@@ -36,7 +36,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.ScenarioResultStep;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
-import de.gematik.refpopp.popp_server.scenario.common.token.TokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.PoppTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
@@ -50,7 +50,7 @@ class ReadX509ScenarioResultProcessorTest {
   private ReadX509ScenarioResultProcessor sut;
   private ScenarioResultFinder scenarioResultFinderMock;
   private X509CertificateProcessor x509CertificateProcessorMock;
-  private TokenCreator tokenCreatorMock;
+  private PoppTokenCreator tokenCreatorMock;
   private SessionAccessor sessionAccessorMock;
   private EgkHashValidationService egkHashValidationServiceMock;
 
@@ -58,7 +58,7 @@ class ReadX509ScenarioResultProcessorTest {
   void setUp() {
     scenarioResultFinderMock = mock(ScenarioResultFinder.class);
     x509CertificateProcessorMock = mock(X509CertificateProcessor.class);
-    tokenCreatorMock = mock(TokenCreator.class);
+    tokenCreatorMock = mock(PoppTokenCreator.class);
     sessionAccessorMock = mock(SessionAccessor.class);
     egkHashValidationServiceMock = mock(EgkHashValidationService.class);
     sut =

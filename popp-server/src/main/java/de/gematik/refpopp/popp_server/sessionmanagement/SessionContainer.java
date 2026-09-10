@@ -26,7 +26,7 @@ import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.lang.NonNull;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -45,6 +45,7 @@ public class SessionContainer {
     CVC_CA,
     AUT,
     ZETA_USER_INFO,
+    OCSP_RESPONSE,
     DEFAULT
   }
 
@@ -54,17 +55,22 @@ public class SessionContainer {
       new ConcurrentHashMap<>();
 
   public <T> void storeSessionData(
-      @NonNull final String sessionId,
-      @NonNull final SessionStorageKey key,
-      @NonNull final T value) {
+      final String sessionId, final SessionStorageKey key, final T value) {
     customSessionStorage.computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>()).put(key, value);
   }
 
   @SuppressWarnings("unchecked")
+  public <T> T computeSessionDataIfAbsent(
+      final String sessionId, final SessionStorageKey key, final Supplier<T> valueSupplier) {
+    return (T)
+        customSessionStorage
+            .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
+            .computeIfAbsent(key, k -> valueSupplier.get());
+  }
+
+  @SuppressWarnings("unchecked")
   public <T> Optional<T> retrieveSessionData(
-      @NonNull final String sessionId,
-      @NonNull final SessionStorageKey key,
-      @NonNull final Type type) {
+      final String sessionId, final SessionStorageKey key, final Type type) {
     return Optional.ofNullable(customSessionStorage.get(sessionId))
         .map(data -> data.get(key))
         .filter(value -> isInstanceOfType(value, type))
@@ -83,15 +89,15 @@ public class SessionContainer {
     }
   }
 
-  public void storeScenario(@NonNull final String sessionId, @NonNull final Scenario scenario) {
+  public void storeScenario(final String sessionId, final Scenario scenario) {
     scenarioMap.put(sessionId, scenario);
   }
 
-  public Optional<Scenario> retrieveScenario(@NonNull final String sessionId) {
+  public Optional<Scenario> retrieveScenario(final String sessionId) {
     return Optional.ofNullable(scenarioMap.get(sessionId));
   }
 
-  public void removeScenario(@NonNull final String sessionId) {
+  public void removeScenario(final String sessionId) {
     scenarioMap.remove(sessionId);
   }
 
@@ -99,9 +105,40 @@ public class SessionContainer {
     return scenarioMap.containsKey(sessionId);
   }
 
-  public void clearSession(@NonNull final String sessionId) {
+  public void clearSession(final String sessionId) {
     scenarioMap.remove(sessionId);
     customSessionStorage.remove(sessionId);
+  }
+
+  /**
+   * Removes all state belonging to a transport (WebSocket) connection: the connection scoped entry
+   * itself (keyed by the transport session id, e.g. ZETA user info) as well as every logical
+   * session entry that was derived from this transport id ({@code transportId::clientSessionId}).
+   */
+  public void clearConnection(final String transportSessionId) {
+    final var prefix = LogicalSessionId.transportPrefix(transportSessionId);
+    scenarioMap.remove(transportSessionId);
+    customSessionStorage.remove(transportSessionId);
+    scenarioMap.keySet().removeIf(key -> key.startsWith(prefix));
+    customSessionStorage.keySet().removeIf(key -> key.startsWith(prefix));
+  }
+
+  /**
+   * Clears all state belonging to a single logical session, which is scoped to a single token
+   * request.
+   */
+  public void clearRequestState(final String logicalSessionId) {
+    scenarioMap.remove(logicalSessionId);
+    customSessionStorage.remove(logicalSessionId);
+  }
+
+  /** Copies a single storage value from one session id to another, if present. */
+  public void copySessionData(
+      final String fromSessionId, final String toSessionId, final SessionStorageKey key) {
+    final var source = customSessionStorage.get(fromSessionId);
+    if (source != null && source.containsKey(key)) {
+      storeSessionData(toSessionId, key, source.get(key));
+    }
   }
 
   private boolean isInstanceOfType(final Object value, final Type type) {

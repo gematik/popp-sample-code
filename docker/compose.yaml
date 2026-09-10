@@ -29,6 +29,8 @@ services:
       - CERT_HASH_IMPORT_LOCATION=file:/app/import
       - SPRING_DATASOURCE_URL=jdbc:postgresql://popp-server-db:5432/egk_hash_db
       - FEDERATION_JWKS_URL=http://popp-server:8443
+      - VZD_CLIENT_ID=${VZD_CLIENT_ID:-}
+      - VZD_CLIENT_SECRET=${VZD_CLIENT_SECRET:-}
     networks:
       - popp-network
     depends_on:
@@ -63,7 +65,7 @@ services:
       - popp-zeta-pep
 
   popp-zeta-pep:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:1.2.0
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/ngx_pep:1.3.0
     environment:
       - POPP_SERVER_HOST=popp-server:8443
       - HTTP_PROXY=
@@ -88,7 +90,7 @@ services:
       popp-server:
         condition: service_healthy
   popp-zeta-pdp:
-    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:1.2.3
+    image: europe-west3-docker.pkg.dev/gematik-pt-zeta-prod/zeta-dcr/keycloak-zeta:1.3.1
     environment:
       CHECK_CLIENT_ATTESTATION_ENABLED: true
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -112,6 +114,8 @@ services:
       KC_HTTP_RELATIVE_PATH: /auth
       KC_PROXY_HEADERS: xforwarded
       KC_LOG_LEVEL: INFO
+      KC_TRACING_ENABLED: true
+      SMCB_KEYSTORE_META_LOCATION: /var/trust-data/smcb-trust-roots-meta.json
       SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb/truststore.p12
       SMCB_KEYSTORE_PASSWORD: "changeit"
       SMCB_HASHING_PEPPER: "-085c1245-dc0d-4d39-95b4-97496bec6182"
@@ -139,6 +143,7 @@ services:
       - ./zeta/smcb:/opt/keycloak/conf/smcb
       - ./zeta/tpm/:/opt/keycloak/conf/tpm
       - ./zeta/ocsp-signers.p12:/var/trust-data/ocsp-signers.p12
+      - ./zeta/smcb-trust-roots-meta.json:/var/trust-data/smcb-trust-roots-meta.json
     networks:
       - popp-network
     healthcheck:

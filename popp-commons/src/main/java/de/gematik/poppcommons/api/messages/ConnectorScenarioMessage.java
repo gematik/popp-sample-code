@@ -35,7 +35,8 @@ import lombok.NonNull;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PRIVATE, force = true)
-public final class ConnectorScenarioMessage extends PoPPMessage implements Serializable {
+public final class ConnectorScenarioMessage extends PoPPMessage
+    implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = -5965692740221251032L;
 
@@ -52,9 +53,22 @@ public final class ConnectorScenarioMessage extends PoPPMessage implements Seria
   @JsonProperty("signedScenario")
   private String signedScenario;
 
+  /**
+   * Session identifier correlating this scenario message to a single (potentially parallel) token
+   * request. The value is taken from "StartMessage.clientSessionId".
+   */
+  @JsonProperty("clientSessionId")
+  private String clientSessionId;
+
   public ConnectorScenarioMessage(final String version, final String signedScenario) {
+    this(version, signedScenario, null);
+  }
+
+  public ConnectorScenarioMessage(
+      final String version, final String signedScenario, final String clientSessionId) {
     this.version = version;
     this.signedScenario = signedScenario;
+    this.clientSessionId = clientSessionId;
     this.type = EnumPoPPMessageTypes.CONNECTOR_SCENARIO_MESSAGE;
   }
 }

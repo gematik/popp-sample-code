@@ -30,6 +30,7 @@ import de.gematik.zeta.sdk.WsClientExtension;
 import de.gematik.zeta.sdk.ZetaSdkClient;
 import io.ktor.client.plugins.logging.LogLevel;
 import jakarta.annotation.PostConstruct;
+import java.io.EOFException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,6 +66,13 @@ public class SecureWebSocketClient {
   private final AtomicReference<Throwable> connectError = new AtomicReference<>();
   private final Map<String, Object> sessionMetadata;
   private final WsClientWrapper wsClientWrapper;
+
+  /**
+   * Serializes outbound sends. Multiple worker threads may process (parallel) requests over the
+   * same connection and therefore call {@link #send(String)} concurrently. The underlying WebSocket
+   * session is not guaranteed to be safe for concurrent writes, so we guard them.
+   */
+  private final Object sendLock = new Object();
 
   @Autowired
   public SecureWebSocketClient(
@@ -162,7 +170,9 @@ public class SecureWebSocketClient {
       throw new IllegalStateException("WebSocket session is not open");
     }
 
-    currentSession.sendText(messageAsString);
+    synchronized (sendLock) {
+      currentSession.sendText(messageAsString);
+    }
   }
 
   public Map<String, Object> getSSLSession() {
@@ -217,9 +227,31 @@ public class SecureWebSocketClient {
       while (handleIncomingMessage(session.receiveNext())) {
         // keep consuming the session until it closes
       }
+    } catch (final Exception e) {
+      // After the connection has been established the server may close the underlying TCP
+      // connection abruptly (e.g. right after sending the token) without performing a clean
+      // WebSocket close handshake. In that case receiveNext() surfaces an EOFException. This is
+      // not an error condition for us, so we treat it as a regular connection close instead of
+      // letting it bubble up and be logged as "WebSocket session failed".
+      if (isAbruptConnectionClose(e)) {
+        log.debug("| WebSocket connection closed abruptly by the server (treated as close)", e);
+        onClose(-1, "Connection closed by server", true);
+      } else {
+        log.error("| Error while consuming WebSocket session: {}", e.getMessage(), e);
+        onError(e);
+      }
     } finally {
       this.session.compareAndSet(session, null);
     }
+  }
+
+  private static boolean isAbruptConnectionClose(final Throwable throwable) {
+    for (Throwable current = throwable; current != null; current = current.getCause()) {
+      if (current instanceof EOFException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean handleIncomingMessage(final WsClientExtension.WsMessage incoming) {

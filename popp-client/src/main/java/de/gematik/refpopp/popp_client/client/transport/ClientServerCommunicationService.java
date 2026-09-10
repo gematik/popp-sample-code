@@ -23,6 +23,8 @@ package de.gematik.refpopp.popp_client.client.transport;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
+import jakarta.annotation.PreDestroy;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -34,7 +36,8 @@ import tools.jackson.databind.ObjectMapper;
 public class ClientServerCommunicationService {
 
   private final ObjectMapper objectMapper;
-  private SecureWebSocketClient secureWebSocketClient;
+  private final AtomicReference<SecureWebSocketClient> secureWebSocketClientRef =
+      new AtomicReference<>();
   private final ObjectProvider<SecureWebSocketClient> webSocketClientProvider;
 
   public ClientServerCommunicationService(
@@ -45,42 +48,67 @@ public class ClientServerCommunicationService {
     this.webSocketClientProvider = webSocketClientProvider;
   }
 
-  public void connect(CardConnectionType cardConnectionType) {
+  /**
+   * Establishes a WebSocket connection to the server if not already connected. If a connection is
+   * already open, it will be reused. This method is synchronized to prevent concurrent connection
+   * attempts.
+   *
+   * @param cardConnectionType The type of card connection to use for the WebSocket connection.
+   */
+  public synchronized void connect(CardConnectionType cardConnectionType) {
     log.debug("| Entering connect()");
+    final var existing = secureWebSocketClientRef.get();
+    if (existing != null && existing.isOpen()) {
+      log.info("| Reusing existing open WebSocket connection");
+      log.debug("| Exiting connect()");
+      return;
+    }
 
-    this.secureWebSocketClient = createNewWebSocketClient();
+    final var client = createNewWebSocketClient();
+    secureWebSocketClientRef.set(client);
 
-    if (secureWebSocketClient.isClosed() || !secureWebSocketClient.isOpen()) {
-      log.info("| Websocket client is closed");
+    try {
+      client.connectBlocking(cardConnectionType);
+    } catch (final RuntimeException e) {
+      log.error("| Error connecting to WebSocket server: {}", e.getMessage(), e);
       try {
-        secureWebSocketClient.connectBlocking(cardConnectionType);
-      } catch (final RuntimeException e) {
-        log.error("| Error connecting to WebSocket server: {}", e.getMessage(), e);
-        secureWebSocketClient.close();
-        throw e;
+        client.close();
+      } catch (final Exception ex) {
+        log.debug(
+            "| Error while closing websocket client after failed connect: {}", ex.getMessage());
       }
+      secureWebSocketClientRef.set(null);
+      throw e;
     }
 
     log.debug("| Exiting connect()");
   }
 
-  public void disconnect() {
-    if (secureWebSocketClient != null) {
-      secureWebSocketClient.close();
-      secureWebSocketClient = null;
+  @PreDestroy
+  public synchronized void disconnect() {
+    log.debug("| Entering disconnect()");
+    final var client = secureWebSocketClientRef.getAndSet(null);
+    if (client != null) {
+      try {
+        client.close();
+      } catch (final Exception e) {
+        log.debug("| Error while closing websocket client during disconnect: {}", e.getMessage());
+      }
     }
+    log.debug("| Exiting disconnect()");
   }
 
   public void sendMessage(final PoPPMessage poPPMessage) {
     log.debug("| Entering sendMessage()");
     try {
       final var messageAsString = objectMapper.writeValueAsString(poPPMessage);
-      if (secureWebSocketClient == null || secureWebSocketClient.isClosed()) {
+      final var client = secureWebSocketClientRef.get();
+      if (client == null || client.isClosed()) {
         log.error("| Websocket client is not connected");
         throw new IllegalStateException("Websocket client is not connected");
       }
       log.info("| Send message: {}", messageAsString);
-      secureWebSocketClient.send(messageAsString);
+      client.send(messageAsString);
     } catch (final JacksonException ex) {
       log.error("| Error converting message object to string: {}", ex.getMessage());
       throw new IllegalStateException("Error converting message object to string");
@@ -89,7 +117,11 @@ public class ClientServerCommunicationService {
   }
 
   public CommunicationSslSession getSslSession() {
-    return new CommunicationSslSession(secureWebSocketClient.getSSLSession());
+    final var client = secureWebSocketClientRef.get();
+    if (client == null) {
+      throw new IllegalStateException("Websocket client is not connected");
+    }
+    return new CommunicationSslSession(client.getSSLSession());
   }
 
   private SecureWebSocketClient createNewWebSocketClient() {

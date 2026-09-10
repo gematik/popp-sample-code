@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
@@ -84,6 +85,50 @@ class WebSocketSessionCommunicationTest {
     // then
     assertThat(scenarioException.getErrorCode())
         .isEqualTo(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
+  void sendMessageUsesCustomMapperAndPropagatesMapperExceptions() {
+    // given
+    final var message = new TokenMessage("token", "pn");
+    final var mapperMock = mock(ObjectMapper.class);
+    final var sutWithMapper = new WebSocketSessionCommunication(webSocketSessionMock, mapperMock);
+
+    // when mapper throws a Jackson streaming read exception (subtype of IOException)
+    doThrow(new tools.jackson.core.exc.StreamReadException("mapper-error"))
+        .when(mapperMock)
+        .writeValueAsString(any());
+
+    // then Jackson's streaming exception (runtime in Jackson 3) is propagated
+    assertThrows(
+        tools.jackson.core.exc.StreamReadException.class, () -> sutWithMapper.sendMessage(message));
+  }
+
+  @Test
+  void sendMessageWithCustomMapperSerializesReturnedString() throws IOException {
+    // given
+    final var message = new TokenMessage("token", "pn");
+    final var mapperMock = mock(ObjectMapper.class);
+    final var sutWithMapper = new WebSocketSessionCommunication(webSocketSessionMock, mapperMock);
+
+    // when
+    when(mapperMock.writeValueAsString(message)).thenReturn("{\"dummy\":true}");
+    final var argumentCaptor = ArgumentCaptor.forClass(TextMessage.class);
+
+    sutWithMapper.sendMessage(message);
+
+    // then
+    verify(webSocketSessionMock).sendMessage(argumentCaptor.capture());
+    assertThat(argumentCaptor.getValue().getPayload()).isEqualTo("{\"dummy\":true}");
+  }
+
+  @Test
+  void getTransportSessionIdReturnsSessionId() {
+    // when
+    sut.getTransportSessionId();
+
+    // then
+    verify(webSocketSessionMock).getId();
   }
 
   @Test

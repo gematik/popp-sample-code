@@ -1,4 +1,3 @@
-
 certificates:
   root: "certificates/root/GEM.EGK-CA51_TEST-ONLY.der"
   cvc-end-entity: "certificates/cvc/80276001011699902101-cvc-flag0.crt"
@@ -11,7 +10,13 @@ certificates:
   federation-keystore-password: "gematik"
   hash-import-keystore: "classpath:certificates/TEST_EE_2025-05_de.gematik.TKK.eContentSigner.p12"
   hash-import-keystore-password: "01234567"
-  ocsp-response: "certificates/ocsp/resp.der"
+  ocsp:
+    provider: ${OCSP_PROVIDER:rest} # rest, classpath
+    rest:
+      timeout: ${OCSP_TIMEOUT:10s}
+      fallback:
+        resource: classpath:/certificates/ocsp/resp.der
+
   cvc-popp-service-private-key: "identities/PoPP26-Server/80276001011699902101-cvc-flag0/80276001011699902101-cvc-flag0.prv"
   identities-location: ${IDENTITIES_LOCATION:classpath:identities}
 

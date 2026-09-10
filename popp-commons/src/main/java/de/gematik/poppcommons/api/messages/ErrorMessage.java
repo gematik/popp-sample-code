@@ -38,9 +38,17 @@ import lombok.NonNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public final class ErrorMessage extends PoPPMessage implements Serializable {
+public final class ErrorMessage extends PoPPMessage
+    implements Serializable, ClientSessionScopedMessage {
 
   @Serial private static final long serialVersionUID = 1L;
+
+  /**
+   * Correlates this error with the request that caused it (when known). Allows the client to fail
+   * the correct (potentially parallel) pending request over a shared connection.
+   */
+  @JsonProperty("clientSessionId")
+  private String clientSessionId;
 
   /** The error code */
   @JsonProperty("errorCode")
@@ -52,7 +60,9 @@ public final class ErrorMessage extends PoPPMessage implements Serializable {
   private String errorDetail;
 
   @Builder
-  private ErrorMessage(final String errorCode, final String errorDetail) {
+  private ErrorMessage(
+      final String clientSessionId, final String errorCode, final String errorDetail) {
+    this.clientSessionId = clientSessionId;
     this.errorCode = errorCode;
     this.errorDetail = errorDetail;
     this.type = ERROR_MESSAGE;

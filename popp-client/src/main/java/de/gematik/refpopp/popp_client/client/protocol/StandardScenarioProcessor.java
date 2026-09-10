@@ -23,8 +23,8 @@ package de.gematik.refpopp.popp_client.client.protocol;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -38,14 +38,13 @@ public class StandardScenarioProcessor {
   private final CommunicationSessionRegistry sessionRegistry;
 
   public List<String> process(
-      final StandardScenarioMessage standardScenarioMessage,
-      final CommunicationSslSession sslSession) {
+      final StandardScenarioMessage standardScenarioMessage, final ClientRequestContext context) {
     final var steps = standardScenarioMessage.getSteps();
-    if (!sslSession.isVirtualCard()) {
+    if (context == null || !context.isVirtualCard()) {
       return cardCommunicationService.process(steps);
     }
 
-    final var clientSessionId = sslSession.getClientSessionId();
+    final var clientSessionId = context.getClientSessionId();
     final var sessionVirtualCardService =
         clientSessionId == null
             ? virtualCardService

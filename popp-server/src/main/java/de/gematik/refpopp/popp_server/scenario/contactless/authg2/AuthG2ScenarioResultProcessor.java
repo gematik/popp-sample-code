@@ -33,7 +33,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
-import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.PoppTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
@@ -47,7 +47,7 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   private final CvcProcessor cvcProcessor;
   private final ScenarioResultFinder scenarioResultFinder;
   private final X509CertificateProcessor x509CertificateProcessor;
-  private final JwtTokenCreator tokenCreator;
+  private final PoppTokenCreator poppTokenCreator;
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
   private final CvcSignatureVerifier signatureVerifier;
@@ -56,14 +56,14 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
       final CvcProcessor cvcProcessor,
       final ScenarioResultFinder scenarioResultFinder,
       final X509CertificateProcessor x509CertificateProcessor,
-      final JwtTokenCreator tokenCreator,
+      final PoppTokenCreator poppTokenCreator,
       final SessionAccessor sessionAccessor,
       final EgkHashValidationService egkHashValidationService,
       final CvcSignatureVerifier signatureVerifier) {
     this.cvcProcessor = cvcProcessor;
     this.scenarioResultFinder = scenarioResultFinder;
     this.x509CertificateProcessor = x509CertificateProcessor;
-    this.tokenCreator = tokenCreator;
+    this.poppTokenCreator = poppTokenCreator;
     this.sessionAccessor = sessionAccessor;
     this.egkHashValidationService = egkHashValidationService;
     this.signatureVerifier = signatureVerifier;
@@ -76,17 +76,18 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
 
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
-    final var endEntityCvc =
+    try (final var endEntityCvc =
         cvcProcessor.createAndValidateCvc(
-            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE);
-    cvcProcessor.createAndValidateCvcCa(
-        sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
-    verifySignatureOfNonce(sessionId, scenarioResult, endEntityCvc);
-    final var x509Data = extractDataFromX509(sessionId, scenarioResult);
-    checkCertificatePair(sessionId);
-    final var poppToken = tokenCreator.createPoppToken(x509Data, sessionId);
-    sessionAccessor.storeJwtToken(sessionId, poppToken);
-    log.info("| {} Generated PoPP-Token for the client: {}", sessionId, poppToken);
+            sessionId, scenarioResult, StepId.READ_END_ENTITY_CV_CERTIFICATE)) {
+      cvcProcessor.createAndValidateCvcCa(
+          sessionId, scenarioResult, StepId.READ_SUB_CA_CV_CERTIFICATE);
+      verifySignatureOfNonce(sessionId, scenarioResult, endEntityCvc);
+      final var x509Data = extractDataFromX509(sessionId, scenarioResult);
+      checkCertificatePair(sessionId);
+      final var poppToken = poppTokenCreator.createPoppToken(x509Data, sessionId);
+      sessionAccessor.storeJwtToken(sessionId, poppToken);
+      log.info("| {} Generated PoPP-Token for the client: {}", sessionId, poppToken);
+    }
   }
 
   private X509Data extractDataFromX509(

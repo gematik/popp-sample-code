@@ -128,8 +128,8 @@ class WellKnownControllerTest {
                 .json(
                     """
                     {
-                      "code": "FEDERATION_ENTITY_STATEMENT_CREATION_FAILED",
-                      "message": "Failed to create federation entity statement"
+                      "errorCode": "FEDERATION_ENTITY_STATEMENT_CREATION_FAILED",
+                      "errorDetail": "Failed to create federation entity statement"
                     }
                     """));
   }
@@ -150,8 +150,8 @@ class WellKnownControllerTest {
                 .json(
                     """
                     {
-                      "code": "SIGNED_JWKS_CREATION_FAILED",
-                      "message": "Failed to create signed JWKS"
+                      "errorCode": "SIGNED_JWKS_CREATION_FAILED",
+                      "errorDetail": "Failed to create signed JWKS"
                     }
                     """));
   }

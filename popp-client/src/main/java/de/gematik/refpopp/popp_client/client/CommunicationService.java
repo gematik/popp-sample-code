@@ -26,8 +26,9 @@ import de.gematik.refpopp.popp_client.cardreader.card.CardCommunicationService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardServiceFactory;
 import de.gematik.refpopp.popp_client.client.protocol.PoPPMessageHandler;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
+import de.gematik.refpopp.popp_client.client.transport.ClientMessageDispatcher;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.client.transport.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.transport.events.TextMessageReceivedEvent;
@@ -39,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,14 +64,21 @@ public class CommunicationService {
   private final CommunicationSessionRegistry sessionRegistry;
   private final ConnectorSessionLifecycle connectorSessionLifecycle;
   private final PoPPMessageHandler poPPMessageHandler;
+  private final ClientMessageDispatcher messageDispatcher;
+  private final ReentrantLock physicalCardFlowLock = new ReentrantLock(true);
 
-  @Value("${popp-client.token-wait-timeout-seconds:5}")
+  @Value("${popp-client.token-wait-timeout-seconds:30}")
   private int tokenWaitTimeoutSeconds;
 
   public String startStandardCardReader(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
-    final var sessionId = resolveSessionId(clientSessionId);
-    return startAndAwaitToken(sessionId, () -> executeStart(cardConnectionType, sessionId));
+    physicalCardFlowLock.lock();
+    try {
+      final var sessionId = resolveSessionId(clientSessionId);
+      return startAndAwaitToken(sessionId, () -> executeStart(cardConnectionType, sessionId));
+    } finally {
+      physicalCardFlowLock.unlock();
+    }
   }
 
   public String startWithConnector(CardConnectionType connectorType, String patientId) {
@@ -79,8 +88,8 @@ public class CommunicationService {
 
   public String startConnectorMock(final String clientSessionId) {
     final var sessionId = resolveSessionId(clientSessionId);
-    final var sslSession = initializeSslSession(sessionId, CardConnectionType.UNKNOWN);
-    sslSession.setConnectorMock(true);
+    final var context = initializeRequestContext(sessionId, CardConnectionType.UNKNOWN);
+    context.setConnectorMock(true);
     return startAndAwaitToken(sessionId, () -> sendConnectorStartMessage(sessionId));
   }
 
@@ -96,8 +105,8 @@ public class CommunicationService {
     }
 
     final var sessionId = resolveSessionId(clientSessionId);
-    final var sslSession = initializeSslSession(sessionId, cardConnectionType);
-    sslSession.setVirtualCard(true);
+    final var context = initializeRequestContext(sessionId, cardConnectionType);
+    context.setVirtualCard(true);
     sessionRegistry.registerVirtualCard(sessionId, selectedVirtualCardService);
     return startAndAwaitToken(sessionId, () -> sendStartMessage(cardConnectionType, sessionId));
   }
@@ -116,25 +125,42 @@ public class CommunicationService {
     log.debug("| Entering handleServerEvent() with event-payload {}", event.getPayload());
     final var eventPayload = event.getPayload();
 
+    final PoPPMessage poPPMessage;
     try {
-      final var poPPMessage = mapper.readValue(eventPayload, PoPPMessage.class);
-      poPPMessageHandler.handle(poPPMessage);
+      poPPMessage = mapper.readValue(eventPayload, PoPPMessage.class);
     } catch (final JacksonException e) {
       log.error("| Error parsing message: {}", e.getMessage());
       throw new IllegalArgumentException("Error parsing message", e);
     }
+
+    final var orderingKey =
+        poPPMessage instanceof final ClientSessionScopedMessage scoped
+            ? scoped.getClientSessionId()
+            : null;
+    messageDispatcher.dispatch(orderingKey, () -> poPPMessageHandler.handle(poPPMessage));
   }
 
   private void executeStart(
       final CardConnectionType cardConnectionType, final String clientSessionId) {
-    initializeSslSession(clientSessionId, cardConnectionType);
+    initializeRequestContext(clientSessionId, cardConnectionType);
     validateConnectionCompatibility(cardConnectionType);
     sendStartMessage(cardConnectionType, clientSessionId);
   }
 
   private String resolveSessionId(final String sessionUUID) {
     final var sessionUUIDExists = sessionUUID != null && !sessionUUID.isEmpty();
-    return sessionUUIDExists ? sessionUUID : UUID.randomUUID().toString();
+    if (sessionUUIDExists) {
+      return sessionUUID;
+    }
+    try {
+      final var ssl = clientServerCommunicationService.getSslSession();
+      if (ssl != null && ssl.getClientSessionId() != null && !ssl.getClientSessionId().isBlank()) {
+        return ssl.getClientSessionId();
+      }
+    } catch (final Exception ignored) {
+      // fall back to random
+    }
+    return UUID.randomUUID().toString();
   }
 
   private void sendStartMessage(
@@ -152,16 +178,10 @@ public class CommunicationService {
     sendStartMessage(CardConnectionType.CONTACT_CONNECTOR, sessionId);
   }
 
-  private CommunicationSslSession initializeSslSession(
+  private ClientRequestContext initializeRequestContext(
       final String clientSessionId, final CardConnectionType cardConnectionType) {
     clientServerCommunicationService.connect(cardConnectionType);
-    final var sslSession = clientServerCommunicationService.getSslSession();
-    sslSession.setClientSessionId(clientSessionId);
-
-    if (cardConnectionType != CardConnectionType.UNKNOWN) {
-      sslSession.setCardConnectionType(cardConnectionType);
-    }
-    return sslSession;
+    return sessionRegistry.registerRequestContext(clientSessionId, cardConnectionType);
   }
 
   private void validateConnectionCompatibility(final CardConnectionType cardConnectionType) {
@@ -188,6 +208,10 @@ public class CommunicationService {
   }
 
   private String waitAndGetToken(CompletableFuture<String> tokenFuture) {
+    // The connection is deliberately no longer closed after receiving a token, so that
+    // additional sequential token requests can be made over the same kept-open WebSocket
+    // connection. Explicit closing is now performed via
+    // clientServerCommunicationService.disconnect() by the caller or during shutdown.
     try {
       return tokenFuture.get(tokenWaitTimeoutSeconds, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
@@ -199,8 +223,6 @@ public class CommunicationService {
       final var cause = e.getCause();
       throw new TokenRetrievalException(
           cause == null ? "Error while retrieving token" : cause.getMessage(), cause);
-    } finally {
-      clientServerCommunicationService.disconnect();
     }
   }
 }

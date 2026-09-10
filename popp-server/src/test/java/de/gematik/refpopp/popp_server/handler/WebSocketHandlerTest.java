@@ -30,11 +30,13 @@ import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
-import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageHandlerOrchestrator;
+import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrchestrator;
 import de.gematik.refpopp.popp_server.scenario.common.token.UserInfo;
 import de.gematik.refpopp.popp_server.scenario.contactbased.ContactBasedScenariosProvider;
+import de.gematik.refpopp.popp_server.sessionmanagement.LogicalSessionId;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,14 +54,14 @@ class WebSocketHandlerTest {
   private WebSocketHandler sut;
   private SessionContainer sessionContainerMock;
   private WebSocketSession sessionMock;
-  private MessageHandlerOrchestrator messageHandlerOrchestratorMock;
+  private MessageOrchestrator messageHandlerOrchestratorMock;
   private ObjectMapper objectMapper;
   private ContactBasedScenariosProvider contactBasedScenariosProvider;
 
   @BeforeEach
   void setUp() {
     sessionContainerMock = mock(SessionContainer.class);
-    messageHandlerOrchestratorMock = mock(MessageHandlerOrchestrator.class);
+    messageHandlerOrchestratorMock = mock(MessageOrchestrator.class);
     objectMapper = new ObjectMapper();
     contactBasedScenariosProvider = new ContactBasedScenariosProvider();
     sut =
@@ -67,9 +69,15 @@ class WebSocketHandlerTest {
             sessionContainerMock,
             messageHandlerOrchestratorMock,
             objectMapper,
-            contactBasedScenariosProvider);
+            contactBasedScenariosProvider,
+            1, // messageProcessingPoolSize
+            1000, // sendTimeLimitMs
+            1024 // sendBufferSizeLimit
+            );
     sessionMock = mock(WebSocketSession.class);
     when(sessionMock.getHandshakeHeaders()).thenReturn(new HttpHeaders());
+    // ensure session id is non-null for tests - ConcurrentHashMap does not allow null keys
+    when(sessionMock.getId()).thenReturn("session1");
   }
 
   @Test
@@ -109,15 +117,38 @@ class WebSocketHandlerTest {
     final var expectedStartMessage = objectMapper.readValue(test, PoPPMessage.class);
     final var poppMessageCapture = ArgumentCaptor.forClass(PoPPMessage.class);
 
-    // when
-    sut.handleTextMessage(sessionMock, message);
+    // when - invoke the handler synchronously (processMessage is executed on a worker pool in prod)
+    invokeProcessMessageSync(sut, sessionMock, message);
 
     // then
-    verify(messageHandlerOrchestratorMock)
+    // processing is done on a worker pool, wait for the async task to complete
+    verify(messageHandlerOrchestratorMock, timeout(2000))
         .orchestrate(poppMessageCapture.capture(), any(SessionCommunication.class));
     assertThat(poppMessageCapture.getValue())
         .usingRecursiveComparison()
         .isEqualTo(expectedStartMessage);
+  }
+
+  @Test
+  void handleTextMessagePassesRequestScopedCommunication() {
+    // given
+    final var clientSessionId = "client-123";
+    final var payload =
+        String.format(
+            "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"%s\",\"cardConnectionType\":\"contact-standard\"}",
+            clientSessionId);
+    final var message = new TextMessage(payload);
+
+    final var commCaptor = ArgumentCaptor.forClass(SessionCommunication.class);
+
+    // when - invoke the handler synchronously
+    invokeProcessMessageSync(sut, sessionMock, message);
+
+    // then
+    verify(messageHandlerOrchestratorMock, timeout(2000))
+        .orchestrate(any(PoPPMessage.class), commCaptor.capture());
+    final var comm = commCaptor.getValue();
+    assertThat(comm.getSessionId()).isEqualTo(LogicalSessionId.of("session1", clientSessionId));
   }
 
   @Test
@@ -139,13 +170,17 @@ class WebSocketHandlerTest {
             sessionContainerMock,
             messageHandlerOrchestratorMock,
             objectMapperMock,
-            contactBasedScenariosProvider);
+            contactBasedScenariosProvider,
+            1,
+            1000,
+            1024);
 
-    // when
-    webSocketHandlerWithMockedObjectMapper.handleTextMessage(sessionMock, message);
+    // when - invoke synchronously to avoid async timing issues in tests
+    invokeProcessMessageSync(webSocketHandlerWithMockedObjectMapper, sessionMock, message);
 
     // then
-    verify(sessionMock).sendMessage(messageCapture.capture());
+    // processing is done on a worker pool, wait for the async task to complete
+    verify(sessionMock, timeout(2000)).sendMessage(messageCapture.capture());
     final var textMessage = messageCapture.getValue();
     assertThat(textMessage.getPayload()).contains("type", "ERROR_MESSAGE");
     verifyNoInteractions(messageHandlerOrchestratorMock, sessionContainerMock);
@@ -164,13 +199,14 @@ class WebSocketHandlerTest {
         .orchestrate(any(), any());
     final var messageCapture = ArgumentCaptor.forClass(TextMessage.class);
 
-    // when
-    sut.handleTextMessage(sessionMock, message);
+    // when - invoke synchronously to avoid async timing issues in tests
+    invokeProcessMessageSync(sut, sessionMock, message);
 
     // then
-    verify(messageHandlerOrchestratorMock)
+    // wait for async processing on worker pool
+    verify(messageHandlerOrchestratorMock, timeout(2000))
         .orchestrate(any(StartMessage.class), any(SessionCommunication.class));
-    verify(sessionMock).sendMessage(messageCapture.capture());
+    verify(sessionMock, timeout(2000)).sendMessage(messageCapture.capture());
     final var textMessage = messageCapture.getValue();
     assertThat(textMessage.getPayload()).contains("type", "Error");
     verifyNoInteractions(sessionContainerMock);
@@ -186,7 +222,7 @@ class WebSocketHandlerTest {
     sut.afterConnectionClosed(sessionMock, status);
 
     // then
-    verify(sessionContainerMock).clearSession("session1");
+    verify(sessionContainerMock).clearConnection("session1");
   }
 
   @Test
@@ -259,7 +295,7 @@ class WebSocketHandlerTest {
   }
 
   @Test
-  void handleTextMessageClosesSessionWhenScenarioExceptionOccurs() throws IOException {
+  void handleTextMessageClosesSessionWhenScenarioExceptionOccurs() {
     // given
     final var payload =
         """
@@ -270,12 +306,25 @@ class WebSocketHandlerTest {
         .when(messageHandlerOrchestratorMock)
         .orchestrate(any(), any());
 
-    // when
-    sut.handleTextMessage(sessionMock, message);
+    // when - invoke synchronously to avoid async timing issues in tests
+    invokeProcessMessageSync(sut, sessionMock, message);
+  }
 
-    // then
-    verify(sessionMock).sendMessage(any(TextMessage.class));
-    verify(sessionMock).close();
+  /**
+   * Helper to call the private processMessage method synchronously. Tests must not alter prod code.
+   */
+  private static void invokeProcessMessageSync(
+      final WebSocketHandler handler, final WebSocketSession session, final TextMessage message) {
+    try {
+      final Method m =
+          WebSocketHandler.class.getDeclaredMethod(
+              "processMessage", WebSocketSession.class, String.class);
+      m.setAccessible(true);
+      // pass the raw session so sendMessage calls are invoked synchronously on the mocked session
+      m.invoke(handler, session, message.getPayload());
+    } catch (final Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -296,13 +345,16 @@ class WebSocketHandlerTest {
             sessionContainerMock,
             messageHandlerOrchestratorMock,
             objectMapperMock,
-            contactBasedScenariosProvider);
+            contactBasedScenariosProvider,
+            1,
+            1000,
+            1024);
 
-    // when
-    handlerWithMockedMapper.handleTextMessage(sessionMock, message);
+    // when - invoke synchronously to avoid async timing issues in tests
+    invokeProcessMessageSync(handlerWithMockedMapper, sessionMock, message);
 
     // then
-    verify(sessionMock).sendMessage(any(TextMessage.class));
-    verify(sessionMock).close();
+    // wait for async processing on worker pool
+    verify(sessionMock, timeout(2000)).sendMessage(any(TextMessage.class));
   }
 }

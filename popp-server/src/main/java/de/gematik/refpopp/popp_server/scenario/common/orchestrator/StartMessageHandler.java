@@ -38,24 +38,29 @@ public class StartMessageHandler implements MessageHandler<StartMessage> {
   private final SessionAccessor sessionAccessor;
   private final ScenarioProcessingProviderStrategyService scenarioProcessingProviderStrategyService;
   private final ScenarioProviderStrategyService scenarioProviderStrategyService;
+  private final CardScenarioProvider firstScenarioProvider;
 
   public StartMessageHandler(
       final ScenarioTransitionService scenarioTransitionService,
       final SessionAccessor sessionAccessor,
       final ScenarioProcessingProviderStrategyService scenarioProcessingProviderStrategyService,
-      final ScenarioProviderStrategyService scenarioProviderStrategyService) {
+      final ScenarioProviderStrategyService scenarioProviderStrategyService,
+      final CardScenarioProvider firstScenarioProvider) {
     this.scenarioTransitionService = scenarioTransitionService;
     this.sessionAccessor = sessionAccessor;
     this.scenarioProcessingProviderStrategyService = scenarioProcessingProviderStrategyService;
     this.scenarioProviderStrategyService = scenarioProviderStrategyService;
+    this.firstScenarioProvider = firstScenarioProvider;
   }
 
   @Override
   public void handle(final StartMessage message, final SessionCommunication session) {
-    storeRelevantDataInSession(session.getSessionId(), message);
-    final var processingProvider = getScenarioProcessingProvider(session.getSessionId());
-    final var scenario = scenarioTransitionService.getCurrentScenario(session.getSessionId());
-    final var cardScenarioProvider = getCardScenarioProvider(session.getSessionId());
+    final var logicalSessionId = session.getSessionId();
+    sessionAccessor.copyConnectionScopedData(session.getTransportSessionId(), logicalSessionId);
+    storeRelevantDataInSession(logicalSessionId, message);
+    final var processingProvider = getScenarioProcessingProvider(logicalSessionId);
+    final var scenario = scenarioTransitionService.getCurrentScenario(logicalSessionId);
+    final var cardScenarioProvider = getCardScenarioProvider(logicalSessionId);
     processingProvider.processScenario(session, scenario, cardScenarioProvider);
   }
 
@@ -79,9 +84,18 @@ public class StartMessageHandler implements MessageHandler<StartMessage> {
   }
 
   private void storeRelevantDataInSession(final String sessionId, final StartMessage startMessage) {
+    // The first scenario is initialized per token request (no longer only
+    // once during connection establishment). This allows another sequential token request to be
+    // started
+    // over the same open WebSocket connection after the previous request state has been reset.
+    storeFirstScenarioInSession(sessionId);
     sessionAccessor.storeCardConnectionType(sessionId, startMessage.getCardConnectionType());
     sessionAccessor.storeClientSessionId(sessionId, startMessage.getClientSessionId());
     storeInitialSequenceCounterInSession(sessionId);
+  }
+
+  private void storeFirstScenarioInSession(final String sessionId) {
+    sessionAccessor.storeScenario(sessionId, firstScenarioProvider.getScenarios().getFirst());
   }
 
   private void storeInitialSequenceCounterInSession(final String sessionId) {

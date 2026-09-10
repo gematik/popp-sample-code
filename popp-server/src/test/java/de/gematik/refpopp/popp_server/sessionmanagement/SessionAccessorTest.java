@@ -593,4 +593,55 @@ class SessionAccessorTest {
     // then
     verify(sessionContainerMock).clearSession(sessionId);
   }
+
+  @Test
+  void storeJwtTokenStoresTokenInSession() {
+    // given
+    final var sessionId = "sessionId";
+    final var jwt = "jwt-token";
+
+    // when
+    sut.storeJwtToken(sessionId, jwt);
+
+    // then
+    verify(sessionContainerMock).storeSessionData(sessionId, SessionStorageKey.JWT_TOKEN, jwt);
+  }
+
+  @Test
+  void clearRequestStateDelegatesToContainer() {
+    // given
+    final var sessionId = "logical-session";
+
+    // when
+    sut.clearRequestState(sessionId);
+
+    // then
+    verify(sessionContainerMock).clearRequestState(sessionId);
+  }
+
+  @Test
+  void clearConnectionDelegatesToContainer() {
+    // given
+    final var transportSessionId = "transport-session";
+
+    // when
+    sut.clearConnection(transportSessionId);
+
+    // then
+    verify(sessionContainerMock).clearConnection(transportSessionId);
+  }
+
+  @Test
+  void copyConnectionScopedDataCopiesZetaUserInfo() {
+    // given
+    final var transportSessionId = "transport-session";
+    final var logicalSessionId = "logical-session";
+
+    // when
+    sut.copyConnectionScopedData(transportSessionId, logicalSessionId);
+
+    // then
+    verify(sessionContainerMock)
+        .copySessionData(transportSessionId, logicalSessionId, SessionStorageKey.ZETA_USER_INFO);
+  }
 }

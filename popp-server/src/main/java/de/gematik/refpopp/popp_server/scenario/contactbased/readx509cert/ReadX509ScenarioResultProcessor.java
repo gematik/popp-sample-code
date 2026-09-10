@@ -30,7 +30,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultProcessor;
-import de.gematik.refpopp.popp_server.scenario.common.token.JwtTokenCreator;
+import de.gematik.refpopp.popp_server.scenario.common.token.PoppTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509CertificateProcessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,19 +42,19 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
 
   private final ScenarioResultFinder scenarioResultFinder;
   private final X509CertificateProcessor x509CertificateProcessor;
-  private final JwtTokenCreator tokenCreator;
+  private final PoppTokenCreator poppTokenCreator;
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
 
   public ReadX509ScenarioResultProcessor(
       final ScenarioResultFinder scenarioResultFinder,
       final X509CertificateProcessor x509CertificateProcessor,
-      final JwtTokenCreator tokenCreator,
+      final PoppTokenCreator poppTokenCreator,
       final SessionAccessor sessionAccessor,
       final EgkHashValidationService egkHashValidationService) {
     this.scenarioResultFinder = scenarioResultFinder;
     this.x509CertificateProcessor = x509CertificateProcessor;
-    this.tokenCreator = tokenCreator;
+    this.poppTokenCreator = poppTokenCreator;
     this.sessionAccessor = sessionAccessor;
     this.egkHashValidationService = egkHashValidationService;
   }
@@ -68,7 +68,7 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
     final byte[] cvc = sessionAccessor.getCvc(sessionId);
     checkCertificatePair(sessionId, cvc, aut);
     final var x509Data = x509CertificateProcessor.extractCertificateData(sessionId, aut);
-    final var poppToken = tokenCreator.createPoppToken(x509Data, sessionId);
+    final var poppToken = poppTokenCreator.createPoppToken(x509Data, sessionId);
     sessionAccessor.storeJwtToken(sessionId, poppToken);
     log.info("| {} Generated PoPP-Token for the client: {}", sessionId, poppToken);
   }

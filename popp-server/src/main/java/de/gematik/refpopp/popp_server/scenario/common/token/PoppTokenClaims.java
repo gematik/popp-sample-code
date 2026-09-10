@@ -32,7 +32,6 @@ import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.enums.ProofMethod;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
-import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.time.Instant;
@@ -44,7 +43,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-class TokenClaims {
+class PoppTokenClaims {
 
   @Value("${jwt-token.popp.issuer:https://popp.example.com}")
   private String issuer;
@@ -63,7 +62,7 @@ class TokenClaims {
 
   private final SessionContainer sessionContainer;
 
-  TokenClaims(final SessionContainer sessionContainer) {
+  PoppTokenClaims(final SessionContainer sessionContainer) {
     this.sessionContainer = sessionContainer;
   }
 
@@ -106,13 +105,6 @@ class TokenClaims {
               log.warn("No identifier (actorId) found in session, using default");
               return actorId;
             });
-  }
-
-  Map<String, Object> createConnectorClaims(final StandardScenarioMessage standardScenarioMessage) {
-    final var claims = new HashMap<String, Object>();
-    claims.put("message", standardScenarioMessage);
-
-    return claims;
   }
 
   private Long getPatientProofTime(final String sessionId) {

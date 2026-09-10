@@ -5,6 +5,20 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.8.0
+
+### added
+- Added REST endpoint `/popp/patient/api/v1/mobile/fhirvzdsearch` for searching healthcare company data via the FHIR VZD service
+- Added the PoPP client readiness endpoint `/actuator/health/readiness` for deployment health checks.
+
+### changed
+- Added support for processing token requests in parallel on both the client and server sides.
+- WebSocket connections now remain open after token retrieval, allowing multiple token requests to use the same session.
+  Explicit disconnection is performed by the caller or during shutdown.
+- ConnectorScenarioMessages now include an authentic OCSP response in the JWT header, obtained from the OCSP responder 
+  responsible for validating the PoPP Service APDU signer certificate.
+- Updated ZETA version to 1.3.0
+
 ## Release 2.7.1
 
 ### added

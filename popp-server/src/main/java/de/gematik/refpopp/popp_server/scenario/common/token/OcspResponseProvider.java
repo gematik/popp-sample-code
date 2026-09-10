@@ -20,13 +20,7 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.token;
 
-import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
-import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
+interface OcspResponseProvider {
 
-public interface JwtTokenCreator {
-
-  String createPoppToken(final X509Data x509Data, final String sessionId);
-
-  String createConnectorToken(
-      final StandardScenarioMessage scenarioMessage, final String sessionId);
+  String getResponse(OcspRequest request);
 }

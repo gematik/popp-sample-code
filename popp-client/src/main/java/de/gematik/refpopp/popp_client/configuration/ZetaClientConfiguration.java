@@ -109,8 +109,8 @@ public class ZetaClientConfiguration {
                     zetaConfigProperties.getClient().isDisableServerValidation())
                 .logging(zetaConfigProperties.getHttpLogLevel()),
             null,
-            null,
-            createZetaLogger()));
+            createZetaLogger(),
+            null));
   }
 
   static PlatformProductId createPlatformProductId() {

@@ -21,7 +21,7 @@
 package de.gematik.refpopp.popp_client.connector.session;
 
 import de.gematik.poppcommons.api.enums.CardConnectionType;
-import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
+import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.util.concurrent.CancellationException;
 import lombok.RequiredArgsConstructor;
@@ -41,13 +41,13 @@ public class ConnectorSessionLifecycle {
         connectorCommunicationServiceWrapper.getConnectedEgkCard(patientId));
   }
 
-  public void stopSessionIfRequired(final CommunicationSslSession sslSession) {
-    final var cardConnectionType = sslSession.getCardConnectionType();
+  public void stopSessionIfRequired(final ClientRequestContext context) {
+    final var cardConnectionType = context.getCardConnectionType();
     if (!usesConnectorSession(cardConnectionType)) {
       return;
     }
 
-    final var clientSessionId = sslSession.getClientSessionId();
+    final var clientSessionId = context.getClientSessionId();
     try {
       connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
     } catch (CancellationException e) {

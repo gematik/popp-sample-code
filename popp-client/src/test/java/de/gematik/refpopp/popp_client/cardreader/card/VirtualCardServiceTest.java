@@ -50,6 +50,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class VirtualCardServiceTest {
+  private static final String CARD_IMAGE_WITH_ALTERNATIVE_RCA =
+      "egk_image_private/EGK_80276883110000179865_gema5_abgelaufen2025.xml";
   private static final String GENERAL_AUTHENTICATE_STEP_1 =
       "10 86 0000107c0ec30c000a8027600101169990210100";
   private static final String GENERAL_AUTHENTICATE_STEP_2 =
@@ -70,6 +72,119 @@ class VirtualCardServiceTest {
   @Test
   void isConfiguredTrue() {
     assertTrue(virtualCardService.isConfigured());
+  }
+
+  @Test
+  void buildRetrievePublicKeyIdentifiersResponseUsesProvidedPublicKeyIdentifiers() {
+    final String rcaCsKeyIdentifier = "4445475858890225";
+    final String rcaAdminCmsCsKeyIdentifier = "0000000000000014";
+
+    final String response =
+        VirtualCardService.buildRetrievePublicKeyIdentifiersResponse(
+            rcaCsKeyIdentifier, rcaAdminCmsCsKeyIdentifier);
+
+    assertEquals(
+        "e0154f07d2760001448000b60a8308"
+            + rcaCsKeyIdentifier
+            + "e0154f07d2760001448000b60a8308"
+            + rcaAdminCmsCsKeyIdentifier,
+        response);
+  }
+
+  @Test
+  void processUsesPublicKeyIdentifiersFromCardDataForListPublicKeys() {
+    final String rcaCsKeyIdentifier = "4445475858890225";
+    final String rcaAdminCmsCsKeyIdentifier = "0000000000000014";
+    final var service =
+        new VirtualCardService(
+            new VirtualCardImageData(
+                "CV_CERT",
+                "AUTH_CERT",
+                APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+                APDU_RESPONSE_READ_VERSION,
+                null,
+                rcaCsKeyIdentifier,
+                rcaAdminCmsCsKeyIdentifier),
+            new ApduMatcher());
+
+    final var response =
+        service.process(
+            List.of(
+                new ScenarioStep(
+                    "80 CA 01 00 00 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK))));
+
+    assertEquals(
+        VirtualCardService.buildRetrievePublicKeyIdentifiersResponse(
+                rcaCsKeyIdentifier, rcaAdminCmsCsKeyIdentifier)
+            + VirtualCardService.APDU_RESPONSE_OK,
+        response.getFirst());
+  }
+
+  @Test
+  void processUsesPublicKeyIdentifiersFromLoadedCardImageForListPublicKeys() {
+    final var cardWithAlternativeRca = new VirtualCardService(CARD_IMAGE_WITH_ALTERNATIVE_RCA);
+    final var listPublicKeysCommand =
+        List.of(
+            new ScenarioStep("80 CA 01 00 00 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)));
+
+    final String referenceResponse = virtualCardService.process(listPublicKeysCommand).getFirst();
+    final String alternativeResponse =
+        cardWithAlternativeRca.process(listPublicKeysCommand).getFirst();
+
+    Assertions.assertThat(referenceResponse)
+        .isEqualTo(
+            VirtualCardService.buildRetrievePublicKeyIdentifiersResponse(
+                    "4445475858870222", "0000000000000013")
+                + VirtualCardService.APDU_RESPONSE_OK);
+    Assertions.assertThat(alternativeResponse)
+        .isEqualTo(
+            VirtualCardService.buildRetrievePublicKeyIdentifiersResponse(
+                    "4445475858890225", "0000000000000013")
+                + VirtualCardService.APDU_RESPONSE_OK)
+        .isNotEqualTo(referenceResponse);
+  }
+
+  @Test
+  void processRejectsListPublicKeysWithoutValidRcaCsKeyIdentifier() {
+    final var service =
+        new VirtualCardService(
+            new VirtualCardImageData(
+                "CV_CERT",
+                "AUTH_CERT",
+                APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+                APDU_RESPONSE_READ_VERSION,
+                null,
+                null),
+            new ApduMatcher());
+    final var steps =
+        List.of(
+            new ScenarioStep("80 CA 01 00 00 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)));
+
+    Assertions.assertThatThrownBy(() -> service.process(steps))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("No valid RCA CS key identifier configured for virtual card.");
+  }
+
+  @Test
+  void processRejectsListPublicKeysWithoutValidRcaAdminCmsCsKeyIdentifier() {
+    final var service =
+        new VirtualCardService(
+            new VirtualCardImageData(
+                "CV_CERT",
+                "AUTH_CERT",
+                APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE,
+                APDU_RESPONSE_READ_VERSION,
+                null,
+                "4445475858870222",
+                null),
+            new ApduMatcher());
+    final var steps =
+        List.of(
+            new ScenarioStep("80 CA 01 00 00 00 00", List.of(VirtualCardService.APDU_RESPONSE_OK)));
+
+    Assertions.assertThatThrownBy(() -> service.process(steps))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("No valid RCA AdminCMS CS key identifier configured for virtual card.");
   }
 
   @Test
@@ -209,7 +324,8 @@ class VirtualCardServiceTest {
         .isEqualTo(APDU_RESPONSE_READ_SUB_CA_CV_CERTIFICATE + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(3))
         .isEqualTo(
-            VirtualCardService.APDU_RESPONSE_RETRIEVE_PUBLIC_KEY_IDENTIFIERS
+            VirtualCardService.buildRetrievePublicKeyIdentifiersResponse(
+                    "4445475858870222", "0000000000000013")
                 + VirtualCardService.APDU_RESPONSE_OK);
     Assertions.assertThat(responses.get(4))
         .isEqualTo("CV_CERT" + VirtualCardService.APDU_RESPONSE_OK);
@@ -542,7 +658,13 @@ class VirtualCardServiceTest {
       final byte[] egkAuthCvcPrivateKey) {
     return new VirtualCardService(
         new VirtualCardImageData(
-            cvCertificate, authCertificate, subCaCvCertificate, version2, egkAuthCvcPrivateKey),
+            cvCertificate,
+            authCertificate,
+            subCaCvCertificate,
+            version2,
+            egkAuthCvcPrivateKey,
+            "4445475858870222",
+            "0000000000000013"),
         new ApduMatcher());
   }
 

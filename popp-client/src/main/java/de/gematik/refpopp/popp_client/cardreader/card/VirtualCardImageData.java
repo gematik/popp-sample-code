@@ -29,7 +29,35 @@ record VirtualCardImageData(
     String authCertificate,
     String subCaCvCertificate,
     String version2,
-    byte[] egkAuthCvcPrivateKey) {
+    byte[] egkAuthCvcPrivateKey,
+    String rcaCsKeyIdentifier,
+    String rcaAdminCmsCsKeyIdentifier) {
+
+  VirtualCardImageData(
+      final String cvCertificate,
+      final String authCertificate,
+      final String subCaCvCertificate,
+      final String version2,
+      final byte[] egkAuthCvcPrivateKey) {
+    this(cvCertificate, authCertificate, subCaCvCertificate, version2, egkAuthCvcPrivateKey, null);
+  }
+
+  VirtualCardImageData(
+      final String cvCertificate,
+      final String authCertificate,
+      final String subCaCvCertificate,
+      final String version2,
+      final byte[] egkAuthCvcPrivateKey,
+      final String rcaCsKeyIdentifier) {
+    this(
+        cvCertificate,
+        authCertificate,
+        subCaCvCertificate,
+        version2,
+        egkAuthCvcPrivateKey,
+        rcaCsKeyIdentifier,
+        null);
+  }
 
   VirtualCardImageData {
     egkAuthCvcPrivateKey =
@@ -51,6 +79,8 @@ record VirtualCardImageData(
         && Objects.equals(cvCertificate, that.cvCertificate)
         && Objects.equals(authCertificate, that.authCertificate)
         && Objects.equals(subCaCvCertificate, that.subCaCvCertificate)
+        && Objects.equals(rcaCsKeyIdentifier, that.rcaCsKeyIdentifier)
+        && Objects.equals(rcaAdminCmsCsKeyIdentifier, that.rcaAdminCmsCsKeyIdentifier)
         && Objects.deepEquals(egkAuthCvcPrivateKey, that.egkAuthCvcPrivateKey);
   }
 
@@ -61,6 +91,8 @@ record VirtualCardImageData(
         authCertificate,
         subCaCvCertificate,
         version2,
+        rcaCsKeyIdentifier,
+        rcaAdminCmsCsKeyIdentifier,
         Arrays.hashCode(egkAuthCvcPrivateKey));
   }
 
@@ -78,6 +110,12 @@ record VirtualCardImageData(
         + '\''
         + ", version2='"
         + version2
+        + '\''
+        + ", rcaCsKeyIdentifier='"
+        + rcaCsKeyIdentifier
+        + '\''
+        + ", rcaAdminCmsCsKeyIdentifier='"
+        + rcaAdminCmsCsKeyIdentifier
         + '\''
         + '}';
   }

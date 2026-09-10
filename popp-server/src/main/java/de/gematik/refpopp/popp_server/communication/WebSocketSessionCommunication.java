@@ -39,6 +39,11 @@ public class WebSocketSessionCommunication implements SessionCommunication {
     mapper = new ObjectMapper();
   }
 
+  public WebSocketSessionCommunication(final WebSocketSession session, final ObjectMapper mapper) {
+    this.session = session;
+    this.mapper = mapper != null ? mapper : new ObjectMapper();
+  }
+
   @Override
   public void sendMessage(final Object message) {
     try {
@@ -52,6 +57,11 @@ public class WebSocketSessionCommunication implements SessionCommunication {
 
   @Override
   public String getSessionId() {
+    return session.getId();
+  }
+
+  @Override
+  public String getTransportSessionId() {
     return session.getId();
   }
 
