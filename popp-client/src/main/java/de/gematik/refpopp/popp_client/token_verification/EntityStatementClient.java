@@ -29,6 +29,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * Retrieves the federation entity statement used for PoPP token verification.
+ *
+ * <p>The client requests the configured endpoint with the entity-statement JWT media type and
+ * translates HTTP and connection failures into {@link PoppTokenValidationException}.
+ */
 @Service
 public class EntityStatementClient {
 

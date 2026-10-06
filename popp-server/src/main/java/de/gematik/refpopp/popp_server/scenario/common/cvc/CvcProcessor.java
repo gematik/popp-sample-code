@@ -34,6 +34,13 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinde
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Creates and validates Card Verifiable Certificates (CVCs) used by a scenario.
+ *
+ * <p>The processor retrieves certificate data from a scenario result, stores the raw certificate
+ * data in the current session, and validates the created certificate against the corresponding
+ * issuer certificate.
+ */
 @Component
 public class CvcProcessor {
 
@@ -56,6 +63,14 @@ public class CvcProcessor {
     this.cvcChainValidator = cvcChainValidator;
   }
 
+  /**
+   * Creates and validates an end-entity CVC while storing its raw data in the current session.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the scenario result containing the CVC data
+   * @param stepId the step from which the CVC data is retrieved
+   * @return the created and validated CVC
+   */
   public CvCertificate createAndValidateCvc(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     final var cvc = createCvc(sessionId, scenarioResult, stepId);
@@ -63,6 +78,14 @@ public class CvcProcessor {
     return cvc;
   }
 
+  /**
+   * Creates and validates a CVC certificate authority certificate while storing its raw data in the
+   * current session.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the scenario result containing the CVC CA data
+   * @param stepId the step from which the CVC CA data is retrieved
+   */
   public void createAndValidateCvcCa(
       final String sessionId, final ScenarioResult scenarioResult, final StepId stepId) {
     try (final var cvc = createCvcCa(sessionId, scenarioResult, stepId)) {

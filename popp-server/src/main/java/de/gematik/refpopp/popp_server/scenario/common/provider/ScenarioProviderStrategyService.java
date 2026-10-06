@@ -25,11 +25,22 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
+/**
+ * Selects the card scenario provider for a communication mode.
+ *
+ * <p>Available card scenario providers are indexed by the communication mode they support when this
+ * service is created.
+ */
 @Service
 public class ScenarioProviderStrategyService {
 
   private final Map<CommunicationMode, CardScenarioProvider> strategyMap;
 
+  /**
+   * Creates a strategy service from the available card scenario providers.
+   *
+   * @param providers the card scenario providers to index by communication mode
+   */
   public ScenarioProviderStrategyService(final List<CardScenarioProvider> providers) {
     this.strategyMap =
         providers.stream()
@@ -38,6 +49,13 @@ public class ScenarioProviderStrategyService {
                     CardScenarioProvider::getSupportedCommunicationMode, provider -> provider));
   }
 
+  /**
+   * Returns the card scenario provider for the specified communication mode.
+   *
+   * @param version the communication mode for which a provider is requested
+   * @return the matching card scenario provider
+   * @throws IllegalArgumentException if no provider supports the specified communication mode
+   */
   public CardScenarioProvider getProvider(final CommunicationMode version) {
     final CardScenarioProvider provider = strategyMap.get(version);
     if (provider == null) {

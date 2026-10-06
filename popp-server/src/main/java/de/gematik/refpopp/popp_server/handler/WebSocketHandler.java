@@ -25,6 +25,8 @@ import de.gematik.poppcommons.api.exceptions.ScenarioException;
 import de.gematik.poppcommons.api.messages.ClientSessionScopedMessage;
 import de.gematik.poppcommons.api.messages.ErrorMessage;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
+import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
+import de.gematik.poppcommons.api.messages.StartMessage;
 import de.gematik.refpopp.popp_server.communication.WebSocketSessionCommunication;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrchestrator;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvider;
@@ -35,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,11 +63,12 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
   private final CardScenarioProvider scenarioProvider;
 
   /**
-   * Decorated, thread-safe view per connection. Incoming messages are processed on a worker pool so
-   * that independent (parallel) requests multiplexed over one connection do not block each other;
-   * {@link ConcurrentWebSocketSessionDecorator} serializes the concurrent outbound sends.
+   * Decorated, thread-safe view per connection. Incoming messages are processed in order per
+   * connection while separate connections can run on different worker threads.
    */
   private final Map<String, WebSocketSession> connections = new ConcurrentHashMap<>();
+
+  private final Map<String, CompletableFuture<Void>> messageChains = new ConcurrentHashMap<>();
 
   private final ExecutorService messageExecutor;
   private final int sendTimeLimitMs;
@@ -119,8 +123,29 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     final var payload = message.getPayload();
     log.info("| {} Received message from client {}", session.getId(), payload);
 
-    final var connection = connections.computeIfAbsent(session.getId(), id -> decorate(session));
-    messageExecutor.execute(() -> processMessage(connection, payload));
+    // The connection is managed by Spring and must remain open after this message is handled.
+    @SuppressWarnings("resource")
+    final WebSocketSession connection =
+        connections.computeIfAbsent(session.getId(), id -> decorate(session));
+    final var chain =
+        messageChains.compute(
+            session.getId(),
+            (sessionId, previous) -> {
+              final var base =
+                  previous == null ? CompletableFuture.<Void>completedFuture(null) : previous;
+              return base.handleAsync(
+                  (ignored, failure) -> {
+                    if (failure != null) {
+                      log.error("| {} Previous message processing failed", sessionId, failure);
+                    }
+                    if (connections.get(sessionId) == connection) {
+                      processMessage(connection, payload);
+                    }
+                    return null;
+                  },
+                  messageExecutor);
+            });
+    chain.whenComplete((ignored, failure) -> messageChains.remove(session.getId(), chain));
     log.debug("| Exiting handleTextMessage()");
   }
 
@@ -128,13 +153,27 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     log.debug("| Entering processMessage()");
     final SessionCommunication transportCommunication =
         new WebSocketSessionCommunication(connection, mapper);
+    SessionCommunication requestCommunication = transportCommunication;
+    boolean dispatchStarted = false;
     try {
       final var poppMessage = mapper.readValue(payload, PoPPMessage.class);
-      final var requestCommunication =
-          resolveRequestCommunication(transportCommunication, poppMessage);
+      requestCommunication = resolveRequestCommunication(transportCommunication, poppMessage);
+      if (poppMessage instanceof final StartMessage startMessage) {
+        beginRequest(transportCommunication, requestCommunication, startMessage);
+      }
+      dispatchStarted = true;
       egkMessageOrchestrator.orchestrate(poppMessage, requestCommunication);
     } catch (final ScenarioException e) {
-      handleScenarioException(transportCommunication, e);
+      if (dispatchStarted
+          && LogicalSessionId.isLogical(requestCommunication.getSessionId())
+          && transportCommunication.getSessionId().equals(e.getSessionId())) {
+        handleScenarioException(
+            transportCommunication,
+            new ScenarioException(
+                requestCommunication.getSessionId(), e.getMessage(), e.getErrorCode(), e));
+      } else {
+        handleScenarioException(transportCommunication, e);
+      }
     } catch (final JacksonException e) {
       handleScenarioException(
           transportCommunication,
@@ -145,7 +184,9 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
       handleScenarioException(
           transportCommunication,
           new ScenarioException(
-              connection.getId(), e.getMessage(), BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
+              requestCommunication.getSessionId(),
+              e.getMessage(),
+              BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR));
     }
     log.debug("| Exiting processMessage()");
   }
@@ -154,13 +195,44 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     return new ConcurrentWebSocketSessionDecorator(session, sendTimeLimitMs, sendBufferSizeLimit);
   }
 
+  private void beginRequest(
+      final SessionCommunication transportCommunication,
+      final SessionCommunication requestCommunication,
+      final StartMessage message) {
+    if (message.getClientSessionId() == null || message.getClientSessionId().isBlank()) {
+      throw new ScenarioException(
+          transportCommunication.getSessionId(),
+          "Start message requires clientSessionId",
+          BdeErrorCode.INVALID_MESSAGE);
+    }
+    if (!sessionContainer.tryBeginRequest(
+        transportCommunication.getTransportSessionId(), requestCommunication.getSessionId())) {
+      throw new ScenarioException(
+          transportCommunication.getSessionId(),
+          "A token request is already active on this WebSocket connection",
+          BdeErrorCode.UNSUPPORTED_WORKFLOW);
+    }
+  }
+
   /**
-   * Derives a request scoped communication (with a logical session id) when the message carries a
-   * clientSessionId, so that the state of parallel token requests over the same connection is
-   * isolated. Messages without a clientSessionId keep operating on the transport session.
+   * Resolves scenario responses against the active request on the connection. Other messages
+   * carrying a clientSessionId use it to derive a logical session id.
    */
   private SessionCommunication resolveRequestCommunication(
       final SessionCommunication transportCommunication, final PoPPMessage message) {
+    if (message instanceof ScenarioResponseMessage) {
+      final var transportSessionId = transportCommunication.getTransportSessionId();
+      final var activeRequest =
+          sessionContainer
+              .getActiveRequest(transportSessionId)
+              .orElseThrow(
+                  () ->
+                      new ScenarioException(
+                          transportSessionId,
+                          "No active token request for ScenarioResponse",
+                          BdeErrorCode.UNSUPPORTED_WORKFLOW));
+      return new RequestScopedSessionCommunication(transportCommunication, activeRequest);
+    }
     if (message instanceof final ClientSessionScopedMessage scoped
         && scoped.getClientSessionId() != null) {
       final var logicalSessionId =
@@ -171,11 +243,14 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
     return transportCommunication;
   }
 
+  // Spring owns the WebSocket lifecycle; removing its decorator must not close the session.
+  @SuppressWarnings("resource")
   @Override
   public void afterConnectionClosed(
       final WebSocketSession session, final @NonNull CloseStatus status) {
     log.info("| {} Connection closed: {}", session.getId(), status);
     connections.remove(session.getId());
+    messageChains.remove(session.getId());
     sessionContainer.clearConnection(session.getId());
   }
 
@@ -187,20 +262,19 @@ public class WebSocketHandler extends AbstractWebSocketHandler {
   private void handleScenarioException(
       final SessionCommunication transportCommunication, final ScenarioException e) {
     log.error("Scenario exception", e);
-    final var clientSessionId = LogicalSessionId.clientSessionIdOf(e.getSessionId());
     final var errorMessage =
         ErrorMessage.builder()
-            .clientSessionId(clientSessionId)
             .errorDetail("SessionId: " + e.getSessionId() + " " + e.getMessage())
             .errorCode(String.valueOf(e.getErrorCode().getBdeCode()))
             .build();
     try {
       transportCommunication.sendMessage(errorMessage);
+    } catch (final RuntimeException sendError) {
+      log.error("| Error while sending error message", sendError);
+    } finally {
       if (LogicalSessionId.isLogical(e.getSessionId())) {
         sessionContainer.clearRequestState(e.getSessionId());
       }
-    } catch (final RuntimeException sendError) {
-      log.error("| Error while sending error message", sendError);
     }
   }
 

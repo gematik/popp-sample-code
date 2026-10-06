@@ -25,6 +25,12 @@ import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Sends PoPP protocol messages to and closes active client communication sessions.
+ *
+ * <p>The service centralizes outgoing session communication and logs the type of every message sent
+ * to a client.
+ */
 @Component
 @Slf4j
 public class ClientCommunicationService {

@@ -30,8 +30,10 @@ import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
 import de.gematik.refpopp.popp_client.client.transport.ClientMessageDispatcher;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import de.gematik.refpopp.popp_client.client.transport.events.CommunicationEvent;
 import de.gematik.refpopp.popp_client.client.transport.events.TextMessageReceivedEvent;
+import de.gematik.refpopp.popp_client.client.transport.events.WebSocketCommunicationErrorEvent;
 import de.gematik.refpopp.popp_client.client.transport.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.client.transport.events.WebSocketConnectionOpenedEvent;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
@@ -41,6 +43,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,6 +54,17 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Coordinates client-side PoPP communication for physical, virtual, and connector-based card flows.
+ *
+ * <p>The service establishes the server connection, creates and registers request-specific session
+ * state, sends the corresponding start message, and waits for the resulting token. Incoming
+ * WebSocket messages are deserialized and delegated to the protocol handler via the message
+ * dispatcher, preserving message order within each client session.
+ *
+ * <p>Physical card flows are serialized because they share access to the card reader. All token
+ * requests share one WebSocket connection and run sequentially until their token or error arrives.
+ */
 @Component
 @Lazy
 @Slf4j
@@ -66,6 +81,7 @@ public class CommunicationService {
   private final PoPPMessageHandler poPPMessageHandler;
   private final ClientMessageDispatcher messageDispatcher;
   private final ReentrantLock physicalCardFlowLock = new ReentrantLock(true);
+  private final ReentrantLock tokenFlowLock = new ReentrantLock(true);
 
   @Value("${popp-client.token-wait-timeout-seconds:30}")
   private int tokenWaitTimeoutSeconds;
@@ -74,50 +90,80 @@ public class CommunicationService {
       final CardConnectionType cardConnectionType, final String clientSessionId) {
     physicalCardFlowLock.lock();
     try {
-      final var sessionId = resolveSessionId(clientSessionId);
-      return startAndAwaitToken(sessionId, () -> executeStart(cardConnectionType, sessionId));
+      return startAndAwaitToken(
+          () -> resolveSessionId(clientSessionId),
+          sessionId -> executeStart(cardConnectionType, sessionId));
     } finally {
       physicalCardFlowLock.unlock();
     }
   }
 
   public String startWithConnector(CardConnectionType connectorType, String patientId) {
-    final var sessionId = connectorSessionLifecycle.startSession(patientId);
-    return startAndAwaitToken(sessionId, () -> executeStart(connectorType, sessionId));
+    return startAndAwaitToken(
+        () -> connectorSessionLifecycle.startSession(patientId),
+        sessionId -> executeStart(connectorType, sessionId));
   }
 
   public String startConnectorMock(final String clientSessionId) {
-    final var sessionId = resolveSessionId(clientSessionId);
-    final var context = initializeRequestContext(sessionId, CardConnectionType.UNKNOWN);
-    context.setConnectorMock(true);
-    return startAndAwaitToken(sessionId, () -> sendConnectorStartMessage(sessionId));
+    return startAndAwaitToken(
+        () -> resolveSessionId(clientSessionId),
+        sessionId -> {
+          final var context = initializeRequestContext(sessionId, CardConnectionType.UNKNOWN);
+          context.setConnectorMock(true);
+          sendConnectorStartMessage(sessionId);
+        });
   }
 
   public String startVirtualCard(
       final CardConnectionType cardConnectionType, final String clientSessionId, String imageFile) {
     log.info("| Using virtual card");
-    final VirtualCardService selectedVirtualCardService =
-        (imageFile != null && !imageFile.isEmpty())
-            ? virtualCardServiceFactory.create(imageFile)
-            : virtualCardService;
-    if (!selectedVirtualCardService.isConfigured()) {
-      throw new IllegalArgumentException("No virtual card image configured");
-    }
-
-    final var sessionId = resolveSessionId(clientSessionId);
-    final var context = initializeRequestContext(sessionId, cardConnectionType);
-    context.setVirtualCard(true);
-    sessionRegistry.registerVirtualCard(sessionId, selectedVirtualCardService);
-    return startAndAwaitToken(sessionId, () -> sendStartMessage(cardConnectionType, sessionId));
+    return startAndAwaitToken(
+        () -> resolveSessionId(clientSessionId),
+        sessionId -> {
+          final VirtualCardService selectedVirtualCardService =
+              (imageFile != null && !imageFile.isEmpty())
+                  ? virtualCardServiceFactory.create(imageFile)
+                  : virtualCardService;
+          if (!selectedVirtualCardService.isConfigured()) {
+            throw new IllegalArgumentException("No virtual card image configured");
+          }
+          final var context = initializeRequestContext(sessionId, cardConnectionType);
+          context.setVirtualCard(true);
+          sessionRegistry.registerVirtualCard(sessionId, selectedVirtualCardService);
+          sendStartMessage(cardConnectionType, sessionId);
+        });
   }
 
   @EventListener
   public void handleConnectionEvents(final CommunicationEvent event) {
     if (event instanceof WebSocketConnectionOpenedEvent) {
       log.info("| Connected to server");
-    } else if (event instanceof WebSocketConnectionClosedEvent) {
+    } else if (event instanceof WebSocketConnectionClosedEvent closeEvent) {
       log.info("| Disconnected from server");
+      failPendingTokenAfterMessages(
+          closeEvent.getClient(),
+          new IllegalStateException("WebSocket connection closed while waiting for a token"));
+    } else if (event instanceof WebSocketCommunicationErrorEvent errorEvent) {
+      final var error = errorEvent.getError();
+      log.error(
+          "| WebSocket communication failed: {}",
+          error == null ? "unknown error" : error.getMessage());
+      failPendingTokenAfterMessages(
+          errorEvent.getClient(),
+          new IllegalStateException(
+              "WebSocket communication failed while waiting for a token", error));
     }
+  }
+
+  private void failPendingTokenAfterMessages(
+      final SecureWebSocketClient client, final IllegalStateException failure) {
+    sessionRegistry
+        .getPendingSessionIdForConnection(client)
+        .ifPresent(
+            sessionId ->
+                messageDispatcher.dispatch(
+                    sessionId,
+                    () -> sessionRegistry.failPendingTokensForConnection(client, failure)));
   }
 
   @EventListener
@@ -137,7 +183,23 @@ public class CommunicationService {
         poPPMessage instanceof final ClientSessionScopedMessage scoped
             ? scoped.getClientSessionId()
             : null;
-    messageDispatcher.dispatch(orderingKey, () -> poPPMessageHandler.handle(poPPMessage));
+    final SecureWebSocketClient client = event.getClient();
+    final var requestKey =
+        client == null
+            ? orderingKey
+            : sessionRegistry.getPendingSessionIdForConnection(client).orElse(null);
+    messageDispatcher.dispatch(
+        requestKey,
+        () -> {
+          try {
+            poPPMessageHandler.handle(poPPMessage, client);
+          } catch (RuntimeException e) {
+            if (requestKey != null) {
+              sessionRegistry.failToken(requestKey, e);
+            }
+            throw e;
+          }
+        });
   }
 
   private void executeStart(
@@ -181,6 +243,8 @@ public class CommunicationService {
   private ClientRequestContext initializeRequestContext(
       final String clientSessionId, final CardConnectionType cardConnectionType) {
     clientServerCommunicationService.connect(cardConnectionType);
+    sessionRegistry.associatePendingTokenWithConnection(
+        clientSessionId, clientServerCommunicationService.getCurrentWebSocketClient());
     return sessionRegistry.registerRequestContext(clientSessionId, cardConnectionType);
   }
 
@@ -201,10 +265,22 @@ public class CommunicationService {
     }
   }
 
-  private String startAndAwaitToken(final String clientSessionId, final Runnable startOperation) {
-    final var tokenFuture = sessionRegistry.registerTokenWaiter(clientSessionId);
-    startOperation.run();
-    return waitAndGetToken(tokenFuture);
+  private String startAndAwaitToken(
+      final Supplier<String> sessionIdSupplier, final Consumer<String> startOperation) {
+    tokenFlowLock.lock();
+    try {
+      final var clientSessionId = sessionIdSupplier.get();
+      final var tokenFuture = sessionRegistry.registerTokenWaiter(clientSessionId);
+      try {
+        startOperation.accept(clientSessionId);
+        return waitAndGetToken(tokenFuture);
+      } catch (RuntimeException e) {
+        sessionRegistry.failToken(clientSessionId, e);
+        throw e;
+      }
+    } finally {
+      tokenFlowLock.unlock();
+    }
   }
 
   private String waitAndGetToken(CompletableFuture<String> tokenFuture) {

@@ -21,6 +21,7 @@
 package de.gematik.refpopp.popp_client.client.protocol;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -29,8 +30,10 @@ import de.gematik.poppcommons.api.messages.*;
 import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -64,13 +67,16 @@ class PoPPMessageHandlerTest {
   void handleTokenMessageCompletesTokenAndStopsConnectorSession() {
     // given
     final var clientSessionId = "session-id";
+    final var client = mock(SecureWebSocketClient.class);
     final var context = new ClientRequestContext(clientSessionId);
     context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of(clientSessionId));
     when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
     when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(true);
 
     // when
-    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+    sut.handle(new TokenMessage("token"), client);
 
     // then
     verify(sessionRegistry).completeToken(clientSessionId, "token");
@@ -108,13 +114,16 @@ class PoPPMessageHandlerTest {
   void handleConnectorScenarioMessageDelegatesToProcessorAndSendsResponse() {
     // given
     final var clientSessionId = "session-id";
-    final var message = new ConnectorScenarioMessage("1.0.0", "signed-scenario", clientSessionId);
+    final var client = mock(SecureWebSocketClient.class);
+    final var message = new ConnectorScenarioMessage("1.0.0", "signed-scenario");
     final var context = new ClientRequestContext(clientSessionId);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of(clientSessionId));
     when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
     when(connectorScenarioProcessor.process(message, context)).thenReturn(List.of("9000"));
 
     // when
-    sut.handle(message);
+    sut.handle(message, client);
 
     // then
     verify(connectorScenarioProcessor).process(message, context);
@@ -128,14 +137,15 @@ class PoPPMessageHandlerTest {
   void handleErrorMessageFailsTokenWhenClientSessionIdExists() {
     // given
     final var clientSessionId = "session-id";
+    final var client = mock(SecureWebSocketClient.class);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of(clientSessionId));
+    when(sessionRegistry.failToken(eq(clientSessionId), any(IllegalStateException.class)))
+        .thenReturn(true);
 
     // when
     sut.handle(
-        ErrorMessage.builder()
-            .clientSessionId(clientSessionId)
-            .errorCode("errorCode")
-            .errorDetail("errorDetail")
-            .build());
+        ErrorMessage.builder().errorCode("errorCode").errorDetail("errorDetail").build(), client);
 
     // then
     final var exceptionCaptor = ArgumentCaptor.forClass(IllegalStateException.class);
@@ -146,16 +156,16 @@ class PoPPMessageHandlerTest {
   }
 
   @Test
-  void handleErrorMessageDoesNothingWithoutClientSessionId() {
-    // given / when
-    sut.handle(ErrorMessage.builder().errorCode("errorCode").errorDetail("errorDetail").build());
-
-    // then
-    verifyNoInteractions(
-        sessionRegistry,
-        standardScenarioProcessor,
-        connectorScenarioProcessor,
-        connectorSessionLifecycle);
+  void handleErrorMessageWithoutConnectionFailsExplicitly() {
+    assertThatThrownBy(
+            () ->
+                sut.handle(
+                    ErrorMessage.builder()
+                        .errorCode("errorCode")
+                        .errorDetail("errorDetail")
+                        .build()))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Cannot correlate");
   }
 
   @Test
@@ -177,82 +187,117 @@ class PoPPMessageHandlerTest {
   }
 
   @Test
-  void handleTokenMessageDoesNothingWhenClientSessionIdMissing() {
-    // given
-    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(false);
-
-    // when
-    sut.handle(new TokenMessage("token", "pn"));
-
-    // then
-    verify(sessionRegistry).completeSolePendingToken("token");
-    verify(sessionRegistry, never()).completeToken(anyString(), anyString());
-    verifyNoInteractions(connectorSessionLifecycle, standardScenarioProcessor);
+  void handleTokenMessageWithoutConnectionFailsExplicitly() {
+    assertThatThrownBy(() -> sut.handle(new TokenMessage("token")))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Cannot correlate");
   }
 
   @Test
-  void handleTokenMessageUsesFallbackWhenClientSessionIdDoesNotMatchWaiter() {
-    // given
-    final var clientSessionId = "session-id";
-    final var context = new ClientRequestContext(clientSessionId);
-    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
-    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(false);
-    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(true);
+  void handleTokenWithoutIdStopsConnectorSessionOnOriginConnection() {
+    final var client = mock(SecureWebSocketClient.class);
+    final var context = new ClientRequestContext("session-id");
+    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of("session-id"));
+    when(sessionRegistry.getRequestContext("session-id")).thenReturn(context);
+    when(sessionRegistry.completeToken("session-id", "token")).thenReturn(true);
 
-    // when
-    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+    sut.handle(new TokenMessage("token"), client);
 
-    // then
-    verify(sessionRegistry).completeToken(clientSessionId, "token");
-    verify(sessionRegistry).completeSolePendingToken("token");
     verify(connectorSessionLifecycle).stopSessionIfRequired(context);
-    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+    verify(sessionRegistry).completeToken("session-id", "token");
   }
 
   @Test
-  void handleTokenMessageLogsWarningWhenNoWaiterFoundAtAll() {
-    // given
-    final var clientSessionId = "session-id";
-    final var context = new ClientRequestContext(clientSessionId);
-    when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(context);
-    when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(false);
-    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(false);
+  void handleStandardScenarioRejectsIdFromAnotherRequest() {
+    final var client = mock(SecureWebSocketClient.class);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of("active"));
 
-    // when
-    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
-
-    // then
-    verify(sessionRegistry).completeToken(clientSessionId, "token");
-    verify(sessionRegistry).completeSolePendingToken("token");
-    verify(connectorSessionLifecycle).stopSessionIfRequired(context);
-    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+    final var scenario =
+        StandardScenarioMessage.builder()
+            .version("1.0.0")
+            .clientSessionId("other")
+            .steps(List.of())
+            .build();
+    assertThatThrownBy(() -> sut.handle(scenario, client))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("does not match");
+    verifyNoInteractions(standardScenarioProcessor);
   }
 
   @Test
-  void handleTokenMessageWithNullClientSessionIdUsesFallbackSuccessfully() {
-    // given
-    when(sessionRegistry.completeSolePendingToken("token")).thenReturn(true);
+  void handleTokenWithoutPendingRequestOnConnectionFailsExplicitly() {
+    final var client = mock(SecureWebSocketClient.class);
+    when(sessionRegistry.getPendingSessionIdForConnection(client)).thenReturn(Optional.empty());
 
-    // when
-    sut.handle(new TokenMessage(null, "token", "pn"));
+    assertThatThrownBy(() -> sut.handle(new TokenMessage("token"), client))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("No pending token request");
+  }
 
-    // then
-    verify(sessionRegistry).completeSolePendingToken("token");
-    verify(sessionRegistry, never()).completeToken(anyString(), anyString());
-    verify(sessionRegistry, never()).getRequestContext(any());
-    verify(connectorSessionLifecycle, never()).stopSessionIfRequired(any());
-    verifyNoInteractions(standardScenarioProcessor, connectorScenarioProcessor);
+  @Test
+  void idlessTokenCompletesOnlyWaiterOnOriginConnection() {
+    final var registry = new CommunicationSessionRegistry();
+    final var firstClient = mock(SecureWebSocketClient.class);
+    final var secondClient = mock(SecureWebSocketClient.class);
+    final var firstToken = registry.registerTokenWaiter("first");
+    final var secondToken = registry.registerTokenWaiter("second");
+    registry.associatePendingTokenWithConnection("first", firstClient);
+    registry.associatePendingTokenWithConnection("second", secondClient);
+    final var handler =
+        new PoPPMessageHandler(
+            clientServerCommunicationService,
+            registry,
+            standardScenarioProcessor,
+            connectorScenarioProcessor,
+            connectorSessionLifecycle);
+
+    handler.handle(new TokenMessage("first-token"), firstClient);
+
+    assertThat(firstToken).isCompletedWithValue("first-token");
+    assertThat(secondToken).isNotDone();
+    assertThat(registry.getPendingSessionIdForConnection(secondClient)).contains("second");
+  }
+
+  @Test
+  void idlessErrorFailsOnlyWaiterOnOriginConnection() {
+    final var registry = new CommunicationSessionRegistry();
+    final var firstClient = mock(SecureWebSocketClient.class);
+    final var secondClient = mock(SecureWebSocketClient.class);
+    final var firstToken = registry.registerTokenWaiter("first");
+    final var secondToken = registry.registerTokenWaiter("second");
+    registry.associatePendingTokenWithConnection("first", firstClient);
+    registry.associatePendingTokenWithConnection("second", secondClient);
+    final var handler =
+        new PoPPMessageHandler(
+            clientServerCommunicationService,
+            registry,
+            standardScenarioProcessor,
+            connectorScenarioProcessor,
+            connectorSessionLifecycle);
+
+    handler.handle(
+        ErrorMessage.builder().errorCode("79100").errorDetail("failed").build(), firstClient);
+
+    assertThat(firstToken).isCompletedExceptionally();
+    assertThat(secondToken).isNotDone();
+    assertThat(registry.getPendingSessionIdForConnection(secondClient)).contains("second");
   }
 
   @Test
   void handleTokenMessageWithoutContextDoesNotStopSession() {
     // given
     final var clientSessionId = "session-id";
+    final var client = mock(SecureWebSocketClient.class);
+    when(sessionRegistry.getPendingSessionIdForConnection(client))
+        .thenReturn(Optional.of(clientSessionId));
     when(sessionRegistry.getRequestContext(clientSessionId)).thenReturn(null);
     when(sessionRegistry.completeToken(clientSessionId, "token")).thenReturn(true);
 
     // when
-    sut.handle(new TokenMessage(clientSessionId, "token", "pn"));
+    sut.handle(new TokenMessage("token"), client);
 
     // then
     verify(sessionRegistry).completeToken(clientSessionId, "token");
@@ -280,6 +325,6 @@ class PoPPMessageHandlerTest {
     // then
     final var responseCaptor = ArgumentCaptor.forClass(ScenarioResponseMessage.class);
     verify(clientServerCommunicationService).sendMessage(responseCaptor.capture());
-    assertThat(responseCaptor.getValue().getClientSessionId()).isEqualTo("session-id");
+    assertThat(responseCaptor.getValue().getSteps()).containsExactly("9000");
   }
 }

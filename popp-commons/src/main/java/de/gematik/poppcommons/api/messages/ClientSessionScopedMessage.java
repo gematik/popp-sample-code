@@ -21,10 +21,8 @@
 package de.gematik.poppcommons.api.messages;
 
 /**
- * Implemented by messages that carry a {@code clientSessionId}. The value correlates a single
- * (potentially parallel) token request across the client/server message exchange. On the server it
- * is used - together with the transport (WebSocket) session id - to derive a logical session id so
- * that state of concurrent requests over the same connection does not collide.
+ * Implemented by v1 messages that carry a {@code clientSessionId}: Start and StandardScenario.
+ * Other messages are correlated to the active request on their WebSocket connection.
  */
 public interface ClientSessionScopedMessage {
 

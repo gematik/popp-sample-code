@@ -26,6 +26,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Provides deterministic mock responses for connector-based PoPP flows.
+ *
+ * <p>The mock supplies fixed card and session identifiers and returns predefined APDU response
+ * sequences for successive signed scenarios, allowing connector flows to run without a real
+ * connector.
+ */
 @Slf4j
 @Component
 public class MockConnectorCommunicationService {

@@ -27,6 +27,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/** Provides the ordered card scenarios for contact-based communication. */
 @Component
 public class ContactBasedScenariosProvider extends AbstractCardScenarios {
 
@@ -34,6 +35,7 @@ public class ContactBasedScenariosProvider extends AbstractCardScenarios {
     super(scenarios);
   }
 
+  /** Creates the provider with the standard contact-based scenario sequence. */
   public ContactBasedScenariosProvider() {
     this(
         List.of(
@@ -50,6 +52,11 @@ public class ContactBasedScenariosProvider extends AbstractCardScenarios {
                 StepId.READ_EF_C_CH_AUT_E256)));
   }
 
+  /**
+   * Returns the contact communication mode.
+   *
+   * @return {@link CommunicationMode#CONTACT}
+   */
   @Override
   public CommunicationMode getSupportedCommunicationMode() {
     return CommunicationMode.CONTACT;

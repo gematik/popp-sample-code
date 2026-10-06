@@ -40,6 +40,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
 
+/**
+ * Emulates an eGK smart card for PoPP scenarios using data from a virtual card image.
+ *
+ * <p>The service recognizes supported APDUs and returns certificate, version, key-identifier, and
+ * authentication responses. It also performs the mutual-authentication steps required to establish
+ * secure messaging and maintains this state per virtual-card session.
+ */
 @Service
 @Slf4j
 public class VirtualCardService {

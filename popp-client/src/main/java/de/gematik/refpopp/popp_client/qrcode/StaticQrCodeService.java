@@ -33,6 +33,12 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Creates static PoPP check-in QR code payloads and PNG images.
+ *
+ * <p>The payload contains the telematics identifier, the {@code popp-checkin} type, and an optional
+ * workplace identifier. QR codes are encoded as UTF-8 PNG images with medium error correction.
+ */
 @Service
 public class StaticQrCodeService {
 

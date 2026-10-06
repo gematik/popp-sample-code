@@ -31,6 +31,13 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HexFormat;
 
+/**
+ * Maintains response-side secure-messaging state for a virtual card session.
+ *
+ * <p>The session derives an AES-CMAC key from the shared secret, advances the secure-session
+ * counter for each response, and wraps response data, status word, and message authentication code
+ * in the required ASN.1 data objects.
+ */
 final class SecureMessagingSession {
   private static final byte[] EMPTY_BYTES = new byte[0];
   private static final byte[] SECURE_MESSAGING_SUFFIX_MAC = HexFormat.of().parseHex("00000002");

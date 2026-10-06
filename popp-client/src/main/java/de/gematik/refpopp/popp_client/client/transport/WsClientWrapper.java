@@ -28,6 +28,12 @@ import kotlin.Unit;
 import kotlin.jvm.functions.Function1;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring-managed wrapper around the Zeta SDK WebSocket client.
+ *
+ * <p>Encapsulating the static SDK call makes WebSocket connection creation injectable and easier to
+ * replace in tests.
+ */
 @Component
 public class WsClientWrapper {
 

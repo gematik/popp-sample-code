@@ -38,8 +38,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * REST endpoints for the mobile VZD search flow of the PoPP service.
  *
- * <p>Currently only the FHIR-VZD search operation is implemented, which is used to retrieve
- * information about a healthcare company for obtaining the user's consent.
+ * <p>The FHIR-VZD search operation retrieves information about a healthcare company for obtaining
+ * the user's consent.
  */
 @Slf4j
 @RestController

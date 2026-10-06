@@ -23,6 +23,14 @@ package de.gematik.refpopp.popp_client.configuration;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Resolves configured file locations to normalized paths.
+ *
+ * <p>Relative locations are first resolved against the optional base directory configured through
+ * {@value #BASEDIR_ENVIRONMENT_VARIABLE} or {@value #BASEDIR_SYSTEM_PROPERTY}, then against the
+ * working directory and each of its ancestors. Absolute locations are returned unchanged apart from
+ * normalization.
+ */
 public final class PathResolver {
 
   static final String BASEDIR_ENVIRONMENT_VARIABLE = "POPP_BASEDIR";

@@ -23,6 +23,12 @@ package de.gematik.refpopp.popp_client.connector.soap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Resolves connector SOAP service endpoints from service-directory paths.
+ *
+ * <p>It exposes versioned endpoint metadata for the card and event services and builds complete
+ * URLs for card, event, certificate, and authentication signature service calls.
+ */
 @Slf4j
 @Component
 public class ServiceEndpointProvider {
@@ -39,9 +45,9 @@ public class ServiceEndpointProvider {
   }
 
   public String getCardServiceFullEndpoint() {
-    final var eventServicePath = servicePathExtractor.getCardServicePath();
+    final var cardServicePath = servicePathExtractor.getCardServicePath();
     return servicePathExtractor.getConnectorUrl()
-        + determineServiceEndpoint(eventServicePath).getEndpoint();
+        + determineServiceEndpoint(cardServicePath).getEndpoint();
   }
 
   public ServiceEndpoint getEventServiceEndpoint() {
@@ -50,9 +56,9 @@ public class ServiceEndpointProvider {
   }
 
   public String getEventServiceFullEndpoint() {
-    final var cardServicePath = servicePathExtractor.getEventServicePath();
+    final var eventServicePath = servicePathExtractor.getEventServicePath();
     return servicePathExtractor.getConnectorUrl()
-        + determineServiceEndpoint(cardServicePath).getEndpoint();
+        + determineServiceEndpoint(eventServicePath).getEndpoint();
   }
 
   public String getCertificateServiceFullEndpoint() {

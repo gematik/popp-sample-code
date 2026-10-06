@@ -28,10 +28,19 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Extracts scenario-relevant fields from X.509 certificates. */
 @Slf4j
 @Component
 public final class X509DataExtractor {
 
+  /**
+   * Extracts certificate metadata and subject attributes.
+   *
+   * @param certificate the certificate to extract data from
+   * @param sessionId the identifier of the current session
+   * @return the extracted certificate data
+   * @throws CertificateParserException if the certificate is {@code null}
+   */
   public X509Data extractFromCertificate(
       final X509Certificate certificate, final String sessionId) {
     if (certificate == null) {

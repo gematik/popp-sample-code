@@ -29,6 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+/**
+ * Parses CV certificates from classpath resources and filesystem paths.
+ *
+ * <p>The parser delegates binary certificate decoding to {@link CvcFactory} and wraps read or
+ * parsing failures in a {@link CertificateParserException}.
+ */
 @Component
 @Slf4j
 public class CvCertificateParser {

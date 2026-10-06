@@ -20,14 +20,19 @@
 
 package de.gematik.refpopp.popp_server.scenario.common.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
+import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_server.communication.ClientCommunicationService;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import de.gematik.refpopp.popp_server.scenario.common.ScenarioMessageFactory;
@@ -37,6 +42,7 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class AbstractScenarioProcessingServiceTest {
@@ -222,5 +228,34 @@ class AbstractScenarioProcessingServiceTest {
     verify(sessionAccessorMock).storeScenarioCounter(sessionCommunicationMock.getSessionId(), 1);
     verify(clientCommunicationServiceMock)
         .sendMessage(standardScenarioMessageMock, sessionCommunicationMock);
+  }
+
+  @Test
+  void processLastScenarioClearsRequestAfterSendingToken() {
+    final var session = mock(SessionCommunication.class);
+    when(session.getSessionId()).thenReturn("transport::client");
+    when(sessionAccessorMock.getPoppToken("transport::client")).thenReturn("token");
+
+    sut.processLastScenario(session);
+
+    final var tokenCaptor = ArgumentCaptor.forClass(TokenMessage.class);
+    verify(clientCommunicationServiceMock).sendMessage(tokenCaptor.capture(), eq(session));
+    assertThat(tokenCaptor.getValue().getToken()).isEqualTo("token");
+    verify(sessionAccessorMock).clearRequestState("transport::client");
+  }
+
+  @Test
+  void processLastScenarioClearsRequestWhenSendingTokenFails() {
+    final var session = mock(SessionCommunication.class);
+    when(session.getSessionId()).thenReturn("transport::client");
+    when(sessionAccessorMock.getPoppToken("transport::client")).thenReturn("token");
+    doThrow(new IllegalStateException("send failed"))
+        .when(clientCommunicationServiceMock)
+        .sendMessage(any(TokenMessage.class), any());
+
+    assertThatThrownBy(() -> sut.processLastScenario(session))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("send failed");
+    verify(sessionAccessorMock).clearRequestState("transport::client");
   }
 }

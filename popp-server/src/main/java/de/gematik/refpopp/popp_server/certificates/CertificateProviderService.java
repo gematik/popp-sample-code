@@ -50,6 +50,14 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
+/**
+ * Loads and provides certificates, trusted CVC identities, and keystores for the PoPP server.
+ *
+ * <p>At startup, the service parses configured X.509 and CV certificates, loads the trusted CVC
+ * directory, validates the trusted-channel identity material, and initializes connector and PoPP
+ * token keystores. Classpath-based identity directories are copied to a temporary directory when
+ * direct filesystem access is unavailable.
+ */
 @Component
 @Slf4j
 public class CertificateProviderService {

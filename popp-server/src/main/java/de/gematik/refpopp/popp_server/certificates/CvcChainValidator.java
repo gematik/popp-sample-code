@@ -28,6 +28,12 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/**
+ * Validates a CV certificate against a configured CVC trust anchor.
+ *
+ * <p>The validator creates a trust anchor from the issuing certificate and verifies the supplied
+ * certificate chain at the current time using the OpenHealth crypto library.
+ */
 @Component
 public class CvcChainValidator {
 

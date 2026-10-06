@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_server.handler.SessionCommunication;
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -42,7 +41,7 @@ class ClientCommunicationServiceTest {
   }
 
   @Test
-  void sendMessageSendsStandardScenarioMessage() throws IOException {
+  void sendMessageSendsStandardScenarioMessage() {
     // given
     when(sessionMock.getSessionId()).thenReturn("session1");
     final var messagePayload =
@@ -86,7 +85,7 @@ class ClientCommunicationServiceTest {
     // given
     when(sessionMock.getSessionId()).thenReturn("session1");
     final var token = "AKQEDA.fSdg.ABRIAA";
-    final var tokenMessage = new TokenMessage(token, "pn");
+    final var tokenMessage = new TokenMessage(token);
 
     // when
     sut.sendMessage(tokenMessage, sessionMock);

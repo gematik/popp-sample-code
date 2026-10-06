@@ -26,6 +26,12 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Exposes read endpoints for eGK certificate-hash import reports.
+ *
+ * <p>Clients can retrieve all reports, a report for a specific session, or the most recently
+ * started report from {@code /import-reports}.
+ */
 @RestController
 @RequestMapping("/import-reports")
 public class ImportReportController {

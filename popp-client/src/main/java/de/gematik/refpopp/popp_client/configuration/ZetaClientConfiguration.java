@@ -50,6 +50,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
+/**
+ * Configures Zeta SDK clients used to communicate with the PoPP server.
+ *
+ * <p>Provides dedicated clients for P12/SMB and connector/SMC-B authentication, applying the
+ * configured server endpoint, TLS validation, HTTP logging, platform product identifier, and
+ * in-memory SDK storage.
+ */
 @Lazy
 @Configuration
 public class ZetaClientConfiguration {

@@ -28,6 +28,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * Retrieves signed JSON Web Key Sets for PoPP token verification.
+ *
+ * <p>The client fetches the JWT from the URI declared in the entity statement and translates HTTP
+ * and connection failures into {@link PoppTokenValidationException}.
+ */
 @Service
 public class SignedJwksClient {
 

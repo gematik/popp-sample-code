@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_client.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
@@ -28,9 +29,11 @@ import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import java.util.List;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.ObjectProvider;
@@ -72,6 +75,29 @@ class ClientServerCommunicationServiceTest {
     // then
     verify(webSocketClientMock).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
     verify(webSocketClientMock, times(1)).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+  }
+
+  @Test
+  void reconnectsOnlyWhenZetaAuthenticationChanges() {
+    final var connectorClient = mock(SecureWebSocketClient.class);
+    final var nextStandardClient = mock(SecureWebSocketClient.class);
+    when(webSocketClientProviderMock.getObject())
+        .thenReturn(webSocketClientMock, connectorClient, nextStandardClient);
+    when(webSocketClientMock.isOpen()).thenReturn(true);
+    when(connectorClient.isOpen()).thenReturn(true);
+
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+    sut.connect(CardConnectionType.CONTACT_CONNECTOR);
+    sut.connect(CardConnectionType.CONTACTLESS_CONNECTOR);
+    sut.connect(CardConnectionType.CONTACT_STANDARD);
+
+    verify(webSocketClientMock).close();
+    verify(connectorClient).connectBlocking(CardConnectionType.CONTACT_CONNECTOR);
+    verify(connectorClient, never()).connectBlocking(CardConnectionType.CONTACTLESS_CONNECTOR);
+    verify(connectorClient).close();
+    verify(nextStandardClient).connectBlocking(CardConnectionType.CONTACT_STANDARD);
+    verify(webSocketClientProviderMock, times(3)).getObject();
+    assertThat(sut.getCurrentWebSocketClient()).isSameAs(nextStandardClient);
   }
 
   @Test
@@ -218,6 +244,43 @@ class ClientServerCommunicationServiceTest {
 
     // then
     verify(webSocketClientMock).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+  }
+
+  @Test
+  void invalidatedClientIsRemovedFromConnectionCache() {
+    when(webSocketClientMock.isOpen()).thenReturn(false);
+    ArgumentCaptor<Consumer<SecureWebSocketClient>> invalidationListenerCaptor =
+        ArgumentCaptor.forClass(Consumer.class);
+
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+    verify(webSocketClientMock).setInvalidationListener(invalidationListenerCaptor.capture());
+
+    invalidationListenerCaptor.getValue().accept(webSocketClientMock);
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+
+    verify(webSocketClientProviderMock, times(2)).getObject();
+    verify(webSocketClientMock, times(2)).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+  }
+
+  @Test
+  void invalidatedStaleClientDoesNotRemoveNewConnectionFromCache() {
+    SecureWebSocketClient replacementClientMock = mock(SecureWebSocketClient.class);
+    when(webSocketClientProviderMock.getObject())
+        .thenReturn(webSocketClientMock, replacementClientMock);
+    when(webSocketClientMock.isOpen()).thenReturn(false);
+    when(replacementClientMock.isOpen()).thenReturn(true);
+    ArgumentCaptor<Consumer<SecureWebSocketClient>> invalidationListenerCaptor =
+        ArgumentCaptor.forClass(Consumer.class);
+
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+    verify(webSocketClientMock).setInvalidationListener(invalidationListenerCaptor.capture());
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+
+    invalidationListenerCaptor.getValue().accept(webSocketClientMock);
+    sut.connect(CardConnectionType.CONTACT_VIRTUAL);
+
+    verify(webSocketClientProviderMock, times(2)).getObject();
+    verify(replacementClientMock, times(1)).connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
   }
 
   @Test

@@ -22,6 +22,12 @@ package de.gematik.refpopp.popp_client.cardreader.card;
 
 import java.util.Arrays;
 
+/**
+ * Holds mutable cryptographic state for one virtual-card communication session.
+ *
+ * <p>It retains the ephemeral key produced during mutual authentication and the resulting secure
+ * messaging session. Key material is defensively copied when stored or retrieved.
+ */
 public final class VirtualCardSessionState {
   private SecureMessagingSession secureMessagingSession;
   private byte[] pendingCardEphemeralPrivateKey;

@@ -34,6 +34,7 @@ import java.security.SecureRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Processes contactless card scenarios and manages the nonce for internal authentication. */
 @Component
 @Slf4j
 public class ContactLessScenarioProcessingService extends AbstractScenarioProcessingService {
@@ -54,16 +55,36 @@ public class ContactLessScenarioProcessingService extends AbstractScenarioProces
     this.sessionAccessor = sessionAccessor;
   }
 
+  /**
+   * Returns the contactless communication mode.
+   *
+   * @return {@link CommunicationMode#CONTACTLESS}
+   */
   @Override
   public CommunicationMode getSupportedCommunicationMode() {
     return CommunicationMode.CONTACTLESS;
   }
 
+  /**
+   * Determines whether the supplied scenario is the final contactless scenario.
+   *
+   * @param currentScenario the scenario being evaluated
+   * @return {@code true} if the scenario is AUTH G2; otherwise {@code false}
+   */
   @Override
   public boolean isLastScenario(final Scenario currentScenario) {
     return currentScenario.is(ScenarioId.AUTH_G2);
   }
 
+  /**
+   * Processes a contactless scenario and sends the next scenario or final token.
+   *
+   * <p>A new nonce is stored in the session before sending each subsequent scenario.
+   *
+   * @param session the session communication used for processing
+   * @param lastScenarioSentToClient the most recently sent scenario
+   * @param cardScenarioProvider provides the scenarios for the card
+   */
   @Override
   public void processScenario(
       final SessionCommunication session,

@@ -31,6 +31,7 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import org.springframework.stereotype.Service;
 
+/** Starts scenario processing for the Open eGK communication mode. */
 @Service
 public class OpenEgkScenarioProcessingService extends AbstractScenarioProcessingService {
 
@@ -46,16 +47,34 @@ public class OpenEgkScenarioProcessingService extends AbstractScenarioProcessing
         scenarioTransitionService);
   }
 
+  /**
+   * Returns the undefined communication mode used for Open eGK processing.
+   *
+   * @return {@link CommunicationMode#UNDEFINED}
+   */
   @Override
   public CommunicationMode getSupportedCommunicationMode() {
     return CommunicationMode.UNDEFINED;
   }
 
+  /**
+   * Indicates that Open eGK processing does not use a terminal scenario.
+   *
+   * @param currentScenario the scenario being evaluated
+   * @return {@code false}
+   */
   @Override
   public boolean isLastScenario(final Scenario currentScenario) {
     return false;
   }
 
+  /**
+   * Starts processing by sending the first scenario from the card scenario provider.
+   *
+   * @param session the session communication used for processing
+   * @param lastScenarioSentToClient the most recently sent scenario
+   * @param cardScenarioProvider provides the scenarios for the card
+   */
   @Override
   public void processScenario(
       final SessionCommunication session,

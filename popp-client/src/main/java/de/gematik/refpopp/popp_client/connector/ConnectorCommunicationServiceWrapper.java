@@ -28,6 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+/**
+ * Routes connector operations to either the real connector or its mock implementation.
+ *
+ * <p>The active implementation is selected from the current communication session's connector-mock
+ * flag. It exposes the connector operations required to obtain an eGK card, manage card sessions,
+ * and exchange signed scenario APDUs.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

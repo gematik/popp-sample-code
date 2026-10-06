@@ -34,6 +34,13 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Monitors smart-card reader availability and card insertion state.
+ *
+ * <p>The monitor periodically detects reader and card state transitions, manages the active card
+ * connection and channel, and publishes corresponding reader and card events. Active card
+ * connections are closed when the card or reader is removed and during shutdown.
+ */
 @Slf4j
 public class ReaderAndCardMonitoring implements Monitoring {
 

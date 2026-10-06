@@ -34,30 +34,24 @@ class ToolsJacksonSerializerTest {
 
   @Test
   void serializeReturnsJsonBytes() throws Exception {
-    final Map<String, Object> payload = Map.of("type", "Token", "token", "abc", "pn", "pn1");
+    final Map<String, Object> payload = Map.of("type", "Token", "token", "abc");
 
     final byte[] json = sut.serialize(payload);
 
     @SuppressWarnings("unchecked")
     final Map<String, Object> parsed = mapper.readValue(json, Map.class);
-    assertThat(parsed)
-        .containsEntry("type", "Token")
-        .containsEntry("token", "abc")
-        .containsEntry("pn", "pn1");
+    assertThat(parsed).containsEntry("type", "Token").containsEntry("token", "abc").hasSize(2);
   }
 
   @Test
   void serializeWritesToOutputStream() throws Exception {
-    final Map<String, Object> payload = Map.of("type", "Token", "token", "abc", "pn", "pn1");
+    final Map<String, Object> payload = Map.of("type", "Token", "token", "abc");
     final var out = new ByteArrayOutputStream();
 
     sut.serialize(payload, out);
 
     @SuppressWarnings("unchecked")
     final Map<String, Object> parsed = mapper.readValue(out.toByteArray(), Map.class);
-    assertThat(parsed)
-        .containsEntry("type", "Token")
-        .containsEntry("token", "abc")
-        .containsEntry("pn", "pn1");
+    assertThat(parsed).containsEntry("type", "Token").containsEntry("token", "abc").hasSize(2);
   }
 }

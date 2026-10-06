@@ -23,12 +23,19 @@ package de.gematik.refpopp.popp_server.scenario.common.x509;
 import de.gematik.refpopp.popp_server.certificates.X509CertificateParser;
 import org.springframework.stereotype.Component;
 
+/** Parses X.509 certificate data and extracts the fields required for scenario processing. */
 @Component
 public class X509CertificateProcessor {
 
   private final X509CertificateParser x509CertificateParser;
   private final X509DataExtractor x509DataExtractor;
 
+  /**
+   * Creates a processor using the supplied certificate parser and data extractor.
+   *
+   * @param x509CertificateParser the parser for encoded X.509 certificates
+   * @param x509DataExtractor the extractor for parsed certificate data
+   */
   public X509CertificateProcessor(
       final X509CertificateParser x509CertificateParser,
       final X509DataExtractor x509DataExtractor) {
@@ -36,6 +43,13 @@ public class X509CertificateProcessor {
     this.x509DataExtractor = x509DataExtractor;
   }
 
+  /**
+   * Parses encoded certificate data and extracts its scenario-relevant fields.
+   *
+   * @param sessionId the identifier of the current session
+   * @param certificateData the encoded X.509 certificate
+   * @return the extracted certificate data
+   */
   public X509Data extractCertificateData(final String sessionId, final byte[] certificateData) {
     final var certificate = x509CertificateParser.parse(certificateData, sessionId);
     return x509DataExtractor.extractFromCertificate(certificate, sessionId);

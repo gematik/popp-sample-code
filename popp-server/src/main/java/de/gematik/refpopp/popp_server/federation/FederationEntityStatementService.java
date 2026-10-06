@@ -38,6 +38,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/**
+ * Creates signed OpenID Federation entity statements for the PoPP server.
+ *
+ * <p>The service builds an ES256 JWT containing federation metadata, the signed JWKS URI, and the
+ * entity signing public key. It signs the statement with the configured federation keystore key.
+ */
 @Service
 public class FederationEntityStatementService {
 

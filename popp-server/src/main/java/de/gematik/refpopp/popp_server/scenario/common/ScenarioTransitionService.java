@@ -27,6 +27,12 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.CardScenarioProvi
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import org.springframework.stereotype.Service;
 
+/**
+ * Resolves the current and subsequent card scenarios for a PoPP session.
+ *
+ * <p>The service retrieves the active scenario from session state and delegates progression to the
+ * configured scenario provider. Missing scenarios are reported as {@link ScenarioException}s.
+ */
 @Service
 public class ScenarioTransitionService {
 

@@ -23,15 +23,27 @@ package de.gematik.refpopp.popp_client.client.session;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
+/**
+ * Maintains session-scoped state for PoPP token requests.
+ *
+ * <p>The registry correlates token waiters, request contexts, and virtual-card resources by {@code
+ * clientSessionId}. It completes or fails the respective token waiter when processing finishes and
+ * removes the associated session state afterwards.
+ */
 @Component
 public class CommunicationSessionRegistry {
 
   private final ConcurrentMap<String, CompletableFuture<String>> tokenQueue =
+      new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, SecureWebSocketClient> tokenConnections =
       new ConcurrentHashMap<>();
   private final ConcurrentMap<String, VirtualCardService> virtualCardServicesBySession =
       new ConcurrentHashMap<>();
@@ -48,8 +60,7 @@ public class CommunicationSessionRegistry {
 
   /**
    * Registers (or replaces) the request-scoped context for the given {@code clientSessionId}. The
-   * context isolates the state of a single (potentially parallel) token request over a shared
-   * WebSocket connection.
+   * context isolates the state of a single token request.
    */
   public ClientRequestContext registerRequestContext(
       final String sessionId, final CardConnectionType cardConnectionType) {
@@ -89,28 +100,8 @@ public class CommunicationSessionRegistry {
       return false;
     }
     final var tokenFuture = tokenQueue.remove(sessionId);
+    tokenConnections.remove(sessionId);
     cleanup(sessionId);
-    if (tokenFuture == null) {
-      return false;
-    }
-    tokenFuture.complete(token);
-    return true;
-  }
-
-  /**
-   * Fallback correlation for servers that do not echo back the client's {@code clientSessionId} (or
-   * send none at all) in the token message. If exactly one token request is currently in flight,
-   * its waiter is completed regardless of the key so that the calling thread is not stuck until it
-   * times out. Returns {@code false} if there is zero or more than one pending request, because in
-   * that case the token cannot be attributed unambiguously.
-   */
-  public boolean completeSolePendingToken(final String token) {
-    if (tokenQueue.size() != 1) {
-      return false;
-    }
-    final var soleSessionId = tokenQueue.keySet().stream().findFirst().orElseThrow();
-    final var tokenFuture = tokenQueue.remove(soleSessionId);
-    cleanup(soleSessionId);
     if (tokenFuture == null) {
       return false;
     }
@@ -123,12 +114,72 @@ public class CommunicationSessionRegistry {
       return false;
     }
     final var tokenFuture = tokenQueue.remove(sessionId);
+    tokenConnections.remove(sessionId);
     cleanup(sessionId);
     if (tokenFuture == null) {
       return false;
     }
     tokenFuture.completeExceptionally(throwable);
     return true;
+  }
+
+  public int failAllPendingTokens(final Throwable throwable) {
+    int failedTokens = 0;
+    for (final var entry : tokenQueue.entrySet()) {
+      final var sessionId = entry.getKey();
+      final var tokenFuture = entry.getValue();
+      if (tokenQueue.remove(sessionId, tokenFuture)) {
+        tokenConnections.remove(sessionId);
+        cleanup(sessionId);
+        tokenFuture.completeExceptionally(throwable);
+        failedTokens++;
+      }
+    }
+    return failedTokens;
+  }
+
+  public void associatePendingTokenWithConnection(
+      final String sessionId, final SecureWebSocketClient client) {
+    if (client != null && tokenQueue.containsKey(sessionId)) {
+      tokenConnections.put(sessionId, client);
+    }
+  }
+
+  public Optional<String> getPendingSessionIdForConnection(final SecureWebSocketClient client) {
+    if (client == null) {
+      return Optional.empty();
+    }
+    final var pending =
+        tokenConnections.entrySet().stream()
+            .filter(entry -> entry.getValue() == client && tokenQueue.containsKey(entry.getKey()))
+            .map(Map.Entry::getKey)
+            .toList();
+    if (pending.size() > 1) {
+      throw new IllegalStateException(
+          "Multiple token requests pending on one WebSocket connection");
+    }
+    return pending.stream().findFirst();
+  }
+
+  public int failPendingTokensForConnection(
+      final SecureWebSocketClient client, final Throwable throwable) {
+    if (client == null) {
+      return 0;
+    }
+    int failedTokens = 0;
+    for (final var entry : tokenConnections.entrySet()) {
+      final var sessionId = entry.getKey();
+      if (entry.getValue() == client) {
+        final var tokenFuture = tokenQueue.remove(sessionId);
+        tokenConnections.remove(sessionId, client);
+        if (tokenFuture != null) {
+          cleanup(sessionId);
+          tokenFuture.completeExceptionally(throwable);
+          failedTokens++;
+        }
+      }
+    }
+    return failedTokens;
   }
 
   public void cleanup(final String sessionId) {

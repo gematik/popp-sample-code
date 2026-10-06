@@ -26,6 +26,12 @@ import de.gematik.refpopp.popp_client.connector.soap.SoapActions;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+/**
+ * Builds versioned SOAP action URIs for connector service requests.
+ *
+ * <p>The helper derives the required major and minor version from the appropriate service endpoint:
+ * the event service for {@link SoapActions#GET_CARDS} and the card service for all other actions.
+ */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class SoapActionVersionHelper {
 

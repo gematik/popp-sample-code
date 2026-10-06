@@ -20,8 +20,8 @@
 
 package de.gematik.refpopp.popp_server.controller;
 
-import de.gematik.refpopp.popp_server.file.temp.EgkImportTempFileService;
 import de.gematik.refpopp.popp_server.hashdb.EgkHashImportService;
+import de.gematik.refpopp.popp_server.hashdb.file.temp.EgkImportTempFileService;
 import java.io.IOException;
 import java.nio.file.Path;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +35,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * Exposes the endpoint for importing eGK certificate-hash files.
+ *
+ * <p>The controller accepts multipart uploads at {@code /cert-hash/import}, stores each upload in a
+ * temporary file, delegates the import, and removes the temporary file afterwards.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/cert-hash")

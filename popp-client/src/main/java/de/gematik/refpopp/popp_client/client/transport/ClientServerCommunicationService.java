@@ -39,6 +39,7 @@ public class ClientServerCommunicationService {
   private final AtomicReference<SecureWebSocketClient> secureWebSocketClientRef =
       new AtomicReference<>();
   private final ObjectProvider<SecureWebSocketClient> webSocketClientProvider;
+  private volatile CardConnectionType connectedCardConnectionType;
 
   public ClientServerCommunicationService(
       final ObjectMapper mapper,
@@ -49,19 +50,27 @@ public class ClientServerCommunicationService {
   }
 
   /**
-   * Establishes a WebSocket connection to the server if not already connected. If a connection is
-   * already open, it will be reused. This method is synchronized to prevent concurrent connection
-   * attempts.
+   * Establishes a WebSocket connection to the server if not already connected with the required
+   * authentication method. An open connection is reused only when its ZETA authentication method
+   * matches. This method is synchronized to prevent concurrent connection attempts.
    *
    * @param cardConnectionType The type of card connection to use for the WebSocket connection.
    */
   public synchronized void connect(CardConnectionType cardConnectionType) {
     log.debug("| Entering connect()");
     final var existing = secureWebSocketClientRef.get();
-    if (existing != null && existing.isOpen()) {
+    if (existing != null
+        && existing.isOpen()
+        && SecureWebSocketClient.usesConnectorAuthentication(cardConnectionType)
+            == SecureWebSocketClient.usesConnectorAuthentication(connectedCardConnectionType)) {
       log.info("| Reusing existing open WebSocket connection");
       log.debug("| Exiting connect()");
       return;
+    }
+    if (existing != null && existing.isOpen()) {
+      log.info("| Reconnecting WebSocket with a different ZETA authentication method");
+      secureWebSocketClientRef.set(null);
+      existing.close();
     }
 
     final var client = createNewWebSocketClient();
@@ -69,6 +78,7 @@ public class ClientServerCommunicationService {
 
     try {
       client.connectBlocking(cardConnectionType);
+      connectedCardConnectionType = cardConnectionType;
     } catch (final RuntimeException e) {
       log.error("| Error connecting to WebSocket server: {}", e.getMessage(), e);
       try {
@@ -78,6 +88,7 @@ public class ClientServerCommunicationService {
             "| Error while closing websocket client after failed connect: {}", ex.getMessage());
       }
       secureWebSocketClientRef.set(null);
+      connectedCardConnectionType = null;
       throw e;
     }
 
@@ -88,6 +99,7 @@ public class ClientServerCommunicationService {
   public synchronized void disconnect() {
     log.debug("| Entering disconnect()");
     final var client = secureWebSocketClientRef.getAndSet(null);
+    connectedCardConnectionType = null;
     if (client != null) {
       try {
         client.close();
@@ -124,7 +136,18 @@ public class ClientServerCommunicationService {
     return new CommunicationSslSession(client.getSSLSession());
   }
 
+  public SecureWebSocketClient getCurrentWebSocketClient() {
+    return secureWebSocketClientRef.get();
+  }
+
   private SecureWebSocketClient createNewWebSocketClient() {
-    return webSocketClientProvider.getObject();
+    final var client = webSocketClientProvider.getObject();
+    client.setInvalidationListener(
+        failedClient -> {
+          if (secureWebSocketClientRef.compareAndSet(failedClient, null)) {
+            connectedCardConnectionType = null;
+          }
+        });
+    return client;
   }
 }

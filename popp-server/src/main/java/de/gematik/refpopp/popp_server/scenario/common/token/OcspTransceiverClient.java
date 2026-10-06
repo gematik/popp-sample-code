@@ -28,9 +28,21 @@ import java.util.Optional;
 import org.bouncycastle.cert.ocsp.OCSPResp;
 import org.springframework.stereotype.Component;
 
+/** Retrieves OCSP responses through the Gematik PKI OCSP transceiver. */
 @Component
 final class OcspTransceiverClient {
 
+  /**
+   * Requests the OCSP response for an end-entity certificate from a responder.
+   *
+   * @param endEntityCertificate the certificate whose status is requested
+   * @param issuerCertificate the issuer certificate of the end-entity certificate
+   * @param responderUrl the URL of the OCSP responder
+   * @param productType the product type sent with the request
+   * @param timeoutSeconds the request timeout in seconds
+   * @return an optional containing the OCSP response
+   * @throws GemPkiException if the request cannot be processed
+   */
   Optional<OCSPResp> getOcspResponse(
       final X509Certificate endEntityCertificate,
       final X509Certificate issuerCertificate,
@@ -48,6 +60,13 @@ final class OcspTransceiverClient {
         .getOcspResponse();
   }
 
+  /**
+   * Returns the DER-encoded representation of an OCSP response.
+   *
+   * @param response the OCSP response to encode
+   * @return the encoded OCSP response
+   * @throws IOException if the response cannot be encoded
+   */
   byte[] getEncoded(final OCSPResp response) throws IOException {
     return response.getEncoded();
   }

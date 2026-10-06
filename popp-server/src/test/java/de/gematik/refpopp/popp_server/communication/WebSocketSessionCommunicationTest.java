@@ -55,7 +55,7 @@ class WebSocketSessionCommunicationTest {
   @Test
   void sendMessage() throws IOException {
     // given
-    final var message = new TokenMessage("token", "pn");
+    final var message = new TokenMessage("token");
     final var argumentCaptor = ArgumentCaptor.forClass(TextMessage.class);
 
     // when
@@ -66,16 +66,13 @@ class WebSocketSessionCommunicationTest {
     final var textMessage = argumentCaptor.getValue();
     final var mapper = new ObjectMapper();
     final Map<String, Object> payload = mapper.readValue(textMessage.getPayload(), Map.class);
-    assertThat(payload)
-        .containsEntry("type", "Token")
-        .containsEntry("token", "token")
-        .containsEntry("pn", "pn");
+    assertThat(payload).containsEntry("type", "Token").containsEntry("token", "token").hasSize(2);
   }
 
   @Test
   void sendMessageThrowsException() throws IOException {
     // given
-    final var message = new TokenMessage("token", "pn");
+    final var message = new TokenMessage("token");
     doThrow(new IOException("error message")).when(webSocketSessionMock).sendMessage(any());
 
     // when
@@ -90,7 +87,7 @@ class WebSocketSessionCommunicationTest {
   @Test
   void sendMessageUsesCustomMapperAndPropagatesMapperExceptions() {
     // given
-    final var message = new TokenMessage("token", "pn");
+    final var message = new TokenMessage("token");
     final var mapperMock = mock(ObjectMapper.class);
     final var sutWithMapper = new WebSocketSessionCommunication(webSocketSessionMock, mapperMock);
 
@@ -107,7 +104,7 @@ class WebSocketSessionCommunicationTest {
   @Test
   void sendMessageWithCustomMapperSerializesReturnedString() throws IOException {
     // given
-    final var message = new TokenMessage("token", "pn");
+    final var message = new TokenMessage("token");
     final var mapperMock = mock(ObjectMapper.class);
     final var sutWithMapper = new WebSocketSessionCommunication(webSocketSessionMock, mapperMock);
 

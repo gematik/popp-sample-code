@@ -32,6 +32,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+/**
+ * Loads signing keys and X.509 certificate chains from the configured server keystores.
+ *
+ * <p>The service retrieves the EC private key and certificate chain associated with each
+ * keystore-resource filename. Connector keystore data additionally includes the issuer CA
+ * certificate required for connector authentication.
+ */
 @Service
 @Slf4j
 public class KeyStoreService {

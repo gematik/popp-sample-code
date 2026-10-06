@@ -38,6 +38,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+/**
+ * Executes PoPP scenario APDUs against the connected physical smart card.
+ *
+ * <p>The service tracks card connection events, initializes PACE for contactless cards, sends
+ * standard or secure-channel APDUs, and validates their status words. Access to the physical card
+ * channel is serialized so APDUs from concurrent scenarios cannot interleave.
+ */
 @Service
 @Setter
 @Slf4j

@@ -28,12 +28,20 @@ import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Routes incoming PoPP protocol messages to their appropriate client-side handlers.
+ *
+ * <p>Scenario messages are processed through the matching card-flow processor and answered with a
+ * {@link ScenarioResponseMessage}. Token and error messages complete or fail the correlated token
+ * request in the session registry. Connector sessions are closed when their token flow completes.
+ */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -46,84 +54,103 @@ public class PoPPMessageHandler {
   private final ConnectorSessionLifecycle connectorSessionLifecycle;
 
   public void handle(final PoPPMessage poPPMessage) {
+    handle(poPPMessage, null);
+  }
+
+  public void handle(final PoPPMessage poPPMessage, final SecureWebSocketClient client) {
     log.debug("| Entering handlePoPPMessage() with message type: {}", poPPMessage.getType());
     switch (poPPMessage) {
-      case final TokenMessage tokenMessage -> handleTokenMessage(tokenMessage);
+      case final TokenMessage tokenMessage -> handleTokenMessage(tokenMessage, client);
       case final StandardScenarioMessage standardScenarioMessage ->
-          handleStandardScenarioMessage(standardScenarioMessage);
+          handleStandardScenarioMessage(standardScenarioMessage, client);
       case final ConnectorScenarioMessage connectorScenarioMessage ->
-          handleConnectorScenarioMessage(connectorScenarioMessage);
-      case final ErrorMessage errorMessage -> handleErrorMessage(errorMessage);
+          handleConnectorScenarioMessage(connectorScenarioMessage, client);
+      case final ErrorMessage errorMessage -> handleErrorMessage(errorMessage, client);
       default -> log.error("| Unknown message type: {}", poPPMessage.getType());
     }
   }
 
-  private void handleErrorMessage(final ErrorMessage errorMessage) {
+  private String resolveSessionId(
+      final String messageSessionId, final SecureWebSocketClient client) {
+    if (client == null) {
+      if (messageSessionId != null && !messageSessionId.isBlank()) {
+        return messageSessionId;
+      }
+      throw new IllegalStateException(
+          "Cannot correlate server message without a WebSocket connection");
+    }
+    final var activeSessionId =
+        sessionRegistry
+            .getPendingSessionIdForConnection(client)
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "No pending token request on this WebSocket connection"));
+    if (messageSessionId != null && !messageSessionId.equals(activeSessionId)) {
+      throw new IllegalStateException(
+          "Server message clientSessionId does not match the pending request on this connection");
+    }
+    return activeSessionId;
+  }
+
+  private void handleErrorMessage(
+      final ErrorMessage errorMessage, final SecureWebSocketClient client) {
     log.error(
         "| Error message: {}, {}", errorMessage.getErrorCode(), errorMessage.getErrorDetail());
-    final var clientSessionId = errorMessage.getClientSessionId();
-    if (clientSessionId == null) {
-      log.warn("| No clientSessionId found for server error message");
-      return;
-    }
-    sessionRegistry.failToken(
+    final var clientSessionId = resolveSessionId(null, client);
+    if (!sessionRegistry.failToken(
         clientSessionId,
         new IllegalStateException(
-            "Server error " + errorMessage.getErrorCode() + ": " + errorMessage.getErrorDetail()));
+            "Server error "
+                + errorMessage.getErrorCode()
+                + ": "
+                + errorMessage.getErrorDetail()))) {
+      throw new IllegalStateException(
+          "No pending token request for clientSessionId " + clientSessionId);
+    }
   }
 
   private void handleConnectorScenarioMessage(
-      final ConnectorScenarioMessage connectorScenarioMessage) {
-    final var clientSessionId = connectorScenarioMessage.getClientSessionId();
+      final ConnectorScenarioMessage connectorScenarioMessage, final SecureWebSocketClient client) {
+    final var clientSessionId = resolveSessionId(null, client);
     final var context = sessionRegistry.getRequestContext(clientSessionId);
     final List<String> responses =
         connectorScenarioProcessor.process(connectorScenarioMessage, context);
-    sendScenarioResponseMessage(clientSessionId, responses);
+    sendScenarioResponseMessage(responses);
   }
 
   private void handleStandardScenarioMessage(
-      final StandardScenarioMessage standardScenarioMessage) {
-    final var clientSessionId = standardScenarioMessage.getClientSessionId();
+      final StandardScenarioMessage standardScenarioMessage, final SecureWebSocketClient client) {
+    final var clientSessionId =
+        resolveSessionId(standardScenarioMessage.getClientSessionId(), client);
     final var context = sessionRegistry.getRequestContext(clientSessionId);
     final List<String> responses =
         standardScenarioProcessor.process(standardScenarioMessage, context);
-    sendScenarioResponseMessage(clientSessionId, responses);
+    sendScenarioResponseMessage(responses);
   }
 
-  private void sendScenarioResponseMessage(
-      final String clientSessionId, final List<String> responses) {
-    final var responseMessage = new ScenarioResponseMessage(clientSessionId, responses);
+  private void sendScenarioResponseMessage(final List<String> responses) {
+    final var responseMessage = new ScenarioResponseMessage(responses);
     clientServerCommunicationService.sendMessage(responseMessage);
   }
 
-  private void handleTokenMessage(final TokenMessage tokenMessage) {
-    log.info("| Received PoPP token: {}", tokenMessage.getToken());
-    final var clientSessionId = tokenMessage.getClientSessionId();
-    log.info("| ClientSessionId: {}", clientSessionId);
+  private void handleTokenMessage(
+      final TokenMessage tokenMessage, final SecureWebSocketClient client) {
+    final var clientSessionId = resolveSessionId(null, client);
 
-    final var context =
-        clientSessionId == null ? null : sessionRegistry.getRequestContext(clientSessionId);
+    final var context = sessionRegistry.getRequestContext(clientSessionId);
     if (context != null) {
-      connectorSessionLifecycle.stopSessionIfRequired(context);
+      try {
+        connectorSessionLifecycle.stopSessionIfRequired(context);
+      } catch (RuntimeException e) {
+        sessionRegistry.failToken(clientSessionId, e);
+        throw e;
+      }
     }
 
-    if (clientSessionId != null
-        && sessionRegistry.completeToken(clientSessionId, tokenMessage.getToken())) {
-      return;
+    if (!sessionRegistry.completeToken(clientSessionId, tokenMessage.getToken())) {
+      throw new IllegalStateException(
+          "No pending token request for clientSessionId " + clientSessionId);
     }
-
-    // Fallback: some servers do not echo back the client's clientSessionId (or send none at all).
-    // If exactly one token request is in flight, complete it so the waiting caller is not stuck
-    // until the request times out.
-    if (sessionRegistry.completeSolePendingToken(tokenMessage.getToken())) {
-      log.warn(
-          "| Server did not echo back the clientSessionId '{}' in the token response (or sent none"
-              + " at all); falling back to complete the single pending token request to prevent the"
-              + " caller from hanging until timeout",
-          clientSessionId);
-      return;
-    }
-
-    log.warn("| No token future found for clientSessionId {}", clientSessionId);
   }
 }

@@ -24,6 +24,12 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.util.Map;
 
+/**
+ * Provides typed access to communication-specific attributes stored in an SSL session.
+ *
+ * <p>The wrapper manages the card connection type, client session identifier, and flags for
+ * virtual-card and connector-mock flows.
+ */
 public class CommunicationSslSession {
 
   private static final String VIRTUAL_CARD = "virtualCard";

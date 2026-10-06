@@ -35,8 +35,10 @@ import de.gematik.zeta.sdk.ZetaSdkClient;
 import io.ktor.client.plugins.logging.LogLevel;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.ProtocolException;
 import java.net.URI;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.java_websocket.handshake.ServerHandshake;
@@ -69,6 +71,20 @@ class SecureWebSocketClientTest {
   }
 
   @Test
+  void connectorAuthenticationAppliesToBothConnectorConnectionTypes() {
+    assertThat(
+            SecureWebSocketClient.usesConnectorAuthentication(CardConnectionType.CONTACT_CONNECTOR))
+        .isTrue();
+    assertThat(
+            SecureWebSocketClient.usesConnectorAuthentication(
+                CardConnectionType.CONTACTLESS_CONNECTOR))
+        .isTrue();
+    assertThat(
+            SecureWebSocketClient.usesConnectorAuthentication(CardConnectionType.CONTACT_STANDARD))
+        .isFalse();
+  }
+
+  @Test
   void connectionOpenedEventPublished() {
     ServerHandshake handshake = mock(ServerHandshake.class);
 
@@ -87,6 +103,7 @@ class SecureWebSocketClientTest {
         ArgumentCaptor.forClass(TextMessageReceivedEvent.class);
     verify(eventPublisherMock).publishEvent(captor.capture());
     assertThat(captor.getValue().getPayload()).isEqualTo(message);
+    assertThat(captor.getValue().getClient()).isSameAs(sut);
   }
 
   @Test
@@ -228,7 +245,40 @@ class SecureWebSocketClientTest {
         ArgumentCaptor.forClass(TextMessageReceivedEvent.class);
     verify(eventPublisherMock).publishEvent(captor.capture());
     assertThat(captor.getValue().getPayload()).isEqualTo("Hello WebSocket");
+    assertThat(captor.getValue().getClient()).isSameAs(sut);
     assertThat(sut.isClosed()).isTrue();
+  }
+
+  @Test
+  void connectBlockingInvalidatesSessionWhenReceivingProtocolException() throws Exception {
+    WsClientExtension.WsSession sessionMock = mock(WsClientExtension.WsSession.class);
+    ProtocolException protocolException = new ProtocolException("Control frames must be final");
+    doAnswer(
+            invocation -> {
+              throw protocolException;
+            })
+        .when(sessionMock)
+        .receiveNext();
+    doAnswer(
+            invocation -> {
+              WsClientExtension.WsSession.WsHandler handler = invocation.getArgument(4);
+              handler.handle(sessionMock);
+              return null;
+            })
+        .when(wsClientWrapperMock)
+        .ws(any(), anyString(), any(), anyMap(), any());
+
+    sut.connectBlocking(CardConnectionType.CONTACT_VIRTUAL);
+
+    verify(eventPublisherMock, timeout(1_000))
+        .publishEvent(
+            argThat(
+                event ->
+                    event instanceof WebSocketCommunicationErrorEvent errorEvent
+                        && errorEvent.getError() == protocolException));
+    verify(sessionMock).close();
+    assertThat(sut.isClosed()).isTrue();
+    assertThat(pool(sut).isShutdown()).isTrue();
   }
 
   @Test
@@ -298,6 +348,28 @@ class SecureWebSocketClientTest {
     assertThatThrownBy(() -> sut.send("Hello, WebSocket!"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("WebSocket session is not open");
+  }
+
+  @Test
+  void sendInvalidatesSessionWhenSendingFails() throws Exception {
+    WsClientExtension.WsSession sessionMock = mock(WsClientExtension.WsSession.class);
+    RuntimeException sendFailure = new RuntimeException("connection closed");
+    doThrow(sendFailure).when(sessionMock).sendText("Hello, WebSocket!");
+    sessionRef(sut).set(sessionMock);
+
+    assertThatThrownBy(() -> sut.send("Hello, WebSocket!"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Failed to send WebSocket message")
+        .hasCause(sendFailure);
+
+    verify(sessionMock).close();
+    verify(eventPublisherMock)
+        .publishEvent(
+            argThat(
+                event ->
+                    event instanceof WebSocketCommunicationErrorEvent errorEvent
+                        && errorEvent.getError() == sendFailure));
+    assertThat(sut.isClosed()).isTrue();
   }
 
   @Test
@@ -413,6 +485,10 @@ class SecureWebSocketClientTest {
   private AtomicReference<Throwable> connectErrorRef(SecureWebSocketClient target)
       throws Exception {
     return (AtomicReference<Throwable>) getPrivateField(target, "connectError");
+  }
+
+  private ExecutorService pool(SecureWebSocketClient target) throws Exception {
+    return (ExecutorService) getPrivateField(target, "pool");
   }
 
   private Object getPrivateField(Object target, String fieldName) throws Exception {

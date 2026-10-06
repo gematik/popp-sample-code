@@ -41,7 +41,13 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
-/** Sends a <i>GetCards</i> request to the connector. */
+/**
+ * SOAP client for the connector's {@code GetCards} operation.
+ *
+ * <p>It requests cards of a specified type in the configured connector context, optionally limits
+ * the query to a configured card-terminal slot, and filters eGK results by the supplied patient
+ * identifier.
+ */
 @Component
 @Lazy
 @Slf4j

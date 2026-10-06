@@ -26,11 +26,22 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
+/**
+ * Provides message handlers based on the concrete type of a PoPP message.
+ *
+ * <p>All available handlers are indexed by the message type they support during construction.
+ * Handler lookup is therefore performed directly against the message type at runtime.
+ */
 @Component
 public class MessageHandlerProvider {
 
   private final Map<Class<? extends PoPPMessage>, MessageHandler<? extends PoPPMessage>> handlerMap;
 
+  /**
+   * Creates a provider and indexes the supplied message handlers by their supported message type.
+   *
+   * @param handlers the message handlers available for dispatching
+   */
   public MessageHandlerProvider(final List<MessageHandler<? extends PoPPMessage>> handlers) {
     this.handlerMap = new HashMap<>();
     for (final MessageHandler<? extends PoPPMessage> handler : handlers) {
@@ -38,6 +49,13 @@ public class MessageHandlerProvider {
     }
   }
 
+  /**
+   * Returns the handler registered for the concrete type of the given message.
+   *
+   * @param message the message for which a handler is requested
+   * @param <T> the message type
+   * @return the matching handler, or {@code null} if no handler is registered
+   */
   public <T extends PoPPMessage> MessageHandler<T> getHandlerFor(final T message) {
     @SuppressWarnings("unchecked")
     final MessageHandler<T> handler = (MessageHandler<T>) handlerMap.get(message.getClass());

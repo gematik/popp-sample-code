@@ -28,9 +28,18 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/** Validates APDU status words in scenario results against their step definitions. */
 @Component
 public class StatusWordValidator {
 
+  /**
+   * Validates that every result step has an expected status word.
+   *
+   * @param scenarioResult the scenario result containing received status words
+   * @param scenario the scenario defining the expected status words
+   * @throws ValidationException if the result-step count differs from the scenario-step count or a
+   *     received status word is not expected
+   */
   public void validate(final ScenarioResult scenarioResult, final Scenario scenario)
       throws ValidationException {
     final var currentScenarioSteps = scenario.stepDefinitions();

@@ -33,6 +33,13 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Processes signed connector scenarios by forwarding them to a connector or a mock terminal.
+ *
+ * <p>For connector-mock requests, the processor extracts the embedded standard scenario from the
+ * signed token and delegates it to {@link StandardScenarioProcessor}. Otherwise, it sends the
+ * signed scenario to the configured connector.
+ */
 @Component
 @RequiredArgsConstructor
 public class ConnectorScenarioProcessor {

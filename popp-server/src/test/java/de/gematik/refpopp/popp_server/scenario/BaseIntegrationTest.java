@@ -24,20 +24,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
-@Testcontainers
 public abstract class BaseIntegrationTest {
 
-  @Container
   @SuppressWarnings("resource")
   private static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>("postgres:18-alpine")
           .withDatabaseName("egk_hash_db")
           .withUsername("poppserver")
           .withPassword("verysafe");
+
+  static {
+    POSTGRES.start();
+  }
 
   @DynamicPropertySource
   static void props(final DynamicPropertyRegistry registry) {

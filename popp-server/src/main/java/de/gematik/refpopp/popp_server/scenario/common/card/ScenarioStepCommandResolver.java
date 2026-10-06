@@ -27,6 +27,13 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.Session
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 
+/**
+ * Resolves scenario step definitions to their concrete hexadecimal APDU commands.
+ *
+ * <p>The resolver selects the corresponding {@link CardApduFactory} command and supplies
+ * session-specific data such as the communication mode, CVC, nonce, and step command data where
+ * required.
+ */
 @Component
 public class ScenarioStepCommandResolver {
   private final SessionAccessor sessionAccessor;

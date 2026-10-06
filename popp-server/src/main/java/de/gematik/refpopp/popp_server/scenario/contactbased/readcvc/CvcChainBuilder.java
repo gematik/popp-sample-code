@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
+/** Builds the configured CVC chain required for a contact-based card scenario. */
 @Component
 public class CvcChainBuilder {
 
@@ -42,6 +43,13 @@ public class CvcChainBuilder {
   private final ScenarioResultFinder scenarioResultFinder;
   private final KeyIdentifierExtractor keyIdentifierExtractor;
 
+  /**
+   * Creates a CVC chain builder using the configured certificate source and scenario result data.
+   *
+   * @param certificateProviderService provides configured CVCs and the CVC directory
+   * @param scenarioResultFinder finds relevant scenario result steps
+   * @param keyIdentifierExtractor extracts known key identifiers from card responses
+   */
   public CvcChainBuilder(
       final CertificateProviderService certificateProviderService,
       final ScenarioResultFinder scenarioResultFinder,
@@ -51,6 +59,14 @@ public class CvcChainBuilder {
     this.keyIdentifierExtractor = keyIdentifierExtractor;
   }
 
+  /**
+   * Builds the configured CVC chain up to a certificate already known by the card.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the result containing the card's public key identifiers
+   * @return the ordered CVC chain to provide to the card
+   * @throws IllegalStateException if the configured CVC chain contains a loop
+   */
   public List<CvCertificate> build(final String sessionId, final ScenarioResult scenarioResult) {
     final var keyIdentifierSet =
         extractKeyIdentifiers(

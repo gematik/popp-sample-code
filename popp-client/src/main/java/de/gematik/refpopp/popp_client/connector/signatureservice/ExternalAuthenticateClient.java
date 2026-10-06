@@ -39,6 +39,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP client for the connector's {@code ExternalAuthenticate} operation.
+ *
+ * <p>It sends a Base64-encoded authentication challenge to the specified card in the configured
+ * connector context and returns the resulting signature.
+ */
 @Component
 @Lazy
 public class ExternalAuthenticateClient extends SoapClient {

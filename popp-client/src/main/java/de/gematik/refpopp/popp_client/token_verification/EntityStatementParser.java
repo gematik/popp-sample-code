@@ -35,6 +35,13 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
+/**
+ * Extracts federation metadata and signing keys from entity statement JWTs.
+ *
+ * <p>The parser retrieves the entity subject and signed JWKS URI, selects a signing JWK from the
+ * embedded JWKS claim, and converts supported EC or RSA keys to public keys. Invalid statements and
+ * unsupported keys are reported as {@link PoppTokenValidationException}s.
+ */
 @Component
 public class EntityStatementParser {
 

@@ -27,18 +27,42 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import de.gematik.poppcommons.api.enums.BdeErrorCode;
+import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.poppcommons.api.messages.ErrorMessage;
 import de.gematik.poppcommons.api.messages.PoPPMessage;
+import de.gematik.poppcommons.api.messages.ScenarioResponseMessage;
 import de.gematik.poppcommons.api.messages.StartMessage;
+import de.gematik.refpopp.popp_server.communication.ClientCommunicationService;
+import de.gematik.refpopp.popp_server.scenario.common.ScenarioMessageFactory;
+import de.gematik.refpopp.popp_server.scenario.common.ScenarioTransitionService;
+import de.gematik.refpopp.popp_server.scenario.common.card.ScenarioStepCommandResolver;
+import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageHandlerOrchestrator;
+import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageHandlerProvider;
 import de.gematik.refpopp.popp_server.scenario.common.orchestrator.MessageOrchestrator;
+import de.gematik.refpopp.popp_server.scenario.common.orchestrator.ScenarioResponseMessageHandler;
+import de.gematik.refpopp.popp_server.scenario.common.orchestrator.StartMessageHandler;
+import de.gematik.refpopp.popp_server.scenario.common.provider.AbstractScenarioProcessingService;
+import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioProcessingProviderStrategyService;
+import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioProviderStrategyService;
+import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultManager;
+import de.gematik.refpopp.popp_server.scenario.common.token.ConnectorTokenCreator;
 import de.gematik.refpopp.popp_server.scenario.common.token.UserInfo;
+import de.gematik.refpopp.popp_server.scenario.contactbased.ContactBasedScenarioProcessingService;
 import de.gematik.refpopp.popp_server.scenario.contactbased.ContactBasedScenariosProvider;
+import de.gematik.refpopp.popp_server.scenario.openegk.OpenEgkScenariosProvider;
 import de.gematik.refpopp.popp_server.sessionmanagement.LogicalSessionId;
+import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
+import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer.SessionStorageKey;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -61,6 +85,7 @@ class WebSocketHandlerTest {
   @BeforeEach
   void setUp() {
     sessionContainerMock = mock(SessionContainer.class);
+    lenient().when(sessionContainerMock.tryBeginRequest(anyString(), anyString())).thenReturn(true);
     messageHandlerOrchestratorMock = mock(MessageOrchestrator.class);
     objectMapper = new ObjectMapper();
     contactBasedScenariosProvider = new ContactBasedScenariosProvider();
@@ -152,6 +177,488 @@ class WebSocketHandlerTest {
   }
 
   @Test
+  void routesResponsesWithoutClientSessionIdToTheActiveRequest() throws IOException {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    final var first = LogicalSessionId.of("session1", "first");
+    final var second = LogicalSessionId.of("session1", "second");
+    final var response = new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}");
+    container.storeSessionData("session1", SessionStorageKey.ZETA_USER_INFO, "user");
+    doAnswer(
+            invocation -> {
+              if (invocation.getArgument(0) instanceof ScenarioResponseMessage) {
+                final SessionCommunication communication = invocation.getArgument(1);
+                assertThat(
+                        new SessionAccessor(container)
+                            .getCardConnectionType(communication.getSessionId()))
+                    .isEqualTo(CardConnectionType.CONTACT_STANDARD);
+              }
+              return null;
+            })
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      container.storeSessionData(
+          first, SessionStorageKey.CARD_CONNECTION_TYPE, CardConnectionType.CONTACT_STANDARD);
+      invokeProcessMessageSync(handler, sessionMock, response);
+
+      container.clearRequestState(first);
+      assertThat(
+              container.retrieveSessionData(
+                  "session1", SessionStorageKey.ZETA_USER_INFO, String.class))
+          .contains("user");
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"second\",\"cardConnectionType\":\"contact-standard\"}"));
+      container.storeSessionData(
+          second, SessionStorageKey.CARD_CONNECTION_TYPE, CardConnectionType.CONTACT_STANDARD);
+      invokeProcessMessageSync(handler, sessionMock, response);
+
+      final var commCaptor = ArgumentCaptor.forClass(SessionCommunication.class);
+      verify(messageHandlerOrchestratorMock, times(2))
+          .orchestrate(any(ScenarioResponseMessage.class), commCaptor.capture());
+      assertThat(commCaptor.getAllValues())
+          .extracting(SessionCommunication::getSessionId)
+          .containsExactly(first, second);
+      verify(sessionMock, never()).sendMessage(any(TextMessage.class));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void rejectsScenarioResponseWithoutAnActiveRequest() throws IOException {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+
+      verifyNoInteractions(messageHandlerOrchestratorMock);
+      final var errorCaptor = ArgumentCaptor.forClass(TextMessage.class);
+      verify(sessionMock).sendMessage(errorCaptor.capture());
+      final var error =
+          objectMapper.readValue(errorCaptor.getValue().getPayload(), ErrorMessage.class);
+      assertThat(error.getErrorCode())
+          .isEqualTo(String.valueOf(BdeErrorCode.UNSUPPORTED_WORKFLOW.getBdeCode()));
+      assertThat(error.getErrorDetail()).contains("No active token request");
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void scenarioResponsesUseTheActiveRequestOnTheirConnection() throws IOException {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    final var activeRequest = LogicalSessionId.of("session1", "first");
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+
+      assertThat(container.getActiveRequest("session1")).contains(activeRequest);
+      final var commCaptor = ArgumentCaptor.forClass(SessionCommunication.class);
+      verify(messageHandlerOrchestratorMock)
+          .orchestrate(any(ScenarioResponseMessage.class), commCaptor.capture());
+      assertThat(commCaptor.getValue().getSessionId()).isEqualTo(activeRequest);
+      verify(sessionMock, never()).sendMessage(any());
+
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+      verify(messageHandlerOrchestratorMock, times(2))
+          .orchestrate(any(ScenarioResponseMessage.class), any(SessionCommunication.class));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void rejectsStartWithoutClientSessionIdAsInvalidMessage() throws IOException {
+    invokeProcessMessageSync(
+        sut,
+        sessionMock,
+        new TextMessage(
+            "{\"type\":\"Start\",\"version\":\"1.0.0\",\"cardConnectionType\":\"contact-standard\"}"));
+
+    verifyNoInteractions(messageHandlerOrchestratorMock, sessionContainerMock);
+    final var errorCaptor = ArgumentCaptor.forClass(TextMessage.class);
+    verify(sessionMock).sendMessage(errorCaptor.capture());
+    final var error =
+        objectMapper.readValue(errorCaptor.getValue().getPayload(), ErrorMessage.class);
+    assertThat(error.getErrorCode())
+        .isEqualTo(String.valueOf(BdeErrorCode.INVALID_MESSAGE.getBdeCode()));
+  }
+
+  @Test
+  void scenarioResponseErrorReleasesActiveRequestButRetainsConnectionData() {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    container.storeSessionData("session1", SessionStorageKey.ZETA_USER_INFO, "user");
+    doAnswer(
+            invocation -> {
+              final SessionCommunication communication = invocation.getArgument(1);
+              if (invocation.getArgument(0) instanceof ScenarioResponseMessage) {
+                throw new ScenarioException(
+                    communication.getSessionId(), "failed", BdeErrorCode.INVALID_MESSAGE);
+              }
+              return null;
+            })
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+      assertThat(container.getActiveRequest("session1")).isEmpty();
+      assertThat(
+              container.retrieveSessionData(
+                  "session1", SessionStorageKey.ZETA_USER_INFO, String.class))
+          .contains("user");
+
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"second\",\"cardConnectionType\":\"contact-standard\"}"));
+      assertThat(container.getActiveRequest("session1"))
+          .contains(LogicalSessionId.of("session1", "second"));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void v1ResponseWithoutIdAdvancesScenarioAndCompletesToken() throws IOException {
+    final var container = new SessionContainer();
+    final var accessor = new SessionAccessor(container);
+    final var transition = new ScenarioTransitionService(container);
+    final var openProvider = new OpenEgkScenariosProvider();
+    final var contactProvider = new ContactBasedScenariosProvider();
+    final var providerStrategy = mock(ScenarioProviderStrategyService.class);
+    final var processingStrategy = mock(ScenarioProcessingProviderStrategyService.class);
+    when(providerStrategy.getProvider(CommunicationMode.UNDEFINED)).thenReturn(openProvider);
+    when(providerStrategy.getProvider(CommunicationMode.CONTACT)).thenReturn(contactProvider);
+
+    final var commandResolver = mock(ScenarioStepCommandResolver.class);
+    when(commandResolver.serializeCommandApdu(anyString(), any())).thenReturn("00a4040c");
+    final var factory =
+        new ScenarioMessageFactory(accessor, mock(ConnectorTokenCreator.class), commandResolver);
+    final var contactProcessing =
+        new ContactBasedScenarioProcessingService(
+            factory, new ClientCommunicationService(), accessor, transition);
+    final var initialProcessing = mock(AbstractScenarioProcessingService.class);
+    doAnswer(
+            invocation -> {
+              contactProcessing.createAndSendMessage(
+                  invocation.getArgument(0), invocation.getArgument(1));
+              return null;
+            })
+        .when(initialProcessing)
+        .processScenario(any(), any(), any());
+    when(processingStrategy.getProvider(CommunicationMode.UNDEFINED)).thenReturn(initialProcessing);
+    when(processingStrategy.getProvider(CommunicationMode.CONTACT)).thenReturn(contactProcessing);
+
+    final var resultManager = mock(ScenarioResultManager.class);
+    doAnswer(
+            invocation -> {
+              accessor.storeCommunicationMode(invocation.getArgument(0), CommunicationMode.CONTACT);
+              return null;
+            })
+        .when(resultManager)
+        .manage(anyString(), any(), any());
+    final var orchestrator =
+        new MessageHandlerOrchestrator(
+            new MessageHandlerProvider(
+                List.of(
+                    new StartMessageHandler(
+                        transition, accessor, processingStrategy, providerStrategy, openProvider),
+                    new ScenarioResponseMessageHandler(
+                        resultManager,
+                        transition,
+                        accessor,
+                        providerStrategy,
+                        processingStrategy))));
+    final var handler =
+        new WebSocketHandler(container, orchestrator, objectMapper, openProvider, 2, 1000, 1024);
+    final var logical = LogicalSessionId.of("session1", "first");
+    container.storeSessionData("session1", SessionStorageKey.ZETA_USER_INFO, "user");
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\",\"9000\"]}"));
+
+      assertThat(container.getActiveRequest("session1")).contains(logical);
+      assertThat(accessor.getSequenceCounter(logical)).isEqualTo(2);
+      accessor.storeScenario(logical, contactProvider.getScenarios().getLast());
+      accessor.storeJwtToken(logical, "token");
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+
+      final var sent = ArgumentCaptor.forClass(TextMessage.class);
+      verify(sessionMock, times(3)).sendMessage(sent.capture());
+      assertThat(
+              objectMapper
+                  .readTree(sent.getAllValues().get(0).getPayload())
+                  .get("clientSessionId")
+                  .asString())
+          .isEqualTo("first");
+      assertThat(
+              objectMapper
+                  .readTree(sent.getAllValues().get(1).getPayload())
+                  .get("sequenceCounter")
+                  .asInt())
+          .isEqualTo(1);
+      assertThat(
+              objectMapper
+                  .readTree(sent.getAllValues().get(2).getPayload())
+                  .get("token")
+                  .asString())
+          .isEqualTo("token");
+      assertThat(
+              objectMapper.readTree(sent.getAllValues().get(2).getPayload()).has("clientSessionId"))
+          .isFalse();
+      assertThat(container.getActiveRequest("session1")).isEmpty();
+      assertThat(
+              container.retrieveSessionData(
+                  "session1", SessionStorageKey.ZETA_USER_INFO, String.class))
+          .contains("user");
+
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"second\",\"cardConnectionType\":\"contact-standard\"}"));
+      assertThat(container.getActiveRequest("session1"))
+          .contains(LogicalSessionId.of("session1", "second"));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void rejectsOverlappingStartWithoutDiscardingTheActiveRequest() throws IOException {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    final var first =
+        new TextMessage(
+            "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}");
+    final var second =
+        new TextMessage(
+            "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"second\",\"cardConnectionType\":\"contact-standard\"}");
+
+    try {
+      invokeProcessMessageSync(handler, sessionMock, first);
+      invokeProcessMessageSync(handler, sessionMock, second);
+
+      verify(messageHandlerOrchestratorMock, times(1))
+          .orchestrate(any(StartMessage.class), any(SessionCommunication.class));
+      assertThat(container.getActiveRequest("session1"))
+          .contains(LogicalSessionId.of("session1", "first"));
+      final var errorCaptor = ArgumentCaptor.forClass(TextMessage.class);
+      verify(sessionMock).sendMessage(errorCaptor.capture());
+      final var error =
+          objectMapper.readValue(errorCaptor.getValue().getPayload(), ErrorMessage.class);
+      assertThat(error.getErrorDetail()).contains("already active");
+
+      container.clearRequestState(LogicalSessionId.of("session1", "first"));
+      invokeProcessMessageSync(handler, sessionMock, second);
+      verify(messageHandlerOrchestratorMock, times(2))
+          .orchestrate(any(StartMessage.class), any(SessionCommunication.class));
+      assertThat(container.getActiveRequest("session1"))
+          .contains(LogicalSessionId.of("session1", "second"));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void releasesActiveRequestAfterScenarioError() {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    doAnswer(
+            invocation -> {
+              final SessionCommunication communication = invocation.getArgument(1);
+              if (communication.getSessionId().endsWith("::first")) {
+                throw new ScenarioException(
+                    communication.getTransportSessionId(), "failed", BdeErrorCode.INVALID_MESSAGE);
+              }
+              return null;
+            })
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
+
+    try {
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      assertThat(container.getActiveRequest("session1")).isEmpty();
+
+      invokeProcessMessageSync(
+          handler,
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"second\",\"cardConnectionType\":\"contact-standard\"}"));
+      assertThat(container.getActiveRequest("session1"))
+          .contains(LogicalSessionId.of("session1", "second"));
+    } finally {
+      handler.shutdown();
+    }
+  }
+
+  @Test
+  void processesMessagesInOrderPerConnectionWhileOtherConnectionsContinue() throws Exception {
+    final var container = new SessionContainer();
+    final var handler =
+        new WebSocketHandler(
+            container,
+            messageHandlerOrchestratorMock,
+            objectMapper,
+            contactBasedScenariosProvider,
+            2,
+            1000,
+            1024);
+    final var otherSession = mock(WebSocketSession.class);
+    when(otherSession.getId()).thenReturn("session2");
+    when(otherSession.getHandshakeHeaders()).thenReturn(new HttpHeaders());
+    final var firstStarted = new CountDownLatch(1);
+    final var releaseFirst = new CountDownLatch(1);
+    final var secondStarted = new CountDownLatch(1);
+    final var otherStarted = new CountDownLatch(1);
+    doAnswer(
+            invocation -> {
+              final PoPPMessage message = invocation.getArgument(0);
+              final SessionCommunication communication = invocation.getArgument(1);
+              if ("session2".equals(communication.getTransportSessionId())) {
+                otherStarted.countDown();
+              } else if (message instanceof StartMessage) {
+                firstStarted.countDown();
+                if (!releaseFirst.await(5, TimeUnit.SECONDS)) {
+                  throw new AssertionError("First request was not released");
+                }
+              } else {
+                secondStarted.countDown();
+              }
+              return null;
+            })
+        .when(messageHandlerOrchestratorMock)
+        .orchestrate(any(), any());
+
+    try {
+      handler.afterConnectionEstablished(sessionMock);
+      handler.afterConnectionEstablished(otherSession);
+      handler.handleTextMessage(
+          sessionMock,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"first\",\"cardConnectionType\":\"contact-standard\"}"));
+      assertThat(firstStarted.await(2, TimeUnit.SECONDS)).isTrue();
+
+      handler.handleTextMessage(
+          sessionMock, new TextMessage("{\"type\":\"ScenarioResponse\",\"steps\":[\"9000\"]}"));
+      handler.handleTextMessage(
+          otherSession,
+          new TextMessage(
+              "{\"type\":\"Start\",\"version\":\"1.0.0\",\"clientSessionId\":\"other\",\"cardConnectionType\":\"contact-standard\"}"));
+
+      assertThat(otherStarted.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(secondStarted.getCount()).isEqualTo(1);
+      releaseFirst.countDown();
+      assertThat(secondStarted.await(2, TimeUnit.SECONDS)).isTrue();
+      verify(messageHandlerOrchestratorMock)
+          .orchestrate(any(ScenarioResponseMessage.class), any(SessionCommunication.class));
+    } finally {
+      releaseFirst.countDown();
+      handler.shutdown();
+    }
+  }
+
+  @Test
   void handleTextMessageThrowsJsonProcessingException() throws IOException {
     // given
     final var payload =
@@ -191,7 +698,7 @@ class WebSocketHandlerTest {
     // given
     final var payload =
         """
-        {"type":"Start","version":"1.0.0","cardConnectionType":"contact-connector"}
+        {"type":"Start","version":"1.0.0","clientSessionId":"client-123","cardConnectionType":"contact-connector"}
         """;
     final var message = new TextMessage(payload);
     doThrow(new ScenarioException("test", "error", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR))
@@ -209,7 +716,9 @@ class WebSocketHandlerTest {
     verify(sessionMock, timeout(2000)).sendMessage(messageCapture.capture());
     final var textMessage = messageCapture.getValue();
     assertThat(textMessage.getPayload()).contains("type", "Error");
-    verifyNoInteractions(sessionContainerMock);
+    verify(sessionContainerMock)
+        .tryBeginRequest("session1", LogicalSessionId.of("session1", "client-123"));
+    verifyNoMoreInteractions(sessionContainerMock);
   }
 
   @Test
@@ -295,11 +804,11 @@ class WebSocketHandlerTest {
   }
 
   @Test
-  void handleTextMessageClosesSessionWhenScenarioExceptionOccurs() {
+  void handleTextMessageSendsErrorWhenScenarioExceptionOccurs() throws IOException {
     // given
     final var payload =
         """
-        {"type":"Start","version":"1.0.0","cardConnectionType":"contact-connector"}
+        {"type":"Start","version":"1.0.0","clientSessionId":"client-123","cardConnectionType":"contact-connector"}
         """;
     final var message = new TextMessage(payload);
     doThrow(new ScenarioException("test", "error", BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR))
@@ -308,6 +817,14 @@ class WebSocketHandlerTest {
 
     // when - invoke synchronously to avoid async timing issues in tests
     invokeProcessMessageSync(sut, sessionMock, message);
+
+    // then
+    final var errorCaptor = ArgumentCaptor.forClass(TextMessage.class);
+    verify(sessionMock).sendMessage(errorCaptor.capture());
+    final var error =
+        objectMapper.readValue(errorCaptor.getValue().getPayload(), ErrorMessage.class);
+    assertThat(error.getErrorCode())
+        .isEqualTo(String.valueOf(BdeErrorCode.SERVICE_INTERNAL_SERVER_ERROR.getBdeCode()));
   }
 
   /**

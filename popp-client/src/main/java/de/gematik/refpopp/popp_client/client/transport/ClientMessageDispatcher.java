@@ -36,14 +36,12 @@ import org.springframework.stereotype.Component;
 /**
  * Dispatches incoming server messages onto a worker pool so that the single WebSocket receive
  * thread is not blocked by (potentially slow) card I/O. This frees the receive loop to read the
- * next frame immediately, enabling parallel processing of independent token requests over one
- * connection.
+ * next frame immediately without blocking on card I/O.
  *
- * <p>Messages are processed <b>in parallel across</b> different {@code clientSessionId}s, but <b>in
- * order within</b> a single {@code clientSessionId}. Per-key ordering is achieved by chaining the
- * tasks of a key on a {@link CompletableFuture} so that the next task only starts once the previous
- * one for the same key has finished. Different keys use independent chains and therefore run
- * concurrently on the shared pool.
+ * <p>Messages are processed <b>in order within</b> one {@code clientSessionId}. Per-key ordering is
+ * achieved by chaining the tasks of a key on a {@link CompletableFuture} so that the next task only
+ * starts once the previous one for the same key has finished. Different connections can use
+ * independent chains on the shared pool.
  */
 @Component
 @Slf4j

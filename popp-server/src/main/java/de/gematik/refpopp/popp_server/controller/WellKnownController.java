@@ -28,6 +28,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+/**
+ * Exposes OpenID Federation discovery documents for the PoPP server.
+ *
+ * <p>The controller serves the signed entity statement and signed JWKS at their standard {@code
+ * /.well-known} endpoints.
+ */
 @Slf4j
 @RestController
 public class WellKnownController {

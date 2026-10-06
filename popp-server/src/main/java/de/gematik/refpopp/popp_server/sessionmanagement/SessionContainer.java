@@ -54,6 +54,16 @@ public class SessionContainer {
   private final Map<String, Map<SessionStorageKey, Object>> customSessionStorage =
       new ConcurrentHashMap<>();
 
+  private final Map<String, String> activeRequests = new ConcurrentHashMap<>();
+
+  public boolean tryBeginRequest(final String transportSessionId, final String logicalSessionId) {
+    return activeRequests.putIfAbsent(transportSessionId, logicalSessionId) == null;
+  }
+
+  public Optional<String> getActiveRequest(final String transportSessionId) {
+    return Optional.ofNullable(activeRequests.get(transportSessionId));
+  }
+
   public <T> void storeSessionData(
       final String sessionId, final SessionStorageKey key, final T value) {
     customSessionStorage.computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>()).put(key, value);
@@ -108,6 +118,7 @@ public class SessionContainer {
   public void clearSession(final String sessionId) {
     scenarioMap.remove(sessionId);
     customSessionStorage.remove(sessionId);
+    releaseRequest(sessionId);
   }
 
   /**
@@ -117,6 +128,7 @@ public class SessionContainer {
    */
   public void clearConnection(final String transportSessionId) {
     final var prefix = LogicalSessionId.transportPrefix(transportSessionId);
+    activeRequests.remove(transportSessionId);
     scenarioMap.remove(transportSessionId);
     customSessionStorage.remove(transportSessionId);
     scenarioMap.keySet().removeIf(key -> key.startsWith(prefix));
@@ -130,6 +142,14 @@ public class SessionContainer {
   public void clearRequestState(final String logicalSessionId) {
     scenarioMap.remove(logicalSessionId);
     customSessionStorage.remove(logicalSessionId);
+    releaseRequest(logicalSessionId);
+  }
+
+  private void releaseRequest(final String logicalSessionId) {
+    final var transportSessionId = LogicalSessionId.transportSessionIdOf(logicalSessionId);
+    if (transportSessionId != null) {
+      activeRequests.remove(transportSessionId, logicalSessionId);
+    }
   }
 
   /** Copies a single storage value from one session id to another, if present. */

@@ -108,6 +108,7 @@ class ScenarioMessageFactoryTest {
 
     // then
     assertThat(actual).isInstanceOf(ConnectorScenarioMessage.class);
+    assertThat(((ConnectorScenarioMessage) actual).getVersion()).isEqualTo("1.0.0");
     verify(sessionAccessorMock).getCardConnectionType(sessionId);
     verify(scenarioStepCommandResolverMock).serializeCommandApdu(sessionId, state);
     verify(tokenCreatorMock)

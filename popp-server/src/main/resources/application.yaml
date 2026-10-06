@@ -45,6 +45,11 @@ jwt-token:
   connector:
     typ: "JWT"
 
+popp:
+  token-generation:
+    expiration:
+      cron: "${POPP_EXPIRATION_CRON:0 0 * * * *}"
+
 certificates:
   ocsp:
     provider: ${OCSP_PROVIDER:rest} # rest, classpath

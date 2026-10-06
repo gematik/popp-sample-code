@@ -5,6 +5,13 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.9.0
+
+### changed
+- Corrected token request handling to conform to the PoPP v1 WebSocket API specification. Token requests are now 
+serialized per WebSocket connection, allowing only one active token request at a time. Concurrent processing remains 
+supported across separate WebSocket connections.
+
 ## Release 2.8.0
 
 ### added

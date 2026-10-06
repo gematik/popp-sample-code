@@ -33,9 +33,17 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.springframework.stereotype.Component;
 
+/** Extracts OCSP responder URLs from X.509 certificate authority information access extensions. */
 @Component
 final class OcspResponderUrlExtractor {
 
+  /**
+   * Extracts the first OCSP responder URL from the supplied certificate.
+   *
+   * @param certificate the certificate whose authority information access extension is inspected
+   * @return an optional containing the OCSP responder URL, or empty if none is present
+   * @throws IOException if the authority information access extension cannot be parsed
+   */
   Optional<String> extract(final X509Certificate certificate) throws IOException {
     final var extensionValue = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
     if (extensionValue == null) {
