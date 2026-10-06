@@ -24,6 +24,7 @@ import java.security.cert.X509Certificate;
 import java.util.Objects;
 import java.util.Optional;
 
+/** Contains the certificates and session context required to obtain an OCSP response. */
 final class OcspRequest {
 
   private final String sessionId;
@@ -39,11 +40,26 @@ final class OcspRequest {
     this.issuerCertificate = issuerCertificate;
   }
 
+  /**
+   * Creates a request without an issuer certificate.
+   *
+   * @param sessionId the identifier of the current session
+   * @param endEntityCertificate the certificate whose status is requested
+   * @return an OCSP request without issuer information
+   */
   static OcspRequest withoutIssuer(
       final String sessionId, final X509Certificate endEntityCertificate) {
     return new OcspRequest(sessionId, endEntityCertificate, null);
   }
 
+  /**
+   * Creates a request with the issuer certificate of the end-entity certificate.
+   *
+   * @param sessionId the identifier of the current session
+   * @param endEntityCertificate the certificate whose status is requested
+   * @param issuerCertificate the issuer certificate of the end-entity certificate
+   * @return an OCSP request with issuer information
+   */
   static OcspRequest withIssuer(
       final String sessionId,
       final X509Certificate endEntityCertificate,
@@ -52,14 +68,29 @@ final class OcspRequest {
         sessionId, endEntityCertificate, Objects.requireNonNull(issuerCertificate));
   }
 
+  /**
+   * Returns the identifier of the session that initiated this request.
+   *
+   * @return the session identifier
+   */
   String sessionId() {
     return sessionId;
   }
 
+  /**
+   * Returns the certificate whose revocation status is requested.
+   *
+   * @return the end-entity certificate
+   */
   X509Certificate endEntityCertificate() {
     return endEntityCertificate;
   }
 
+  /**
+   * Returns the issuer certificate, if it was provided.
+   *
+   * @return an optional containing the issuer certificate
+   */
   Optional<X509Certificate> issuerCertificate() {
     return Optional.ofNullable(issuerCertificate);
   }

@@ -46,6 +46,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/** Searches the VZD directory and maps FHIR search bundles to public search result DTOs. */
 @Service
 @Slf4j
 public class VzdSearchService {
@@ -68,6 +69,13 @@ public class VzdSearchService {
   private final RestClient restClient;
   private final VzdTokenProperties properties;
 
+  /**
+   * Creates a VZD search service.
+   *
+   * @param vzdTokenService obtains access tokens for VZD requests
+   * @param restClientProvider provides the HTTP client used for VZD requests
+   * @param properties provides the configured VZD service endpoint
+   */
   public VzdSearchService(
       VzdTokenService vzdTokenService,
       ObjectProvider<RestClient> restClientProvider,
@@ -77,6 +85,13 @@ public class VzdSearchService {
     this.properties = properties;
   }
 
+  /**
+   * Searches for an active organization by its Telematik-ID.
+   *
+   * @param telematikId the Telematik-ID of the organization
+   * @return the matching VZD search result
+   * @throws VzdSearchException if the VZD request fails
+   */
   public VzdSearchResult searchByTelematikId(String telematikId) {
     var accessToken = vzdTokenService.getAccessToken();
 
@@ -98,7 +113,19 @@ public class VzdSearchService {
     }
   }
 
-  /** Searches LEI entries by organization/service name and/or location radius. */
+  /**
+   * Searches active organizations and healthcare services by name, full text, or geographic radius.
+   *
+   * @param name the organization or service name used when {@code fulltext} is blank
+   * @param fulltext the full-text search query
+   * @param lat the latitude of the search location
+   * @param lon the longitude of the search location
+   * @param radiusKm the search radius in kilometers; defaults to 10 when a location is provided
+   * @param count the maximum number of results; defaults to 20
+   * @return the matching VZD search result
+   * @throws IllegalArgumentException if only latitude or longitude is supplied
+   * @throws VzdSearchException if the VZD request fails
+   */
   public VzdSearchResult searchByNameOrLocation(
       String name, String fulltext, Double lat, Double lon, Integer radiusKm, Integer count) {
     boolean hasLocation = lat != null && lon != null;
@@ -137,6 +164,14 @@ public class VzdSearchService {
     }
   }
 
+  /**
+   * Searches active organizations and healthcare services by a postal code or address text.
+   *
+   * @param text the five-digit postal code or address text to search for
+   * @return the matching VZD search result
+   * @throws IllegalArgumentException if the search text is blank
+   * @throws VzdSearchException if the VZD request fails
+   */
   public VzdSearchResult searchByLocationText(String text) {
     if (!StringUtils.hasText(text)) {
       throw new IllegalArgumentException("Location text must not be blank");
@@ -169,6 +204,18 @@ public class VzdSearchService {
     }
   }
 
+  /**
+   * Retrieves a mobile search result page using the count and offset from a page URL.
+   *
+   * <p>The URL is not requested directly; only its pagination parameters are used to build a
+   * request against the configured VZD endpoint.
+   *
+   * @param url the page URL containing optional pagination parameters
+   * @return the requested VZD search result page
+   * @throws IllegalArgumentException if the URL is blank
+   * @throws TooManyVzdSearchResultsException if more than 100 results are available
+   * @throws VzdSearchException if the VZD request fails
+   */
   public VzdSearchResult searchByPageUrl(String url) {
     if (!StringUtils.hasText(url)) {
       throw new IllegalArgumentException("URL must not be blank");

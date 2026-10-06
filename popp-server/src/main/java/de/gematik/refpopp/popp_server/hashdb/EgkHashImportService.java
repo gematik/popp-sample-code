@@ -40,6 +40,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Imports signed eGK certificate-hash data into the hash database.
+ *
+ * <p>The service verifies the CMS signature before parsing entries, processes them concurrently,
+ * writes resulting updates in batches, and records import counts in an import report.
+ */
 @Service
 @Slf4j
 public class EgkHashImportService {

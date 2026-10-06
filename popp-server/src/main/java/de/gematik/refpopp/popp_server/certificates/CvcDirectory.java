@@ -33,6 +33,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+/**
+ * Immutable index of trusted CV certificates grouped by certificate holder reference.
+ *
+ * <p>The directory loads {@code .cvc} files from {@code PKI_CVC.G2/trusted}, parses them, and makes
+ * individual or all certificates available by their CHR.
+ */
 public class CvcDirectory {
 
   private final Map<String, List<CvCertificate>> cvcByChr;

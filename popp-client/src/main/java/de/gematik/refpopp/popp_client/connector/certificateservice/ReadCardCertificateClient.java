@@ -38,6 +38,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP client for the connector's {@code ReadCardCertificate} operation.
+ *
+ * <p>It requests the C.AUT certificate for a card handle in the configured connector context and
+ * returns the certificate's X.509 data.
+ */
 @Component
 @Lazy
 public class ReadCardCertificateClient extends SoapClient {

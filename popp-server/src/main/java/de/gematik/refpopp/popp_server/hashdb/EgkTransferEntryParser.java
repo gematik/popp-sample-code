@@ -39,6 +39,13 @@ import org.bouncycastle.asn1.ASN1SetParser;
 import org.bouncycastle.asn1.ASN1UTCTime;
 import org.springframework.stereotype.Service;
 
+/**
+ * Parses eGK certificate-hash transfer entries from CMS-signed import content.
+ *
+ * <p>The parser streams the CMS encapsulated ASN.1 content and extracts each entry's CVC hash, AUT
+ * hash, and certificate expiration time. Malformed content is reported as an {@link
+ * ImportDataException}.
+ */
 @Service
 @Slf4j
 public class EgkTransferEntryParser {

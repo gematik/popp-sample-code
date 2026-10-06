@@ -29,6 +29,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+/** Provides a configured OCSP response loaded from a classpath resource. */
 @Component
 @ConditionalOnProperty(name = "certificates.ocsp.provider", havingValue = "classpath")
 final class ClasspathOcspResponseProvider implements OcspResponseProvider {
@@ -44,6 +45,13 @@ final class ClasspathOcspResponseProvider implements OcspResponseProvider {
     this.responseResource = responseResource;
   }
 
+  /**
+   * Reads the configured OCSP response and returns its Base64-encoded content.
+   *
+   * @param request the OCSP request whose session is used for error reporting
+   * @return the Base64-encoded OCSP response
+   * @throws ScenarioException if the configured response resource cannot be read
+   */
   @Override
   public String getResponse(final OcspRequest request) {
     try (final var inputStream = responseResource.getInputStream()) {

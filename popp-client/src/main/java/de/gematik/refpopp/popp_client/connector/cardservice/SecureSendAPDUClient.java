@@ -35,6 +35,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP client for the connector's {@code SecureSendAPDU} operation.
+ *
+ * <p>It sends a signed PoPP scenario to the card service and returns the APDU responses contained
+ * in the signed scenario response.
+ */
 @Component
 @Lazy
 public class SecureSendAPDUClient extends SoapClient {

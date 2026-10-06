@@ -30,6 +30,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+/**
+ * Retrieves and parses the connector's service directory.
+ *
+ * <p>The factory downloads {@code connector.sds} from the configured connector endpoint and
+ * unmarshals it into {@link ConnectorServices}, exposing the service metadata needed for connector
+ * SOAP communication.
+ */
 @Component
 @Slf4j
 public class ConnectorServicesFactory {

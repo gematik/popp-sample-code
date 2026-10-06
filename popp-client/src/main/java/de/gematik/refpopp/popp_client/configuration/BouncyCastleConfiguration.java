@@ -57,6 +57,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Registers Bouncy Castle security providers and configures secure connector communication.
+ *
+ * <p>When enabled, provides an HTTP client using a TLS 1.2 context with client credentials and a
+ * configured trust store or trust-all mode. Hostname validation can be disabled independently while
+ * retaining certificate-chain validation.
+ */
 @Slf4j
 @Configuration
 public class BouncyCastleConfiguration {

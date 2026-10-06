@@ -29,6 +29,13 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Executes standard PoPP scenarios against a physical or virtual card.
+ *
+ * <p>Physical-card scenarios are delegated to {@link CardCommunicationService}. For virtual-card
+ * requests, the processor resolves the session-specific card service and preserves its state across
+ * scenario steps.
+ */
 @Component
 @RequiredArgsConstructor
 public class StandardScenarioProcessor {

@@ -168,7 +168,6 @@ class ContactBasedScenarioProcessingServiceTest {
     verify(clientCommunicationServiceMock)
         .sendMessage(argumentCaptor.capture(), eq(sessionCommunicationMock));
     assertThat(argumentCaptor.getValue().getToken()).isEqualTo("poppToken");
-    assertThat(argumentCaptor.getValue().getPn()).isEqualTo("pn");
     verify(sessionAccessorMock).getPoppToken("sessionId");
   }
 }

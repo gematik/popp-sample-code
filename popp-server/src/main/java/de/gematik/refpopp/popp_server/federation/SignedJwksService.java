@@ -38,6 +38,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/**
+ * Creates a signed JSON Web Key Set containing the PoPP token signing key.
+ *
+ * <p>The service creates a public EC JWK with its certificate chain, then signs the JWKS payload as
+ * an ES256 {@code jwk-set+jwt} using the configured federation entity signing key.
+ */
 @Service
 public class SignedJwksService {
 

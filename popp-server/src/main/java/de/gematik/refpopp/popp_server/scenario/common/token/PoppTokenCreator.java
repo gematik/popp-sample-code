@@ -26,6 +26,7 @@ import java.security.interfaces.ECPublicKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Creates signed PoPP tokens for certificate data. */
 @Component
 @Slf4j
 public class PoppTokenCreator {
@@ -46,6 +47,13 @@ public class PoppTokenCreator {
     this.jwtTokenBuilder = jwtTokenBuilder;
   }
 
+  /**
+   * Creates a signed PoPP token for the supplied certificate data.
+   *
+   * @param x509Data the certificate data represented by the token
+   * @param sessionId the identifier of the current session
+   * @return the signed PoPP token
+   */
   public String createPoppToken(final X509Data x509Data, final String sessionId) {
     final var keyStoreData = certificateProviderService.getKeyStoreDataPoppToken();
     final var privateKey = keyStoreData.privateKey();

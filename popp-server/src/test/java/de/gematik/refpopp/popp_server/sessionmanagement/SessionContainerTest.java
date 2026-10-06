@@ -250,6 +250,37 @@ class SessionContainerTest {
   }
 
   @Test
+  void onlyOneRequestCanBeActivePerTransportAndCompletionReleasesIt() {
+    final var first = LogicalSessionId.of("transport", "first");
+    final var second = LogicalSessionId.of("transport", "second");
+    final var other = LogicalSessionId.of("other-transport", "third");
+
+    assertThat(sessionContainer.tryBeginRequest("transport", first)).isTrue();
+    assertThat(sessionContainer.tryBeginRequest("transport", second)).isFalse();
+    assertThat(sessionContainer.tryBeginRequest("other-transport", other)).isTrue();
+    assertThat(sessionContainer.getActiveRequest("transport")).contains(first);
+
+    sessionContainer.clearRequestState(second);
+    assertThat(sessionContainer.getActiveRequest("transport")).contains(first);
+
+    sessionContainer.clearRequestState(first);
+    assertThat(sessionContainer.getActiveRequest("transport")).isEmpty();
+    assertThat(sessionContainer.tryBeginRequest("transport", second)).isTrue();
+    assertThat(sessionContainer.getActiveRequest("other-transport")).contains(other);
+  }
+
+  @Test
+  void clearingConnectionReleasesItsActiveRequest() {
+    final var logical = LogicalSessionId.of("transport", "client");
+    assertThat(sessionContainer.tryBeginRequest("transport", logical)).isTrue();
+
+    sessionContainer.clearConnection("transport");
+
+    assertThat(sessionContainer.getActiveRequest("transport")).isEmpty();
+    assertThat(sessionContainer.tryBeginRequest("transport", logical)).isTrue();
+  }
+
+  @Test
   void clearConnectionRemovesTransportAndDerivedLogicalSessions() {
     // given
     final var transport = "transport-1";

@@ -40,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import kotlin.Unit;
 import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.handshake.ServerHandshake;
@@ -66,6 +67,8 @@ public class SecureWebSocketClient {
   private final AtomicReference<Throwable> connectError = new AtomicReference<>();
   private final Map<String, Object> sessionMetadata;
   private final WsClientWrapper wsClientWrapper;
+  private final AtomicReference<Consumer<SecureWebSocketClient>> invalidationListener =
+      new AtomicReference<>(client -> {});
 
   /**
    * Serializes outbound sends. Multiple worker threads may process (parallel) requests over the
@@ -128,20 +131,22 @@ public class SecureWebSocketClient {
   public void onMessage(final String message) {
     log.debug("| Entering onMessage()");
     log.info("| Received message: {}", message);
-    eventPublisher.publishEvent(TextMessageReceivedEvent.builder().payload(message).build());
+    eventPublisher.publishEvent(
+        TextMessageReceivedEvent.builder().payload(message).client(this).build());
   }
 
   public void onClose(final int code, final String reason, final boolean remote) {
     log.debug("| Entering onClose()");
     log.info("| Connection closed: {}", reason);
-    eventPublisher.publishEvent(new WebSocketConnectionClosedEvent());
+    eventPublisher.publishEvent(WebSocketConnectionClosedEvent.forClient(this));
     log.debug("| Exiting onClose()");
   }
 
   public void onError(final Exception ex) {
     log.debug("| Entering onError()");
     log.error(ex.getMessage());
-    eventPublisher.publishEvent(WebSocketCommunicationErrorEvent.builder().error(ex).build());
+    eventPublisher.publishEvent(
+        WebSocketCommunicationErrorEvent.builder().error(ex).client(this).build());
     log.debug("| Exiting onError()");
   }
 
@@ -165,13 +170,18 @@ public class SecureWebSocketClient {
   }
 
   public void send(final String messageAsString) {
-    final var currentSession = session.get();
-    if (currentSession == null) {
-      throw new IllegalStateException("WebSocket session is not open");
-    }
-
     synchronized (sendLock) {
-      currentSession.sendText(messageAsString);
+      final var currentSession = session.get();
+      if (currentSession == null) {
+        throw new IllegalStateException("WebSocket session is not open");
+      }
+      try {
+        currentSession.sendText(messageAsString);
+      } catch (final Exception e) {
+        invalidateSession(currentSession);
+        onError(e);
+        throw new IllegalStateException("Failed to send WebSocket message", e);
+      }
     }
   }
 
@@ -183,10 +193,14 @@ public class SecureWebSocketClient {
     return isOpen();
   }
 
+  public void setInvalidationListener(final Consumer<SecureWebSocketClient> listener) {
+    invalidationListener.set(listener);
+  }
+
   private void openWebSocketSession(CardConnectionType cardConnectionType) {
     try {
       ZetaSdkClient zetaSdkClient;
-      if (cardConnectionType.equals(CardConnectionType.CONTACT_CONNECTOR)) {
+      if (usesConnectorAuthentication(cardConnectionType)) {
         zetaSdkClient = zetaSdkClientConnector.getObject();
       } else {
         zetaSdkClient = zetaSdkClientP12.getObject();
@@ -218,13 +232,18 @@ public class SecureWebSocketClient {
     }
   }
 
+  static boolean usesConnectorAuthentication(final CardConnectionType cardConnectionType) {
+    return cardConnectionType == CardConnectionType.CONTACT_CONNECTOR
+        || cardConnectionType == CardConnectionType.CONTACTLESS_CONNECTOR;
+  }
+
   private void handleConnectedSession(final WsClientExtension.WsSession session) {
     this.session.set(session);
     log.info("| Zeta SDK WS connected");
     sessionReady.countDown();
 
     try {
-      while (handleIncomingMessage(session.receiveNext())) {
+      while (handleIncomingMessage(session, session.receiveNext())) {
         // keep consuming the session until it closes
       }
     } catch (final Exception e) {
@@ -235,13 +254,28 @@ public class SecureWebSocketClient {
       // letting it bubble up and be logged as "WebSocket session failed".
       if (isAbruptConnectionClose(e)) {
         log.debug("| WebSocket connection closed abruptly by the server (treated as close)", e);
+        invalidateSession(session);
         onClose(-1, "Connection closed by server", true);
       } else {
+        invalidateSession(session);
         log.error("| Error while consuming WebSocket session: {}", e.getMessage(), e);
         onError(e);
       }
     } finally {
-      this.session.compareAndSet(session, null);
+      invalidateSession(session);
+    }
+  }
+
+  private void invalidateSession(final WsClientExtension.WsSession disconnectedSession) {
+    if (this.session.compareAndSet(disconnectedSession, null)) {
+      invalidationListener.get().accept(this);
+      try {
+        disconnectedSession.close();
+      } catch (final Exception e) {
+        log.warn("| Could not close invalid WebSocket session", e);
+      } finally {
+        pool.shutdownNow();
+      }
     }
   }
 
@@ -254,9 +288,13 @@ public class SecureWebSocketClient {
     return false;
   }
 
-  private boolean handleIncomingMessage(final WsClientExtension.WsMessage incoming) {
+  private boolean handleIncomingMessage(
+      final WsClientExtension.WsSession currentSession,
+      final WsClientExtension.WsMessage incoming) {
     if (incoming == null || incoming instanceof WsClientExtension.WsMessage.Close) {
       log.debug("| WebSocket closed.");
+      invalidateSession(currentSession);
+      onClose(-1, "Connection closed by server", true);
       return false;
     }
     if (incoming instanceof WsClientExtension.WsMessage.Text text) {

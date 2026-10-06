@@ -38,6 +38,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 
+/**
+ * Verifies PoPP tokens against federation-provided signing material.
+ *
+ * <p>The service obtains the entity statement and signed JWKS, verifies the JWKS signature with the
+ * entity's embedded public key, and verifies the PoPP token with the matching EC key. It also
+ * validates required token header fields and issuer and actor claims.
+ */
 @Service
 @Slf4j
 public class PoppTokenVerificationService {

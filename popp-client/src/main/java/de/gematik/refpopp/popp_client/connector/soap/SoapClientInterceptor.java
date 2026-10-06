@@ -31,7 +31,14 @@ import org.springframework.ws.soap.saaj.SaajSoapMessage;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
-/** Temporary workaround to fix wrong http status codes received by Rise Konnektors. */
+/**
+ * Temporary workaround to fix wrong http status codes received by Rise Konnektors. Detects SOAP
+ * faults returned with successful HTTP status codes by certain connectors.
+ *
+ * <p>The interceptor inspects response documents for a SOAP {@code Fault} element and raises a
+ * {@link SoapFaultClientException} when one is present, ensuring callers receive the fault despite
+ * the incorrect HTTP status.
+ */
 public class SoapClientInterceptor implements ClientInterceptor {
 
   @Override

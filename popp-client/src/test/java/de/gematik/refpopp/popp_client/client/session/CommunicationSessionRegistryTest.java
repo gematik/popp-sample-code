@@ -21,10 +21,12 @@
 package de.gematik.refpopp.popp_client.client.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -191,6 +193,82 @@ class CommunicationSessionRegistryTest {
   }
 
   @Test
+  void failAllPendingTokensCompletesAllWaitersExceptionallyAndCleansUpSessionData() {
+    final var firstSessionId = "first-session";
+    final var secondSessionId = "second-session";
+    final var firstFuture = sut.registerTokenWaiter(firstSessionId);
+    final var secondFuture = sut.registerTokenWaiter(secondSessionId);
+    sut.registerRequestContext(firstSessionId, CardConnectionType.CONTACT_STANDARD);
+    sut.registerRequestContext(secondSessionId, CardConnectionType.CONTACT_CONNECTOR);
+    final var failure = new IllegalStateException("connection closed");
+
+    final var failedTokenCount = sut.failAllPendingTokens(failure);
+
+    assertThat(failedTokenCount).isEqualTo(2);
+    assertThat(firstFuture).isCompletedExceptionally();
+    assertThat(secondFuture).isCompletedExceptionally();
+    assertThat(sut.hasPendingToken(firstSessionId)).isFalse();
+    assertThat(sut.hasPendingToken(secondSessionId)).isFalse();
+    assertThat(sut.getRequestContext(firstSessionId)).isNull();
+    assertThat(sut.getRequestContext(secondSessionId)).isNull();
+  }
+
+  @Test
+  void failPendingTokensForConnectionOnlyFailsWaitersUsingThatConnection() {
+    final var failedSessionId = "failed-session";
+    final var activeSessionId = "active-session";
+    final var failedFuture = sut.registerTokenWaiter(failedSessionId);
+    final var activeFuture = sut.registerTokenWaiter(activeSessionId);
+    final var failedClient = Mockito.mock(SecureWebSocketClient.class);
+    final var activeClient = Mockito.mock(SecureWebSocketClient.class);
+    sut.associatePendingTokenWithConnection(failedSessionId, failedClient);
+    sut.associatePendingTokenWithConnection(activeSessionId, activeClient);
+
+    final var failedTokenCount =
+        sut.failPendingTokensForConnection(
+            failedClient, new IllegalStateException("connection closed"));
+
+    assertThat(failedTokenCount).isEqualTo(1);
+    assertThat(failedFuture).isCompletedExceptionally();
+    assertThat(activeFuture).isNotDone();
+    assertThat(sut.hasPendingToken(activeSessionId)).isTrue();
+  }
+
+  @Test
+  void pendingSessionIsResolvedOnlyForItsOwnConnectionAndRemovedOnCompletion() {
+    final var firstClient = Mockito.mock(SecureWebSocketClient.class);
+    final var secondClient = Mockito.mock(SecureWebSocketClient.class);
+    sut.registerTokenWaiter("first");
+    sut.registerTokenWaiter("second");
+    sut.associatePendingTokenWithConnection("first", firstClient);
+    sut.associatePendingTokenWithConnection("second", secondClient);
+
+    assertThat(sut.getPendingSessionIdForConnection(firstClient)).contains("first");
+    assertThat(sut.getPendingSessionIdForConnection(secondClient)).contains("second");
+    assertThat(sut.getPendingSessionIdForConnection(null)).isEmpty();
+
+    sut.completeToken("first", "token");
+    assertThat(sut.getPendingSessionIdForConnection(firstClient)).isEmpty();
+    assertThat(sut.getPendingSessionIdForConnection(secondClient)).contains("second");
+
+    sut.failToken("second", new IllegalStateException("failed"));
+    assertThat(sut.getPendingSessionIdForConnection(secondClient)).isEmpty();
+  }
+
+  @Test
+  void pendingSessionLookupRejectsMultipleWaitersOnOneConnection() {
+    final var client = Mockito.mock(SecureWebSocketClient.class);
+    sut.registerTokenWaiter("first");
+    sut.registerTokenWaiter("second");
+    sut.associatePendingTokenWithConnection("first", client);
+    sut.associatePendingTokenWithConnection("second", client);
+
+    assertThatThrownBy(() -> sut.getPendingSessionIdForConnection(client))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Multiple token requests");
+  }
+
+  @Test
   void completeTokenReturnsFalseWhenNoTokenIsRegistered() {
     // given
     final var defaultService = Mockito.mock(VirtualCardService.class);
@@ -218,51 +296,6 @@ class CommunicationSessionRegistryTest {
 
     // then
     assertThat(failed).isFalse();
-  }
-
-  @Test
-  void completeSolePendingTokenReturnsFalseWhenQueueIsEmpty() {
-    // given / when
-    final var completed = sut.completeSolePendingToken("token-value");
-
-    // then
-    assertThat(completed).isFalse();
-  }
-
-  @Test
-  void completeSolePendingTokenReturnsFalseWhenMultipleTokensArePending() {
-    // given
-    final var sessionId1 = "session-1";
-    final var sessionId2 = "session-2";
-    sut.registerTokenWaiter(sessionId1);
-    sut.registerTokenWaiter(sessionId2);
-
-    // when
-    final var completed = sut.completeSolePendingToken("token-value");
-
-    // then
-    assertThat(completed).isFalse();
-    assertThat(sut.hasPendingToken(sessionId1)).isTrue();
-    assertThat(sut.hasPendingToken(sessionId2)).isTrue();
-  }
-
-  @Test
-  void completeSolePendingTokenCompletesWhenExactlyOneTokenIsPending() {
-    // given
-    final var sessionId = "sole-session";
-    final var tokenFuture = sut.registerTokenWaiter(sessionId);
-    final var virtualCardService = Mockito.mock(VirtualCardService.class);
-    sut.registerVirtualCard(sessionId, virtualCardService);
-    final var sessionState = sut.getOrCreateVirtualCardSessionState(sessionId);
-
-    // when
-    final var completed = sut.completeSolePendingToken("token-value");
-
-    // then
-    assertThat(completed).isTrue();
-    assertThat(tokenFuture).isCompletedWithValue("token-value");
-    assertThat(sut.hasPendingToken(sessionId)).isFalse();
-    assertThat(sut.getOrCreateVirtualCardSessionState(sessionId)).isNotSameAs(sessionState);
   }
 
   @Test

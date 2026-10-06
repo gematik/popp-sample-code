@@ -36,6 +36,13 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+/**
+ * Loads certificates and cryptographic material from a virtual card image.
+ *
+ * <p>The loader reads XML images from the filesystem or classpath and extracts the data required to
+ * initialize {@link VirtualCardImageData}. XML parsing is hardened against external entities and
+ * external DTD or schema access.
+ */
 @Component
 public final class VirtualCardImageLoader {
   private static final String EGK_AUT_CVC_PRIVATE_KEY_OBJECT = "PrK.eGK.AUT_CVC.E256";

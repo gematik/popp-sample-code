@@ -27,6 +27,13 @@ import de.gematik.refpopp.popp_server.handler.SessionCommunication;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Dispatches incoming PoPP messages to their corresponding message handlers.
+ *
+ * <p>The handler is selected based on the concrete message type and receives both the message and
+ * the associated session communication. Unsupported message types are rejected with a scenario
+ * exception.
+ */
 @Component
 @Slf4j
 public class MessageHandlerOrchestrator implements MessageOrchestrator {
@@ -37,6 +44,13 @@ public class MessageHandlerOrchestrator implements MessageOrchestrator {
     this.handlerProvider = handlerProvider;
   }
 
+  /**
+   * Finds and invokes the handler for the given message.
+   *
+   * @param message the message to dispatch
+   * @param session the session communication associated with the message
+   * @throws ScenarioException if no handler is available for the message type
+   */
   @Override
   public void orchestrate(final PoPPMessage message, final SessionCommunication session) {
     log.debug("| Entering processScenario() with message type {}", message.getType());

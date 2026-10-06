@@ -23,12 +23,20 @@ package de.gematik.refpopp.popp_server.security.jwk;
 import java.math.BigInteger;
 import java.util.Arrays;
 
+/** Encodes elliptic-curve key coordinates as fixed-length unsigned byte arrays. */
 public final class EcKeyCoordinateEncoder {
 
   private static final int COORDINATE_LENGTH = 32;
 
   private EcKeyCoordinateEncoder() {}
 
+  /**
+   * Converts a non-negative coordinate to its unsigned 32-byte representation.
+   *
+   * @param value the non-negative coordinate to encode
+   * @return the 32-byte unsigned representation of the coordinate
+   * @throws InvalidEcKeyCoordinateException if the coordinate requires more than 32 bytes
+   */
   public static byte[] toUnsignedFixedLength(BigInteger value) {
     byte[] bytes = value.toByteArray();
 

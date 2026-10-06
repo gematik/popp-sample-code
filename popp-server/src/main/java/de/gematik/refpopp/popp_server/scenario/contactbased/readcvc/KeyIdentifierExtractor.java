@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Extracts public key identifiers for the eGK application from LIST PUBLIC KEY responses. */
 @Component
 @Slf4j
 public class KeyIdentifierExtractor {
@@ -35,6 +36,13 @@ public class KeyIdentifierExtractor {
   private static final byte[] EGK_AID = HexFormat.of().parseHex("d2760001448000");
   private static final HexFormat HEX_FORMAT = HexFormat.of();
 
+  /**
+   * Extracts the eGK public key identifiers as hexadecimal strings.
+   *
+   * @param data the response data of a LIST PUBLIC KEY command
+   * @return the immutable set of public key identifiers
+   * @throws IllegalArgumentException if the response data is invalid
+   */
   public Set<String> extract(final byte[] data) {
     try (final var listPublicKeys = Openhealth_healthcardKt.parseListPublicKeys(data)) {
       return listPublicKeys.keyReferencesForApplicationIdentifier(EGK_AID).stream()

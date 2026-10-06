@@ -31,6 +31,13 @@ import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * Creates hexadecimal APDUs for the eGK operations used in PoPP scenarios.
+ *
+ * <p>The factory uses the OpenHealth card-command API to build file selection and reading,
+ * key-management, trusted-channel authentication, secure messaging, and internal-authentication
+ * commands.
+ */
 @Component
 public class CardApduFactory {
 

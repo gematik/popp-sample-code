@@ -26,9 +26,17 @@ import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.lang.JoseException;
 import org.springframework.stereotype.Component;
 
+/** Generates key identifiers for elliptic-curve JSON Web Keys. */
 @Component
 public class JwkKidGenerator {
 
+  /**
+   * Generates a Base64URL-encoded SHA-256 thumbprint for the supplied public key.
+   *
+   * @param publicKey the elliptic-curve public key
+   * @return the generated JWK key identifier
+   * @throws JoseException if the public key cannot be converted to a JWK
+   */
   public String generate(final ECPublicKey publicKey) throws JoseException {
     final var jsonWebKey = JsonWebKey.Factory.newJwk(publicKey);
     return Base64.getUrlEncoder()

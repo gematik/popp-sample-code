@@ -29,6 +29,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.ws.soap.client.SoapFaultClientException;
 
+/**
+ * Manages the lifecycle of connector card sessions for PoPP requests.
+ *
+ * <p>The component starts a session for the patient's connected eGK and closes it after a
+ * connector-based request completes. Already closed or cancelled sessions are handled as normal
+ * shutdown conditions.
+ */
 @Component
 @Slf4j
 @RequiredArgsConstructor

@@ -30,6 +30,13 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Derives eGK certificate-hash database updates from an imported hash entry.
+ *
+ * <p>Matching ad-hoc entries are promoted to imported entries. New hash pairs become imported
+ * entries, while conflicts with an existing CVC or AUT hash produce blocked replacements for all
+ * affected entries. The caller persists the returned updates.
+ */
 @Service
 @Slf4j
 public class EgkEntryProcessor {

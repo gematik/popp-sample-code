@@ -33,6 +33,12 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
+/**
+ * Configures infrastructure required for communication with TI connectors.
+ *
+ * <p>Provides a {@link RestTemplate} that uses the optional Bouncy Castle-enabled HTTP client and a
+ * JAXB context for connector service-directory messages.
+ */
 @Slf4j
 @Configuration
 @DependsOn("bouncyCastleConfiguration")

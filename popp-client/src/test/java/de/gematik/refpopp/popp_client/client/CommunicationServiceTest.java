@@ -44,10 +44,16 @@ import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistr
 import de.gematik.refpopp.popp_client.client.session.CommunicationSslSession;
 import de.gematik.refpopp.popp_client.client.transport.ClientMessageDispatcher;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import de.gematik.refpopp.popp_client.client.transport.events.TextMessageReceivedEvent;
+import de.gematik.refpopp.popp_client.client.transport.events.WebSocketCommunicationErrorEvent;
+import de.gematik.refpopp.popp_client.client.transport.events.WebSocketConnectionClosedEvent;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import javax.smartcardio.CardChannel;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,7 +119,9 @@ class CommunicationServiceTest {
             connectorScenarioProcessor,
             connectorSessionLifecycle) {
           @Override
-          public void handle(final de.gematik.poppcommons.api.messages.PoPPMessage poPPMessage) {
+          public void handle(
+              final de.gematik.poppcommons.api.messages.PoPPMessage poPPMessage,
+              final SecureWebSocketClient client) {
             // Some older tests expect the transport to be consulted for SSL/session info.
             // Call getSslSession() here to keep the mocked expectations in tests stable.
             try {
@@ -124,18 +132,15 @@ class CommunicationServiceTest {
 
             switch (poPPMessage) {
               case final de.gematik.poppcommons.api.messages.TokenMessage tokenMessage -> {
-                // Some tests send Token messages without a clientSessionId in the payload.
-                // Emulate historic behavior by falling back to the SSL session when missing so
-                // tests that register a request context via the SSL session still work.
-                String clientSessionId = tokenMessage.getClientSessionId();
+                // Test events without an origin connection use the mocked SSL session.
+                String clientSessionId =
+                    client == null
+                        ? null
+                        : sessionRegistry.getPendingSessionIdForConnection(client).orElse(null);
                 if (clientSessionId == null) {
-                  try {
-                    final var ssl = clientServerCommunicationServiceMock.getSslSession();
-                    if (ssl != null) {
-                      clientSessionId = ssl.getClientSessionId();
-                    }
-                  } catch (final Exception ignored) {
-                    // ignore
+                  final var ssl = clientServerCommunicationServiceMock.getSslSession();
+                  if (ssl != null) {
+                    clientSessionId = ssl.getClientSessionId();
                   }
                 }
 
@@ -151,11 +156,13 @@ class CommunicationServiceTest {
                 final var context = sessionRegistry.getRequestContext(clientSessionId);
                 final List<String> responses = standardScenarioProcessor.process(standard, context);
                 clientServerCommunicationServiceMock.sendMessage(
-                    new de.gematik.poppcommons.api.messages.ScenarioResponseMessage(
-                        clientSessionId, responses));
+                    new de.gematik.poppcommons.api.messages.ScenarioResponseMessage(responses));
               }
               case final de.gematik.poppcommons.api.messages.ConnectorScenarioMessage connector -> {
-                final var clientSessionId = connector.getClientSessionId();
+                final var clientSessionId =
+                    client == null
+                        ? null
+                        : sessionRegistry.getPendingSessionIdForConnection(client).orElse(null);
                 final var context = sessionRegistry.getRequestContext(clientSessionId);
                 boolean isConnectorMock = context != null && context.isConnectorMock();
                 if (!isConnectorMock) {
@@ -177,27 +184,32 @@ class CommunicationServiceTest {
                   cardCommunicationServiceMock.process(Collections.emptyList());
                   clientServerCommunicationServiceMock.sendMessage(
                       new de.gematik.poppcommons.api.messages.ScenarioResponseMessage(
-                          clientSessionId, List.of("9000")));
+                          List.of("9000")));
                 } else {
                   final List<String> responses =
                       connectorCommunicationServiceWrapper.secureSendApdu(
                           connector.getSignedScenario());
                   clientServerCommunicationServiceMock.sendMessage(
-                      new de.gematik.poppcommons.api.messages.ScenarioResponseMessage(
-                          clientSessionId, responses));
+                      new de.gematik.poppcommons.api.messages.ScenarioResponseMessage(responses));
                 }
               }
               case final de.gematik.poppcommons.api.messages.ErrorMessage error -> {
-                final var clientSessionId = error.getClientSessionId();
+                String clientSessionId =
+                    client == null
+                        ? null
+                        : sessionRegistry.getPendingSessionIdForConnection(client).orElse(null);
                 if (clientSessionId == null) {
-                  return;
+                  final var ssl = clientServerCommunicationServiceMock.getSslSession();
+                  if (ssl != null) {
+                    clientSessionId = ssl.getClientSessionId();
+                  }
                 }
                 sessionRegistry.failToken(
                     clientSessionId,
                     new IllegalStateException(
                         "Server error " + error.getErrorCode() + ": " + error.getErrorDetail()));
               }
-              default -> super.handle(poPPMessage);
+              default -> super.handle(poPPMessage, client);
             }
           }
         };
@@ -250,8 +262,315 @@ class CommunicationServiceTest {
         .sendMessage(any(PoPPMessage.class));
   }
 
+  @Test
+  void tokenRequestsOnSharedConnectionWaitUntilPreviousTokenCompletes() throws Exception {
+    final var timeoutField = CommunicationService.class.getDeclaredField("tokenWaitTimeoutSeconds");
+    timeoutField.setAccessible(true);
+    timeoutField.setInt(sut, 5);
+    final var firstSent = new CountDownLatch(1);
+    final var secondStarted = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              if (((StartMessage) inv.getArgument(0)).getClientSessionId().equals("first")) {
+                firstSent.countDown();
+              }
+              return null;
+            })
+        .when(clientServerCommunicationServiceMock)
+        .sendMessage(any(PoPPMessage.class));
+
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      final var first =
+          executor.submit(
+              () -> sut.startVirtualCard(CardConnectionType.CONTACT_STANDARD, "first", null));
+      assertThat(firstSent.await(1, TimeUnit.SECONDS)).isTrue();
+
+      final var second =
+          executor.submit(
+              () -> {
+                secondStarted.countDown();
+                return sut.startConnectorMock("second");
+              });
+      assertThat(secondStarted.await(1, TimeUnit.SECONDS)).isTrue();
+      try {
+        verify(clientServerCommunicationServiceMock, after(150).times(1))
+            .sendMessage(any(PoPPMessage.class));
+        assertThat(sessionRegistry.hasPendingToken("second")).isFalse();
+        assertThat(sessionRegistry.getRequestContext("second")).isNull();
+
+        sessionRegistry.completeToken("first", "first-token");
+        assertThat(first.get(1, TimeUnit.SECONDS)).isEqualTo("first-token");
+        verify(clientServerCommunicationServiceMock, timeout(1_000).times(2))
+            .sendMessage(any(PoPPMessage.class));
+        sessionRegistry.completeToken("second", "second-token");
+        assertThat(second.get(1, TimeUnit.SECONDS)).isEqualTo("second-token");
+      } finally {
+        sessionRegistry.failToken("first", new IllegalStateException("test finished"));
+        sessionRegistry.failToken("second", new IllegalStateException("test finished"));
+      }
+    }
+  }
+
+  @Test
+  void failedStartClearsPendingStateAndAllowsNextRequest() {
+    doThrow(new IllegalStateException("send failed"))
+        .doAnswer(
+            inv -> {
+              sessionRegistry.completeToken("second", "second-token");
+              return null;
+            })
+        .when(clientServerCommunicationServiceMock)
+        .sendMessage(any(PoPPMessage.class));
+
+    assertThatThrownBy(() -> sut.startConnectorMock("first"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("send failed");
+    assertThat(sessionRegistry.hasPendingToken("first")).isFalse();
+    assertThat(sessionRegistry.getRequestContext("first")).isNull();
+
+    assertThat(sut.startConnectorMock("second")).isEqualTo("second-token");
+  }
+
+  @Test
+  void serverErrorReleasesSharedConnectionForNextRequest() {
+    doAnswer(
+            inv -> {
+              final var sessionId = ((StartMessage) inv.getArgument(0)).getClientSessionId();
+              if (sessionId.equals("first")) {
+                sessionRegistry.failToken(sessionId, new IllegalStateException("server error"));
+              } else {
+                sessionRegistry.completeToken(sessionId, "second-token");
+              }
+              return null;
+            })
+        .when(clientServerCommunicationServiceMock)
+        .sendMessage(any(PoPPMessage.class));
+
+    assertThatThrownBy(() -> sut.startConnectorMock("first"))
+        .isInstanceOf(TokenRetrievalException.class)
+        .hasMessageContaining("server error");
+    assertThat(sut.startConnectorMock("second")).isEqualTo("second-token");
+  }
+
+  @Test
+  void timedOutRequestClearsPendingStateAndAllowsNextRequest() throws Exception {
+    final var localService = createSutLocal(sessionRegistry);
+    doAnswer(
+            inv -> {
+              final var sessionId = ((StartMessage) inv.getArgument(0)).getClientSessionId();
+              if (sessionId.equals("second")) {
+                sessionRegistry.completeToken(sessionId, "second-token");
+              }
+              return null;
+            })
+        .when(clientServerCommunicationServiceMock)
+        .sendMessage(any(PoPPMessage.class));
+
+    assertThatThrownBy(() -> localService.startConnectorMock("first"))
+        .isInstanceOf(TokenRetrievalException.class)
+        .hasMessageContaining("Token retrieval timed out");
+    assertThat(sessionRegistry.hasPendingToken("first")).isFalse();
+    assertThat(sessionRegistry.getRequestContext("first")).isNull();
+    assertThat(localService.startConnectorMock("second")).isEqualTo("second-token");
+  }
+
+  @Test
+  void interruptedRequestClearsPendingState() throws Exception {
+    final var localService = createSutLocal(sessionRegistry);
+    try {
+      Thread.currentThread().interrupt();
+      assertThatThrownBy(() -> localService.startConnectorMock("interrupted"))
+          .isInstanceOf(TokenRetrievalException.class)
+          .hasMessageContaining("interrupted");
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+
+    assertThat(sessionRegistry.hasPendingToken("interrupted")).isFalse();
+    assertThat(sessionRegistry.getRequestContext("interrupted")).isNull();
+  }
+
+  @Test
+  void unscopedMessageUsesPendingRequestOfItsOriginConnectionForDispatch() {
+    final var client = mock(SecureWebSocketClient.class);
+    sessionRegistry.registerTokenWaiter("active");
+    sessionRegistry.associatePendingTokenWithConnection("active", client);
+
+    sut.handleServerEvent(
+        TextMessageReceivedEvent.builder()
+            .payload("{\"type\":\"Error\",\"errorCode\":\"79100\",\"errorDetail\":\"failed\"}")
+            .client(client)
+            .build());
+
+    verify(messageDispatcherMock).dispatch(eq("active"), any(Runnable.class));
+  }
+
+  @Test
+  void v1ScenarioResponseAndTokenUseOriginConnectionEndToEnd() {
+    final var client = mock(SecureWebSocketClient.class);
+    final var pendingToken = sessionRegistry.registerTokenWaiter("active");
+    sessionRegistry.associatePendingTokenWithConnection("active", client);
+    sessionRegistry.registerRequestContext("active", CardConnectionType.CONTACT_STANDARD);
+    when(cardCommunicationServiceMock.process(anyList())).thenReturn(List.of("9000"));
+    final var realHandler =
+        new PoPPMessageHandler(
+            clientServerCommunicationServiceMock,
+            sessionRegistry,
+            standardScenarioProcessor,
+            connectorScenarioProcessor,
+            connectorSessionLifecycle);
+    final var service =
+        new CommunicationService(
+            mapper,
+            cardCommunicationServiceMock,
+            clientServerCommunicationServiceMock,
+            virtualCardServiceMock,
+            virtualCardServiceFactoryMock,
+            sessionRegistry,
+            connectorSessionLifecycle,
+            realHandler,
+            messageDispatcherMock);
+
+    service.handleServerEvent(
+        TextMessageReceivedEvent.builder()
+            .payload(
+                """
+                {"type":"StandardScenario","version":"1.0.0","clientSessionId":"active",
+                 "sequenceCounter":0,"timeSpan":1000,
+                 "steps":[{"commandApdu":"00a4040c","expectedStatusWords":["9000"]}]}
+                """)
+            .client(client)
+            .build());
+
+    final var response = ArgumentCaptor.forClass(ScenarioResponseMessage.class);
+    verify(clientServerCommunicationServiceMock).sendMessage(response.capture());
+    assertThat(response.getValue().getSteps()).containsExactly("9000");
+    assertThat(
+            mapper.readTree(mapper.writeValueAsString(response.getValue())).has("clientSessionId"))
+        .isFalse();
+
+    service.handleServerEvent(
+        TextMessageReceivedEvent.builder()
+            .payload("{\"type\":\"Token\",\"token\":\"v1-token\"}")
+            .client(client)
+            .build());
+
+    assertThat(pendingToken).isCompletedWithValue("v1-token");
+    assertThat(sessionRegistry.getPendingSessionIdForConnection(client)).isEmpty();
+  }
+
   private Map<String, Object> prepareMockSslSession(String sessionId, CardConnectionType type) {
     return new HashMap<>(Map.of("clientSessionId", sessionId, "cardConnectionType", type));
+  }
+
+  @Test
+  void handleConnectionEventsFailsPendingTokenWaitersOnWebSocketError() {
+    final var sessionId = "pending-session";
+    final var tokenFuture = sessionRegistry.registerTokenWaiter(sessionId);
+    final var connectionError = new IllegalStateException("connection failed");
+    final var clientMock = mock(SecureWebSocketClient.class);
+    sessionRegistry.associatePendingTokenWithConnection(sessionId, clientMock);
+
+    sut.handleConnectionEvents(
+        WebSocketCommunicationErrorEvent.builder()
+            .error(connectionError)
+            .client(clientMock)
+            .build());
+
+    assertThat(tokenFuture).isCompletedExceptionally();
+    assertThat(sessionRegistry.hasPendingToken(sessionId)).isFalse();
+  }
+
+  @Test
+  void handleConnectionEventsFailsPendingTokenWaitersOnWebSocketClose() {
+    final var sessionId = "pending-session";
+    final var tokenFuture = sessionRegistry.registerTokenWaiter(sessionId);
+    final var clientMock = mock(SecureWebSocketClient.class);
+    sessionRegistry.associatePendingTokenWithConnection(sessionId, clientMock);
+
+    sut.handleConnectionEvents(WebSocketConnectionClosedEvent.forClient(clientMock));
+
+    assertThat(tokenFuture).isCompletedExceptionally();
+    assertThat(sessionRegistry.hasPendingToken(sessionId)).isFalse();
+  }
+
+  @Test
+  void handleConnectionEventsDoesNotFailWaitersAssignedToAnotherConnection() {
+    final var activeSessionId = "active-session";
+    final var staleSessionId = "stale-session";
+    final var activeTokenFuture = sessionRegistry.registerTokenWaiter(activeSessionId);
+    final var staleTokenFuture = sessionRegistry.registerTokenWaiter(staleSessionId);
+    final var activeClientMock = mock(SecureWebSocketClient.class);
+    final var staleClientMock = mock(SecureWebSocketClient.class);
+    sessionRegistry.associatePendingTokenWithConnection(activeSessionId, activeClientMock);
+    sessionRegistry.associatePendingTokenWithConnection(staleSessionId, staleClientMock);
+
+    sut.handleConnectionEvents(WebSocketConnectionClosedEvent.forClient(staleClientMock));
+
+    assertThat(staleTokenFuture).isCompletedExceptionally();
+    assertThat(activeTokenFuture).isNotDone();
+    assertThat(sessionRegistry.hasPendingToken(activeSessionId)).isTrue();
+  }
+
+  @Test
+  void tokenReceivedBeforeCloseCompletesDespiteSlowConnectorCleanup() throws Exception {
+    final var client = mock(SecureWebSocketClient.class);
+    final var tokenFuture = sessionRegistry.registerTokenWaiter("connector-session");
+    sessionRegistry.associatePendingTokenWithConnection("connector-session", client);
+    sessionRegistry.registerRequestContext(
+        "connector-session", CardConnectionType.CONTACT_CONNECTOR);
+    final var cleanupStarted = new CountDownLatch(1);
+    final var finishCleanup = new CountDownLatch(1);
+    final var connectorLifecycleMock = mock(ConnectorSessionLifecycle.class);
+    doAnswer(
+            invocation -> {
+              cleanupStarted.countDown();
+              if (!finishCleanup.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Connector cleanup timed out");
+              }
+              return null;
+            })
+        .when(connectorLifecycleMock)
+        .stopSessionIfRequired(any(ClientRequestContext.class));
+    final var dispatcher = new ClientMessageDispatcher(2);
+    final var handler =
+        new PoPPMessageHandler(
+            clientServerCommunicationServiceMock,
+            sessionRegistry,
+            standardScenarioProcessor,
+            connectorScenarioProcessor,
+            connectorLifecycleMock);
+    final var service =
+        new CommunicationService(
+            mapper,
+            cardCommunicationServiceMock,
+            clientServerCommunicationServiceMock,
+            virtualCardServiceMock,
+            virtualCardServiceFactoryMock,
+            sessionRegistry,
+            connectorLifecycleMock,
+            handler,
+            dispatcher);
+
+    try {
+      service.handleServerEvent(
+          TextMessageReceivedEvent.builder()
+              .payload("{\"type\":\"Token\",\"token\":\"connector-token\"}")
+              .client(client)
+              .build());
+      assertThat(cleanupStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+      service.handleConnectionEvents(WebSocketConnectionClosedEvent.forClient(client));
+      assertThat(tokenFuture).isNotDone();
+
+      finishCleanup.countDown();
+      assertThat(tokenFuture.get(5, TimeUnit.SECONDS)).isEqualTo("connector-token");
+      assertThat(sessionRegistry.getPendingSessionIdForConnection(client)).isEmpty();
+    } finally {
+      finishCleanup.countDown();
+      dispatcher.shutdown();
+    }
   }
 
   private CommunicationSslSession wrapSslSession(final Map<String, Object> sslSession) {
@@ -506,7 +825,7 @@ class CommunicationServiceTest {
   void handleServerEventProcessesWithTokenMessage() {
     final var givenMessage =
         """
-        {"type":"Token","clientSessionId":"clientSessionId","token":"token","pn":"pn"}
+        {"type":"Token","token":"token"}
         """;
     final var event = new TextMessageReceivedEvent(givenMessage);
 
@@ -524,7 +843,7 @@ class CommunicationServiceTest {
   void handleServerEventProcessesWithTokenMessageAndConnector() {
     final var givenMessage =
         """
-        {"type":"Token","token":"token","pn":"pn"}
+        {"type":"Token","token":"token"}
         """;
     final var event = new TextMessageReceivedEvent(givenMessage);
     final Map<String, Object> sslSessionMock =
@@ -627,7 +946,7 @@ class CommunicationServiceTest {
             inv -> {
               String errorMsg =
                   """
-                  {"type":"Error","clientSessionId":"session-with-server-error","errorCode":"errorCode","errorDetail":"UnknownCertificates"}
+                  {"type":"Error","errorCode":"errorCode","errorDetail":"UnknownCertificates"}
                   """;
               sut.handleServerEvent(new TextMessageReceivedEvent(errorMsg));
               return null;
@@ -750,9 +1069,7 @@ class CommunicationServiceTest {
     Map<String, Object> ssl = Map.of("clientSessionId", "missing-session");
     when(clientServerCommunicationServiceMock.getSslSession()).thenReturn(wrapSslSession(ssl));
 
-    sut.handleServerEvent(
-        new TextMessageReceivedEvent(
-            "{\"type\":\"Token\",\"clientSessionId\":\"mock-session\",\"token\":\"t\",\"pn\":\"pn\"}"));
+    sut.handleServerEvent(new TextMessageReceivedEvent("{\"type\":\"Token\",\"token\":\"t\"}"));
 
     verify(clientServerCommunicationServiceMock, atLeastOnce()).getSslSession();
   }
@@ -768,9 +1085,7 @@ class CommunicationServiceTest {
     when(fault.getFaultStringOrReason()).thenReturn("Unbekannte Session ID");
     doThrow(fault).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
 
-    sut.handleServerEvent(
-        new TextMessageReceivedEvent(
-            "{\"type\":\"Token\",\"clientSessionId\":\"session-id\",\"token\":\"t\",\"pn\":\"pn\"}"));
+    sut.handleServerEvent(new TextMessageReceivedEvent("{\"type\":\"Token\",\"token\":\"t\"}"));
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
   }
@@ -788,8 +1103,7 @@ class CommunicationServiceTest {
     assertThatThrownBy(
             () ->
                 sut.handleServerEvent(
-                    new TextMessageReceivedEvent(
-                        "{\"type\":\"Token\",\"clientSessionId\":\"session-id\",\"token\":\"t\",\"pn\":\"pn\"}")))
+                    new TextMessageReceivedEvent("{\"type\":\"Token\",\"token\":\"t\"}")))
         .isSameAs(fault);
   }
 

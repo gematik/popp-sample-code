@@ -30,6 +30,12 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+/**
+ * Adapts the application's connector communication service to Zeta SDK SMC-B authentication.
+ *
+ * <p>The adapter obtains the connected SMC-B card handle to read its certificate and to perform
+ * external authentication after PIN verification.
+ */
 @Slf4j
 @Component
 @AllArgsConstructor

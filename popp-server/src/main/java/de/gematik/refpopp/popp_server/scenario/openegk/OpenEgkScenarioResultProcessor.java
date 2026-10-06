@@ -44,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/** Processes OPEN eGK results and determines the communication mode supported by the card. */
 @Component
 @Slf4j
 public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
@@ -58,12 +59,25 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
   @Value("${scenario-vars.supported-g3-cards}")
   private List<String> supportedG3Cards;
 
+  /**
+   * Creates a processor using session data and scenario result lookup services.
+   *
+   * @param sessionAccessor provides and stores session data
+   * @param scenarioResultFinder finds relevant scenario result steps
+   */
   public OpenEgkScenarioResultProcessor(
       final SessionAccessor sessionAccessor, final ScenarioResultFinder scenarioResultFinder) {
     this.sessionAccessor = sessionAccessor;
     this.scenarioResultFinder = scenarioResultFinder;
   }
 
+  /**
+   * Determines and stores the communication mode for the card identified by the scenario result.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the result of the OPEN eGK scenario
+   * @throws ScenarioException if EF.Version2 is invalid or the card is unsupported
+   */
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     log.debug("| Entering processScenarioResult()");
@@ -76,6 +90,11 @@ public class OpenEgkScenarioResultProcessor implements ScenarioResultProcessor {
     log.debug("| Exiting processScenarioResult()");
   }
 
+  /**
+   * Returns the scenario identifier handled by this processor.
+   *
+   * @return {@link ScenarioId#OPEN_EGK}
+   */
   @Override
   public ScenarioId getScenarioId() {
     return ScenarioId.OPEN_EGK;

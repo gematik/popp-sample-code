@@ -26,6 +26,7 @@ import de.gematik.poppcommons.api.messages.StandardScenarioMessage;
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
 import org.springframework.stereotype.Component;
 
+/** Creates signed JWT connector tokens for scenario messages. */
 @Component
 public class ConnectorTokenCreator {
 
@@ -45,6 +46,14 @@ public class ConnectorTokenCreator {
     this.jwtTokenBuilder = jwtTokenBuilder;
   }
 
+  /**
+   * Creates a signed connector token for the supplied scenario message.
+   *
+   * @param scenarioMessage the scenario message providing the token claims
+   * @param sessionId the identifier of the current session
+   * @return the signed JWT connector token
+   * @throws ScenarioException if the connector keystore has no issuer certificate
+   */
   public String createConnectorToken(
       final StandardScenarioMessage scenarioMessage, final String sessionId) {
     final var keyStoreData = certificateProviderService.getKeyStoreDataConnector();

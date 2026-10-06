@@ -30,7 +30,7 @@ ARG GROUPID=10000
 # Run as User (not root)
 USER $USERID:$GROUPID
 
-ARG JAR_PATH=popp-server*.jar
+ARG JAR_PATH=popp-server-*-exec.jar
 COPY --chown=$USERID:$GROUPID ${JAR_PATH} /app/popp-server.jar
 
 ENV IDENTITIES_LOCATION=/app/identities

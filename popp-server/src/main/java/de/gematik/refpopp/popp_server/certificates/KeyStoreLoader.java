@@ -25,6 +25,12 @@ import de.gematik.poppcommons.api.exceptions.KeyStoreException;
 import java.security.KeyStore;
 import org.springframework.core.io.Resource;
 
+/**
+ * Loads a Java keystore from a Spring resource.
+ *
+ * <p>The loader opens the configured resource with its password and converts loading failures to a
+ * {@link KeyStoreException} with the server-internal-error code.
+ */
 public class KeyStoreLoader {
   private final Resource truststoreLocation;
   private final String truststorePassword;

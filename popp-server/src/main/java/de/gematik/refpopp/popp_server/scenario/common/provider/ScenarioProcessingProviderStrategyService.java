@@ -25,11 +25,22 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
+/**
+ * Selects the scenario processing service for a communication mode.
+ *
+ * <p>Available processing services are indexed by the communication mode they support when this
+ * service is created.
+ */
 @Service
 public class ScenarioProcessingProviderStrategyService {
 
   private final Map<CommunicationMode, AbstractScenarioProcessingService> strategyMap;
 
+  /**
+   * Creates a strategy service from the available scenario processing services.
+   *
+   * @param processingServices the processing services to index by communication mode
+   */
   public ScenarioProcessingProviderStrategyService(
       final List<AbstractScenarioProcessingService> processingServices) {
     this.strategyMap =
@@ -40,6 +51,13 @@ public class ScenarioProcessingProviderStrategyService {
                     provider -> provider));
   }
 
+  /**
+   * Returns the processing service for the specified communication mode.
+   *
+   * @param version the communication mode for which a provider is requested
+   * @return the matching scenario processing service
+   * @throws IllegalArgumentException if no service supports the specified communication mode
+   */
   public AbstractScenarioProcessingService getProvider(final CommunicationMode version) {
     final AbstractScenarioProcessingService provider = strategyMap.get(version);
     if (provider == null) {

@@ -33,12 +33,21 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Processes contact-based card scenarios and advances their scenario sequence. */
 @Component
 @Slf4j
 public class ContactBasedScenarioProcessingService extends AbstractScenarioProcessingService {
 
   private final SessionAccessor sessionAccessor;
 
+  /**
+   * Creates a service for processing contact-based scenarios.
+   *
+   * @param scenarioMessageFactory creates messages for scenarios
+   * @param clientCommunicationService sends messages to the client
+   * @param sessionAccessor provides session data
+   * @param scenarioTransitionService resolves scenario transitions
+   */
   public ContactBasedScenarioProcessingService(
       final ScenarioMessageFactory scenarioMessageFactory,
       final ClientCommunicationService clientCommunicationService,
@@ -52,16 +61,34 @@ public class ContactBasedScenarioProcessingService extends AbstractScenarioProce
     this.sessionAccessor = sessionAccessor;
   }
 
+  /**
+   * Returns the contact communication mode.
+   *
+   * @return {@link CommunicationMode#CONTACT}
+   */
   @Override
   public CommunicationMode getSupportedCommunicationMode() {
     return CommunicationMode.CONTACT;
   }
 
+  /**
+   * Determines whether the supplied scenario is the final contact-based scenario.
+   *
+   * @param currentScenario the scenario being evaluated
+   * @return {@code true} if the scenario reads the X.509 certificate; otherwise {@code false}
+   */
   @Override
   public boolean isLastScenario(final Scenario currentScenario) {
     return currentScenario.is(ScenarioId.READ_X509);
   }
 
+  /**
+   * Processes a contact-based scenario and sends the next scenario or final token.
+   *
+   * @param session the session communication used for processing
+   * @param lastScenarioSentToClient the most recently sent scenario
+   * @param cardScenarioProvider provides the scenarios for the card
+   */
   @Override
   public void processScenario(
       final SessionCommunication session,

@@ -30,6 +30,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
+/**
+ * Provides utility methods for reading commonly used fields from CV certificates.
+ *
+ * <p>The methods expose certificate authority and holder references, public-key and value fields,
+ * expiration dates, and end-entity classification while handling the OpenHealth ASN.1 model.
+ */
 public final class CvCertificateSupport {
 
   private CvCertificateSupport() {}

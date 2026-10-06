@@ -40,6 +40,10 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Processes AUTH G2 results, validates card certificates and nonce signatures, and creates a PoPP
+ * token.
+ */
 @Component
 @Slf4j
 public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
@@ -52,6 +56,17 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
   private final EgkHashValidationService egkHashValidationService;
   private final CvcSignatureVerifier signatureVerifier;
 
+  /**
+   * Creates a processor using the services required to validate card authentication results.
+   *
+   * @param cvcProcessor creates and validates CVCs from scenario results
+   * @param scenarioResultFinder finds relevant scenario result steps
+   * @param x509CertificateProcessor parses and extracts X.509 certificate data
+   * @param poppTokenCreator creates the PoPP token
+   * @param sessionAccessor provides and stores session data
+   * @param egkHashValidationService validates the CVC and AUT certificate pair
+   * @param signatureVerifier verifies CVC signatures
+   */
   public AuthG2ScenarioResultProcessor(
       final CvcProcessor cvcProcessor,
       final ScenarioResultFinder scenarioResultFinder,
@@ -69,11 +84,23 @@ public class AuthG2ScenarioResultProcessor implements ScenarioResultProcessor {
     this.signatureVerifier = signatureVerifier;
   }
 
+  /**
+   * Returns the scenario identifier handled by this processor.
+   *
+   * @return {@link ScenarioId#AUTH_G2}
+   */
   @Override
   public ScenarioId getScenarioId() {
     return ScenarioId.AUTH_G2;
   }
 
+  /**
+   * Validates the card authentication results and stores the generated PoPP token in the session.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the result of the AUTH G2 scenario
+   * @throws ScenarioException if certificate validation or nonce signature verification fails
+   */
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     try (final var endEntityCvc =

@@ -25,6 +25,12 @@ import de.gematik.openhealth.crypto.CryptoException;
 import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
 import org.springframework.stereotype.Component;
 
+/**
+ * Verifies ECDSA signatures created with CV certificate keys.
+ *
+ * <p>The verifier delegates CVC signature validation to the OpenHealth crypto library and
+ * translates cryptographic processing failures into an {@link IllegalStateException}.
+ */
 @Component
 public class CvcSignatureVerifier {
 

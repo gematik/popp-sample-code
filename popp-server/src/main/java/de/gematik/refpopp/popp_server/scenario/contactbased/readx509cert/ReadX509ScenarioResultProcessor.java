@@ -36,6 +36,7 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Processes READ X.509 results, validates the certificate pair, and creates the PoPP token. */
 @Component
 @Slf4j
 public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor {
@@ -46,6 +47,15 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
   private final SessionAccessor sessionAccessor;
   private final EgkHashValidationService egkHashValidationService;
 
+  /**
+   * Creates a processor using the services required to validate certificates and create a token.
+   *
+   * @param scenarioResultFinder finds relevant scenario result steps
+   * @param x509CertificateProcessor parses and extracts X.509 certificate data
+   * @param poppTokenCreator creates the PoPP token
+   * @param sessionAccessor provides and stores session data
+   * @param egkHashValidationService validates the CVC and AUT certificate pair
+   */
   public ReadX509ScenarioResultProcessor(
       final ScenarioResultFinder scenarioResultFinder,
       final X509CertificateProcessor x509CertificateProcessor,
@@ -59,6 +69,13 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
     this.egkHashValidationService = egkHashValidationService;
   }
 
+  /**
+   * Validates the returned certificate pair and stores the generated PoPP token in the session.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the result of the READ X.509 scenario
+   * @throws ScenarioException if the CVC and AUT certificates do not form a valid pair
+   */
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     final var aut =
@@ -73,6 +90,11 @@ public class ReadX509ScenarioResultProcessor implements ScenarioResultProcessor 
     log.info("| {} Generated PoPP-Token for the client: {}", sessionId, poppToken);
   }
 
+  /**
+   * Returns the scenario identifier handled by this processor.
+   *
+   * @return {@link ScenarioId#READ_X509}
+   */
   @Override
   public ScenarioId getScenarioId() {
     return ScenarioId.READ_X509;

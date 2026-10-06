@@ -26,6 +26,12 @@ import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Creates and completes persistence records for eGK certificate-hash imports.
+ *
+ * <p>The processor records an import's start and end times and stores the final imported, blocked,
+ * skipped, and total-processed entry counts.
+ */
 @Service
 @Slf4j
 public class ImportReportProcessor {

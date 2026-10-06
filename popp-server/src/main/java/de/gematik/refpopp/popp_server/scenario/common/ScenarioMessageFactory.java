@@ -31,6 +31,12 @@ import de.gematik.refpopp.popp_server.scenario.common.token.ConnectorTokenCreato
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Creates client-facing PoPP messages from server-side card scenarios.
+ *
+ * <p>The factory resolves and serializes scenario APDUs into a standard scenario message. For
+ * connector-based sessions, it wraps the message in a signed connector scenario token instead.
+ */
 @Component
 public class ScenarioMessageFactory {
 
@@ -68,8 +74,7 @@ public class ScenarioMessageFactory {
       final StandardScenarioMessage standardScenarioMessage, final String sessionId) {
     final var connectorToken =
         connectorTokenCreator.createConnectorToken(standardScenarioMessage, sessionId);
-    return new ConnectorScenarioMessage(
-        VERSION, connectorToken, standardScenarioMessage.getClientSessionId());
+    return new ConnectorScenarioMessage(VERSION, connectorToken);
   }
 
   private StandardScenarioMessage createStandardScenarioMessage(

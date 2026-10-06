@@ -31,6 +31,13 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 
+/**
+ * Provides common functionality for processing scenarios over a specific communication mode.
+ *
+ * <p>Implementations define the communication mode and scenario transition behavior, while this
+ * class prepares and sends scenario messages, manages sequence counters, and completes the request
+ * by sending the PoPP token after the last scenario.
+ */
 @Slf4j
 public abstract class AbstractScenarioProcessingService {
 
@@ -43,6 +50,15 @@ public abstract class AbstractScenarioProcessingService {
   @Value("${scenario-vars.time-span:5000}")
   private int timeSpan;
 
+  /**
+   * Creates a scenario processing service with the required session, message, and transition
+   * services.
+   *
+   * @param sessionAccessor provides session data
+   * @param scenarioMessageFactory creates messages for scenarios
+   * @param clientCommunicationService sends messages to the client
+   * @param scenarioTransitionService resolves scenario transitions
+   */
   protected AbstractScenarioProcessingService(
       final SessionAccessor sessionAccessor,
       final ScenarioMessageFactory scenarioMessageFactory,
@@ -54,15 +70,40 @@ public abstract class AbstractScenarioProcessingService {
     this.scenarioTransitionService = scenarioTransitionService;
   }
 
+  /**
+   * Returns the communication mode supported by this service.
+   *
+   * @return the supported communication mode
+   */
   public abstract CommunicationMode getSupportedCommunicationMode();
 
+  /**
+   * Determines whether the specified scenario is the last scenario in the processing sequence.
+   *
+   * @param currentScenario the scenario being evaluated
+   * @return {@code true} if the scenario is the last one; otherwise {@code false}
+   */
   public abstract boolean isLastScenario(final Scenario currentScenario);
 
+  /**
+   * Processes the specified scenario and coordinates the next processing step.
+   *
+   * @param session the session communication used for processing
+   * @param lastScenarioSentToClient the most recently sent scenario
+   * @param cardScenarioProvider provides the scenarios for the card
+   */
   public abstract void processScenario(
       final SessionCommunication session,
       final Scenario lastScenarioSentToClient,
       final CardScenarioProvider cardScenarioProvider);
 
+  /**
+   * Creates a message for the scenario, updates the sequence counter, and sends the message to the
+   * client.
+   *
+   * @param session the session communication used for sending
+   * @param scenario the scenario to send
+   */
   public void createAndSendMessage(final SessionCommunication session, final Scenario scenario) {
     final var clientSessionId = getClientSessionId(session.getSessionId());
     final var sequenceCounter = getSequenceCounter(session.getSessionId());
@@ -75,6 +116,14 @@ public abstract class AbstractScenarioProcessingService {
     sendMessage(scenarioMessage, session);
   }
 
+  /**
+   * Resolves the scenario following the current scenario.
+   *
+   * @param sessionId the identifier of the current session
+   * @param currentScenario the currently processed scenario
+   * @param cardScenarioProvider provides the scenario sequence
+   * @return the next scenario
+   */
   protected Scenario getNextScenario(
       final String sessionId,
       final Scenario currentScenario,
@@ -83,14 +132,21 @@ public abstract class AbstractScenarioProcessingService {
         sessionId, currentScenario, cardScenarioProvider);
   }
 
+  /**
+   * Sends the final token message and clears the request-specific session state.
+   *
+   * @param session the session communication used for sending the token
+   */
   protected void processLastScenario(final SessionCommunication session) {
     log.debug("| Entering processLastScenario()");
     final var logicalSessionId = session.getSessionId();
     final var poppToken = getPoppToken(logicalSessionId);
-    final var clientSessionId = getClientSessionId(logicalSessionId);
-    final var tokenMessage = new TokenMessage(clientSessionId, poppToken, "pn");
-    sendMessage(tokenMessage, session);
-    clearRequestState(logicalSessionId);
+    final var tokenMessage = new TokenMessage(poppToken);
+    try {
+      sendMessage(tokenMessage, session);
+    } finally {
+      clearRequestState(logicalSessionId);
+    }
     log.debug("| Exiting processLastScenario()");
   }
 

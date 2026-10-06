@@ -31,6 +31,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * Extracts connector service paths and versions from the service directory.
+ *
+ * <p>For each supported service, the extractor selects the latest available version and chooses its
+ * TLS endpoint when secure communication is enabled. It removes any configured connector base path
+ * so the result can be combined with the connector URL.
+ */
 @Component
 @Slf4j
 public class ServicePathExtractor {

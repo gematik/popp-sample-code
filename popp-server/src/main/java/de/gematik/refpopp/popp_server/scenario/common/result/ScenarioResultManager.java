@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/** Creates, validates, and processes results returned for card scenarios. */
 @Component
 @Slf4j
 public class ScenarioResultManager {
@@ -37,6 +38,13 @@ public class ScenarioResultManager {
   private final Map<ScenarioId, ScenarioResultProcessor> scenarioResultProcessorMap;
   private final ScenarioResultFactory scenarioResultFactory;
 
+  /**
+   * Creates a manager using the available scenario-specific result processors.
+   *
+   * @param scenarioResultProcessors the processors indexed by their supported scenario identifier
+   * @param statusWordValidator the validator for APDU status words
+   * @param scenarioResultFactory the factory for creating scenario results
+   */
   public ScenarioResultManager(
       final List<ScenarioResultProcessor> scenarioResultProcessors,
       final StatusWordValidator statusWordValidator,
@@ -48,6 +56,13 @@ public class ScenarioResultManager {
     this.scenarioResultFactory = scenarioResultFactory;
   }
 
+  /**
+   * Creates, validates, and processes the result for a completed scenario.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenario the completed scenario
+   * @param responses the ordered hexadecimal APDU responses for the scenario steps
+   */
   public void manage(
       final String sessionId, final Scenario scenario, final List<String> responses) {
     final var scenarioResult = createScenarioResult(scenario, responses);

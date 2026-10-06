@@ -20,4 +20,21 @@
 
 package de.gematik.refpopp.popp_client.client.transport.events;
 
-public class WebSocketConnectionClosedEvent implements CommunicationEvent {}
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class WebSocketConnectionClosedEvent implements CommunicationEvent {
+
+  private SecureWebSocketClient client;
+
+  public static WebSocketConnectionClosedEvent forClient(final SecureWebSocketClient client) {
+    final var event = new WebSocketConnectionClosedEvent();
+    event.client = client;
+    return event;
+  }
+}

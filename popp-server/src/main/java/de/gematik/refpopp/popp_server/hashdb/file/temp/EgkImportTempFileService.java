@@ -18,7 +18,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  */
 
-package de.gematik.refpopp.popp_server.file.temp;
+package de.gematik.refpopp.popp_server.hashdb.file.temp;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,6 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+/**
+ * Manages temporary files used while importing eGK certificate-hash data.
+ *
+ * <p>The service creates import files in a configured writable directory and deletes them after
+ * processing, logging cleanup failures without masking the import result.
+ */
 @Slf4j
 @Service
 public final class EgkImportTempFileService {

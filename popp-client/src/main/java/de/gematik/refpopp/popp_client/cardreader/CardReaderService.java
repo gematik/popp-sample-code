@@ -29,6 +29,13 @@ import javax.smartcardio.CardTerminal;
 import javax.smartcardio.TerminalFactory;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Detects a configured smart-card terminal and starts monitoring it for card events.
+ *
+ * <p>The service polls the available terminals until a matching reader is found, then delegates
+ * card presence monitoring to {@link Monitoring}. Its executor is shut down when the application
+ * terminates.
+ */
 @Slf4j
 public class CardReaderService implements CardReader {
 

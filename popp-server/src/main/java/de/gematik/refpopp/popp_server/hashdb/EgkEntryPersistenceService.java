@@ -32,6 +32,13 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Persists and evaluates eGK certificate-hash entries.
+ *
+ * <p>For contact connections, unknown hash pairs are stored as ad-hoc entries. Conflicting CVC or
+ * AUT hashes cause the existing and incoming entries to be blocked and produce a mismatch. For
+ * contactless connections, the service performs the same conflict check without modifying data.
+ */
 @Service
 @Slf4j
 public class EgkEntryPersistenceService {

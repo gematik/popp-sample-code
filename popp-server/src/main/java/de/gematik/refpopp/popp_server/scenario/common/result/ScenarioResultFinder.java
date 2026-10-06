@@ -27,9 +27,21 @@ import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult.Scen
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/** Finds individual steps in a scenario result. */
 @Component
 public class ScenarioResultFinder {
 
+  /**
+   * Finds the scenario result step with the supplied name.
+   *
+   * <p>Step names are compared case-insensitively.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResultSteps the scenario result steps to search
+   * @param name the name of the requested step
+   * @return the matching scenario result step
+   * @throws ScenarioException if no step with the supplied name exists
+   */
   public ScenarioResultStep find(
       final String sessionId,
       final List<ScenarioResultStep> scenarioResultSteps,
@@ -45,6 +57,15 @@ public class ScenarioResultFinder {
                     BdeErrorCode.UNSUPPORTED_WORKFLOW));
   }
 
+  /**
+   * Finds the scenario result step associated with the supplied step identifier.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResultSteps the scenario result steps to search
+   * @param stepId the identifier of the requested step
+   * @return the matching scenario result step
+   * @throws ScenarioException if no step with the supplied identifier exists
+   */
   public ScenarioResultStep find(
       final String sessionId,
       final List<ScenarioResultStep> scenarioResultSteps,

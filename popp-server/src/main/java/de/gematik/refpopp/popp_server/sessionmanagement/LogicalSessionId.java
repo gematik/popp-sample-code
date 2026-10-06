@@ -56,4 +56,11 @@ public final class LogicalSessionId {
     }
     return logicalSessionId.substring(logicalSessionId.indexOf(SEPARATOR) + SEPARATOR.length());
   }
+
+  public static String transportSessionIdOf(final String logicalSessionId) {
+    if (!isLogical(logicalSessionId)) {
+      return null;
+    }
+    return logicalSessionId.substring(0, logicalSessionId.indexOf(SEPARATOR));
+  }
 }

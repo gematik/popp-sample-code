@@ -24,6 +24,12 @@ import de.gematik.openhealth.asn1.CvCertificate;
 import de.gematik.openhealth.crypto.CryptoException;
 import org.springframework.stereotype.Component;
 
+/**
+ * Validates the configured trusted-channel identity during server initialization.
+ *
+ * <p>The validator ensures that the configured service private key is present and that the
+ * end-entity CVC forms a valid chain with the configured Sub-CA certificate.
+ */
 @Component
 public class ConfiguredTrustedChannelIdentityValidator {
 

@@ -36,6 +36,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP client for the connector's {@code StartCardSession} operation.
+ *
+ * <p>It creates a card-service request with the supplied card handle and configured connector
+ * context, then returns the session identifier issued by the connector.
+ */
 @Component
 @Lazy
 public class StartCardSessionClient extends SoapClient {

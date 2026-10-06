@@ -35,6 +35,13 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * Coordinates SOAP client calls to a real TI connector.
+ *
+ * <p>The service retrieves eGK and SMC-B card handles, manages card sessions, exchanges signed
+ * scenario APDUs, and performs the certificate and authentication operations required for SMC-B
+ * authentication.
+ */
 @Slf4j
 @Component
 public class RealConnectorCommunicationService {

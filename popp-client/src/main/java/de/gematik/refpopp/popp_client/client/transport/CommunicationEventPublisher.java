@@ -26,6 +26,12 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
+/**
+ * Publishes communication events through Spring's application event infrastructure.
+ *
+ * <p>This decouples transport-layer components from event listeners that react to connection
+ * changes and received server messages.
+ */
 @Component
 @Slf4j
 public class CommunicationEventPublisher {

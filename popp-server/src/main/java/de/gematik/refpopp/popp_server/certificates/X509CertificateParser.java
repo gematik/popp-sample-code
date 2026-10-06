@@ -30,6 +30,12 @@ import java.security.cert.X509Certificate;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+/**
+ * Parses X.509 certificates from classpath resources or binary certificate data.
+ *
+ * <p>Parsing failures are translated to {@link CertificateParserException} with the appropriate
+ * certificate error code and, for byte-array input, the associated session identifier.
+ */
 @Component
 public class X509CertificateParser {
 

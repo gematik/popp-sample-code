@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/** Processes READ CVC results and prepares the trusted-channel steps for contact-based cards. */
 @Component
 public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
 
@@ -42,6 +43,13 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
   private final CvcChainBuilder cvcChainBuilder;
   private final SessionAccessor sessionAccessor;
 
+  /**
+   * Creates a processor using the services required to validate CVCs and prepare follow-up steps.
+   *
+   * @param cvcProcessor creates and validates CVCs from scenario results
+   * @param cvcChainBuilder builds the configured CVC chain for the card
+   * @param sessionAccessor stores prepared additional scenario steps
+   */
   public ReadCvcScenarioResultProcessor(
       final CvcProcessor cvcProcessor,
       final CvcChainBuilder cvcChainBuilder,
@@ -51,11 +59,23 @@ public class ReadCvcScenarioResultProcessor implements ScenarioResultProcessor {
     this.sessionAccessor = sessionAccessor;
   }
 
+  /**
+   * Validates the returned CVCs and stores trusted-channel steps for the current session.
+   *
+   * @param sessionId the identifier of the current session
+   * @param scenarioResult the result of the READ CVC scenario
+   * @throws ScenarioException if the trusted-channel CVC chain or its steps cannot be prepared
+   */
   @Override
   public void process(final String sessionId, final ScenarioResult scenarioResult) {
     checkEhcG21Cards(sessionId, scenarioResult);
   }
 
+  /**
+   * Returns the scenario identifier handled by this processor.
+   *
+   * @return {@link ScenarioId#READ_CVC}
+   */
   @Override
   public ScenarioId getScenarioId() {
     return ScenarioId.READ_CVC;

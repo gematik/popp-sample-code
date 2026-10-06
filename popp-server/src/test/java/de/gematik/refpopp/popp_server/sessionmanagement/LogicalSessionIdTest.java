@@ -85,4 +85,12 @@ class LogicalSessionIdTest {
     assertThat(extractedNon).isNull();
     assertThat(extractedNull).isNull();
   }
+
+  @Test
+  void transportSessionIdOfReturnsTransportPartOrNull() {
+    assertThat(LogicalSessionId.transportSessionIdOf(LogicalSessionId.of("transport", "client")))
+        .isEqualTo("transport");
+    assertThat(LogicalSessionId.transportSessionIdOf("transport")).isNull();
+    assertThat(LogicalSessionId.transportSessionIdOf(null)).isNull();
+  }
 }

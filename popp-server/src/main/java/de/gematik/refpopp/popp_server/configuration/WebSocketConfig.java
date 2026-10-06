@@ -34,6 +34,12 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Configures the PoPP token-generation WebSocket endpoint.
+ *
+ * <p>Registers the endpoint and creates its handler with the session management, scenario
+ * orchestration, and outbound-message concurrency and buffering limits defined by configuration.
+ */
 @Configuration
 @EnableWebSocket
 @Slf4j

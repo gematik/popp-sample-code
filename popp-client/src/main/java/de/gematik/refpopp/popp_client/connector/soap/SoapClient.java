@@ -29,6 +29,13 @@ import org.springframework.ws.client.support.interceptor.ClientInterceptor;
 import org.springframework.ws.soap.client.core.SoapActionCallback;
 import org.springframework.ws.transport.http.SimpleHttpComponents5MessageSender;
 
+/**
+ * Base class for connector SOAP clients.
+ *
+ * <p>Configures JAXB marshalling, SOAP action handling, request interception, and the optional
+ * Bouncy Castle-enabled HTTP client. The SOAP action is resolved lazily and cached for subsequent
+ * requests.
+ */
 public class SoapClient extends WebServiceGatewaySupport {
 
   private final Supplier<String> soapActionSupplier;

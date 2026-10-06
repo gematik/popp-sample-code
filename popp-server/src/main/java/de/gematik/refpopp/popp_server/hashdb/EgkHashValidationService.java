@@ -35,6 +35,12 @@ import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Validates eGK CVC and AUT certificate hashes against the hash database.
+ *
+ * <p>The service returns the state of an existing matching pair or derives hashes and certificate
+ * expiry data for a new pair before delegating persistence and conflict handling.
+ */
 @Service
 @Slf4j
 public class EgkHashValidationService {

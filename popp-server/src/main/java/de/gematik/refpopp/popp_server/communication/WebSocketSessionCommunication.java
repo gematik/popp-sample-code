@@ -29,6 +29,13 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * Adapts a Spring {@link WebSocketSession} to the server's session communication abstraction.
+ *
+ * <p>The adapter serializes outgoing messages as JSON text frames, exposes the WebSocket session
+ * identifier, and closes the connection with normal status. I/O failures are reported as {@link
+ * ScenarioException}s.
+ */
 public class WebSocketSessionCommunication implements SessionCommunication {
 
   private final WebSocketSession session;

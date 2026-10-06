@@ -33,6 +33,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Exposes the server's PoPP signing public key as a JSON Web Key Set.
+ *
+ * <p>The configuration derives a JWK from the first certificate in the PoPP keystore and assigns it
+ * a SHA-256 thumbprint-based key identifier.
+ */
 @Slf4j
 @Configuration
 public class JwksConfiguration {

@@ -26,6 +26,11 @@ import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.springframework.stereotype.Component;
 
+/**
+ * Creates Bouncy Castle CMS signer verifiers from X.509 certificates.
+ *
+ * <p>The builder configures each verifier to use the registered Bouncy Castle security provider.
+ */
 @Component
 public class SignerInfoVerifierBuilder {
   private static final String PROVIDER = "BC";

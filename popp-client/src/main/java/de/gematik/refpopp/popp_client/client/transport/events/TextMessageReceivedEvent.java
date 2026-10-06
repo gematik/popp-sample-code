@@ -20,6 +20,7 @@
 
 package de.gematik.refpopp.popp_client.client.transport.events;
 
+import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -36,4 +37,9 @@ import lombok.Setter;
 public class TextMessageReceivedEvent implements CommunicationEvent {
 
   private String payload;
+  private SecureWebSocketClient client;
+
+  public TextMessageReceivedEvent(final String payload) {
+    this.payload = payload;
+  }
 }

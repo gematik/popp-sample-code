@@ -25,10 +25,12 @@ import de.gematik.poppcommons.api.exceptions.CertificateParserException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/** Creates JOSE headers for signed connector tokens. */
 @Component
 final class ConnectorTokenHeader {
 
@@ -41,6 +43,15 @@ final class ConnectorTokenHeader {
     this.ocspResponseProvider = ocspResponseProvider;
   }
 
+  /**
+   * Creates the header containing the token type, signer certificate, and OCSP response.
+   *
+   * @param signerCertificate the certificate used to sign the token
+   * @param sessionId the identifier of the current session
+   * @param issuerCertificate the issuer certificate of the signer certificate
+   * @return the connector token header
+   * @throws CertificateParserException if the signer certificate cannot be encoded
+   */
   Map<String, Object> create(
       final X509Certificate signerCertificate,
       final String sessionId,
@@ -49,7 +60,7 @@ final class ConnectorTokenHeader {
         "typ",
         connectorTokenType,
         "x5c",
-        encodeCertificate(signerCertificate, sessionId),
+        List.of(encodeCertificate(signerCertificate, sessionId)),
         "stpl",
         ocspResponseProvider.getResponse(
             OcspRequest.withIssuer(sessionId, signerCertificate, issuerCertificate)));

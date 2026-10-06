@@ -31,9 +31,22 @@ import java.util.List;
 import javax.smartcardio.ResponseAPDU;
 import org.springframework.stereotype.Component;
 
+/** Creates {@link ScenarioResult} instances from scenario definitions and their APDU responses. */
 @Component
 public class ScenarioResultFactory {
 
+  /**
+   * Creates a result containing one entry per scenario step.
+   *
+   * <p>Each hexadecimal response is parsed as an APDU. Its status word and response data are stored
+   * with the corresponding step definition.
+   *
+   * @param scenario the scenario that defines the ordered steps
+   * @param responses the ordered hexadecimal APDU responses
+   * @return the result for the supplied scenario
+   * @throws ValidationException if the number of responses differs from the number of scenario
+   *     steps
+   */
   public ScenarioResult create(final Scenario scenario, final List<String> responses) {
     final var scenarioSteps = scenario.stepDefinitions();
     final int minSize = Math.min(scenarioSteps.size(), responses.size());

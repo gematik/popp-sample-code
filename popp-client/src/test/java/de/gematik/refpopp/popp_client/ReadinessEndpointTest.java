@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,6 +48,6 @@ class ReadinessEndpointTest {
   }
 
   @SpringBootConfiguration
-  @EnableAutoConfiguration
+  @EnableAutoConfiguration(exclude = DataSourceAutoConfiguration.class)
   static class TestApplication {}
 }

@@ -31,6 +31,13 @@ import de.gematik.refpopp.popp_server.scenario.common.provider.ScenarioProviderS
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Handles the start of a PoPP scenario.
+ *
+ * <p>The handler transfers connection-scoped data to the logical session, initializes the session
+ * with the start message data, selects the providers for the configured communication mode, and
+ * starts processing the first scenario.
+ */
 @Component
 public class StartMessageHandler implements MessageHandler<StartMessage> {
 
@@ -53,6 +60,12 @@ public class StartMessageHandler implements MessageHandler<StartMessage> {
     this.firstScenarioProvider = firstScenarioProvider;
   }
 
+  /**
+   * Initializes the session and starts processing the first scenario.
+   *
+   * @param message the start message received from the client
+   * @param session the session communication associated with the request
+   */
   @Override
   public void handle(final StartMessage message, final SessionCommunication session) {
     final var logicalSessionId = session.getSessionId();
@@ -64,6 +77,11 @@ public class StartMessageHandler implements MessageHandler<StartMessage> {
     processingProvider.processScenario(session, scenario, cardScenarioProvider);
   }
 
+  /**
+   * Returns the message type supported by this handler.
+   *
+   * @return {@link StartMessage}
+   */
   @Override
   public Class<StartMessage> getMessageType() {
     return StartMessage.class;

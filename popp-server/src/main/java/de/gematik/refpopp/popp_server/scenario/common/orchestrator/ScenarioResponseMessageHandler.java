@@ -34,6 +34,12 @@ import de.gematik.refpopp.popp_server.sessionmanagement.SessionAccessor;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+/**
+ * Handles responses received from a client during scenario execution.
+ *
+ * <p>The handler records the response steps for the current scenario, selects the providers for the
+ * session's communication mode, and starts processing the next scenario step.
+ */
 @Component
 public class ScenarioResponseMessageHandler implements MessageHandler<ScenarioResponseMessage> {
 
@@ -43,6 +49,15 @@ public class ScenarioResponseMessageHandler implements MessageHandler<ScenarioRe
   private final ScenarioProviderStrategyService scenarioProviderStrategyService;
   private final ScenarioProcessingProviderStrategyService scenarioProcessingProviderStrategyService;
 
+  /**
+   * Creates a handler using the services required to manage scenario responses and transitions.
+   *
+   * @param scenarioResultManager manages the received scenario results
+   * @param scenarioTransitionService provides the current scenario
+   * @param sessionAccessor provides session-specific communication settings
+   * @param scenarioProviderStrategyService selects the card scenario provider
+   * @param scenarioProcessingProviderStrategyService selects the scenario processing provider
+   */
   public ScenarioResponseMessageHandler(
       final ScenarioResultManager scenarioResultManager,
       final ScenarioTransitionService scenarioTransitionService,
@@ -56,6 +71,12 @@ public class ScenarioResponseMessageHandler implements MessageHandler<ScenarioRe
     this.scenarioProcessingProviderStrategyService = scenarioProcessingProviderStrategyService;
   }
 
+  /**
+   * Handles the response steps and starts processing the next scenario step.
+   *
+   * @param message the scenario response received from the client
+   * @param session the session communication associated with the response
+   */
   @Override
   public void handle(final ScenarioResponseMessage message, final SessionCommunication session) {
     final var responses = message.getSteps();
@@ -68,6 +89,11 @@ public class ScenarioResponseMessageHandler implements MessageHandler<ScenarioRe
         session, lastScenarioSentToClient, cardScenarioProvider);
   }
 
+  /**
+   * Returns the message type supported by this handler.
+   *
+   * @return {@link ScenarioResponseMessage}
+   */
   @Override
   public Class<ScenarioResponseMessage> getMessageType() {
     return ScenarioResponseMessage.class;

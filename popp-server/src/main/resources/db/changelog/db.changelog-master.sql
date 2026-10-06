@@ -59,3 +59,41 @@ INSERT INTO import_report_entries (session_id, start_time, end_time, imported_co
                                                                                                    2,
                                                                                                    3,
                                                                                                    10);
+
+-- changeSet poppserver:8
+CREATE TABLE popp_message_records (
+                                     id UUID PRIMARY KEY,
+                                     status VARCHAR(8) NOT NULL DEFAULT 'pending',
+                                     client_id VARCHAR(255) NOT NULL,
+                                     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                                     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                                     token_delivered_at TIMESTAMP WITH TIME ZONE,
+                                     push_sent_at TIMESTAMP WITH TIME ZONE,
+                                     CONSTRAINT chk_popp_message_status
+                                         CHECK (status IN ('success', 'pending', 'canceled')),
+                                     CONSTRAINT chk_popp_message_expiry
+                                         CHECK (expires_at = created_at + INTERVAL '72 hours')
+);
+
+-- changeSet poppserver:9
+CREATE TABLE popp_token_generation_records (
+                                              message_id UUID PRIMARY KEY,
+                                              patient_id VARCHAR(10) NOT NULL,
+                                              insurer_id VARCHAR(9) NOT NULL,
+                                              actor_id VARCHAR(255) NOT NULL,
+                                              workplace_id VARCHAR(64),
+                                              proof_method VARCHAR(8) NOT NULL DEFAULT 'healthid',
+                                              timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+                                              CONSTRAINT fk_popp_token_generation_message
+                                                  FOREIGN KEY (message_id)
+                                                      REFERENCES popp_message_records (id),
+                                              CONSTRAINT chk_popp_token_generation_patient_id
+                                                  CHECK (patient_id ~ '^[A-Z][0-9]{9}$'),
+                                              CONSTRAINT chk_popp_token_generation_insurer_id
+                                                  CHECK (insurer_id ~ '^[0-9]{9}$'),
+                                              CONSTRAINT chk_popp_token_generation_proof_method
+                                                  CHECK (proof_method = 'healthid')
+);
+
+-- changeSet poppserver:10
+CREATE INDEX idx_popp_message_records_expires_at ON popp_message_records (expires_at);
