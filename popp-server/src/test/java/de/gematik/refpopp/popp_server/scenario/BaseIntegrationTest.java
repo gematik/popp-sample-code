@@ -23,14 +23,14 @@ package de.gematik.refpopp.popp_server.scenario;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
 public abstract class BaseIntegrationTest {
 
   @SuppressWarnings("resource")
-  private static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:18-alpine")
+  private static final PostgreSQLContainer POSTGRES =
+      new PostgreSQLContainer("postgres:18-alpine")
           .withDatabaseName("egk_hash_db")
           .withUsername("poppserver")
           .withPassword("verysafe");

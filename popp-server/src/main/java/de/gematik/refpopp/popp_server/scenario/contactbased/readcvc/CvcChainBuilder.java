@@ -26,6 +26,7 @@ import de.gematik.refpopp.popp_server.certificates.CvCertificateSupport;
 import de.gematik.refpopp.popp_server.scenario.common.provider.StepId;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResult;
 import de.gematik.refpopp.popp_server.scenario.common.result.ScenarioResultFinder;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -65,7 +66,7 @@ public class CvcChainBuilder {
    * @param sessionId the identifier of the current session
    * @param scenarioResult the result containing the card's public key identifiers
    * @return the ordered CVC chain to provide to the card
-   * @throws IllegalStateException if the configured CVC chain contains a loop
+   * @throws IllegalStateException if no configured CVC chain reaches a key known by the card
    */
   public List<CvCertificate> build(final String sessionId, final ScenarioResult scenarioResult) {
     final var keyIdentifierSet =
@@ -78,25 +79,36 @@ public class CvcChainBuilder {
 
   private List<CvCertificate> buildConfiguredServiceChain(
       final CvCertificate serviceEndEntityCvc, final Set<String> knownKeyIdentifiers) {
-    final var chain = new ArrayList<CvCertificate>();
-    final var visited = new HashSet<String>();
-    var current = serviceEndEntityCvc;
+    if (knownKeyIdentifiers.contains(chrHex(serviceEndEntityCvc))) {
+      return List.of();
+    }
 
-    while (current != null) {
-      final var chr = CvCertificateSupport.chr(current);
-      final var car = CvCertificateSupport.car(current);
-      if (knownKeyIdentifiers.contains(chrHex(current)) || car.equals(chr)) {
-        current = null;
-      } else {
-        if (!visited.add(chr)) {
-          throw new IllegalStateException("Loop detected in configured CVC chain at CHR " + chr);
-        }
-        chain.add(current);
-        current = certificateProviderService.getCvcDirectory().findByChr(car).orElse(null);
+    final var pendingChains = new ArrayDeque<List<CvCertificate>>();
+    pendingChains.add(List.of(serviceEndEntityCvc));
+    final var visitedAuthorities = new HashSet<String>();
+
+    while (!pendingChains.isEmpty()) {
+      final var chain = pendingChains.removeFirst();
+      final var current = chain.getLast();
+      if (knownKeyIdentifiers.contains(
+          HEX_FORMAT.formatHex(CvCertificateSupport.carBytes(current)))) {
+        return List.copyOf(chain);
+      }
+
+      final var authority = CvCertificateSupport.car(current);
+      if (!visitedAuthorities.add(authority)) {
+        continue;
+      }
+      for (final var issuer :
+          certificateProviderService.getCvcDirectory().findAllByChr(authority)) {
+        final var candidateChain = new ArrayList<>(chain);
+        candidateChain.add(issuer);
+        pendingChains.addLast(candidateChain);
       }
     }
 
-    return chain;
+    throw new IllegalStateException(
+        "No configured CVC chain reaches a public key known by the card");
   }
 
   private String chrHex(final CvCertificate certificate) {

@@ -32,6 +32,7 @@ import de.gematik.poppcommons.api.enums.BdeErrorCode;
 import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.poppcommons.api.enums.ProofMethod;
 import de.gematik.poppcommons.api.exceptions.ScenarioException;
+import de.gematik.refpopp.popp_server.model.PoppTokenGenerationRecord;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import de.gematik.refpopp.popp_server.sessionmanagement.SessionContainer;
 import java.time.Instant;
@@ -79,6 +80,23 @@ class PoppTokenClaims {
     claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), identifier);
     final var professionOid = getProfessionOid(sessionId);
     claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), professionOid);
+    claims.put(EnumTokenClaimsKey.AUTHORIZATION_DETAILS.getKeyValue(), authorizationDetails);
+    return claims;
+  }
+
+  Map<String, Object> createPoppClaims(final PoppTokenGenerationRecord tokenRecord) {
+    final var claims = new HashMap<String, Object>();
+    claims.put(EnumTokenClaimsKey.VERSION.getKeyValue(), version);
+    claims.put(EnumTokenClaimsKey.ISSUER.getKeyValue(), issuer);
+    claims.put(EnumTokenClaimsKey.IAT.getKeyValue(), Instant.now().getEpochSecond());
+    claims.put(EnumTokenClaimsKey.PROOF_METHOD.getKeyValue(), tokenRecord.getProofMethod());
+    claims.put(
+        EnumTokenClaimsKey.PATIENT_PROOF_TIME.getKeyValue(),
+        tokenRecord.getTimestamp().getEpochSecond());
+    claims.put(EnumTokenClaimsKey.PATIENT_ID.getKeyValue(), tokenRecord.getPatientId());
+    claims.put(EnumTokenClaimsKey.INSURER_ID.getKeyValue(), tokenRecord.getInsurerId());
+    claims.put(EnumTokenClaimsKey.ACTOR_ID.getKeyValue(), tokenRecord.getActorId());
+    claims.put(EnumTokenClaimsKey.ACTOR_PROFESSION_OID.getKeyValue(), actorProfessionOid);
     claims.put(EnumTokenClaimsKey.AUTHORIZATION_DETAILS.getKeyValue(), authorizationDetails);
     return claims;
   }

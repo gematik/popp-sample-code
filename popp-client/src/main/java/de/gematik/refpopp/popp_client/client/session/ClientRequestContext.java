@@ -25,14 +25,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Request-scoped state for a single (potentially parallel) token request, keyed by {@code
- * clientSessionId}.
+ * Protocol state for a single token request, keyed by {@code clientSessionId}.
  *
- * <p>Previously this state lived in a single attribute map shared by the whole WebSocket connection
- * ({@code CommunicationSslSession}). That made it impossible to process multiple token requests
- * over the same connection concurrently, because the flags of one request would overwrite those of
- * another. By moving the state into a per-{@code clientSessionId} context we can correlate every
- * incoming server message to its own request state.
+ * <p>The {@link CommunicationSessionRegistry} owns this context together with the request's token
+ * future, connection, and optional virtual-card resources. The context is retained for the lifetime
+ * of the request, keeping its flags separate from connection-wide state. Requests over the shared
+ * WebSocket connection are still processed sequentially.
  */
 @Getter
 @Setter

@@ -23,9 +23,11 @@ package de.gematik.refpopp.popp_server.controller;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(name = "ErrorResponse")
+@Schema(name = "ErrorSchema")
 public record ErrorResponse(
-    @JsonProperty("errorCode") @Schema(example = "internalError") String code,
+    @JsonProperty("errorCode")
+        @Schema(example = "internalError", requiredMode = Schema.RequiredMode.REQUIRED)
+        String code,
     @JsonProperty("errorDetail") @Schema(example = "Failed to create federation entity statement")
         String message) {
   public static ErrorResponse of(String code, String message) {

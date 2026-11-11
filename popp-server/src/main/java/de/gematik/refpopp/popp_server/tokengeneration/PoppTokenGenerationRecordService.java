@@ -62,10 +62,10 @@ public class PoppTokenGenerationRecordService {
    * @param actorId the actor's Telematik ID
    * @param workplaceId the workplace identifier
    * @param clientId the identifier of the requesting client
-   * @return the existing or newly persisted pending message
+   * @return the pending message and whether it was newly persisted
    */
   @Transactional
-  public PoppMessageRecord create(
+  public PoppRecordCreationResult create(
       final String patientId,
       final String insurerId,
       final String actorId,
@@ -75,7 +75,7 @@ public class PoppTokenGenerationRecordService {
     final var pendingMessage =
         poppRecordRepository.findMessage(patientId, actorId, PoppTokenGenerationStatus.PENDING);
     if (pendingMessage.isPresent()) {
-      return pendingMessage.get();
+      return new PoppRecordCreationResult(pendingMessage.get(), false);
     }
 
     final var messageId = UUID.randomUUID();
@@ -86,7 +86,21 @@ public class PoppTokenGenerationRecordService {
         new PoppTokenGenerationRecord(
             persistedMessage.getId(), patientId, insurerId, actorId, workplaceId, createdAt);
     poppRecordRepository.save(poppRecord);
-    return persistedMessage;
+    return new PoppRecordCreationResult(persistedMessage, true);
+  }
+
+  /**
+   * Reads the stored status message independently of the associated PoPP data record.
+   *
+   * @param messageId the message record identifier
+   * @return the existing message record without changing its status
+   * @throws PoppTokenGenerationRecordNotFoundException if no message exists for the identifier
+   */
+  @Transactional(readOnly = true)
+  public PoppMessageRecord readStatus(final UUID messageId) {
+    return messageRepository
+        .findById(messageId)
+        .orElseThrow(() -> new PoppTokenGenerationRecordNotFoundException(messageId));
   }
 
   /**

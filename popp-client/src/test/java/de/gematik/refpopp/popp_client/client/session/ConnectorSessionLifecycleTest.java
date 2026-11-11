@@ -23,21 +23,30 @@ package de.gematik.refpopp.popp_client.client.session;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import de.gematik.poppcommons.api.enums.CardConnectionType;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
+import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle.ConnectorSession;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.ws.soap.client.SoapFaultClientException;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,77 +70,189 @@ class ConnectorSessionLifecycleTest {
 
     final var result = sut.startSession("kvnr");
 
-    assertThat(result).isEqualTo("session-id");
+    assertThat(result.getSessionId()).isEqualTo("session-id");
     verify(connectorCommunicationServiceWrapper).getConnectedEgkCard("kvnr");
     verify(connectorCommunicationServiceWrapper).startCardSession("card-handle");
+    verify(connectorCommunicationServiceWrapper, never()).stopCardSession("session-id");
+    result.close();
   }
 
   @Test
-  void stopSessionIfRequiredDoesNothingForNonConnectorSession() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACT_STANDARD);
+  void failedCardLookupDoesNotStopSession() {
+    final var failure = new IllegalStateException("card lookup failed");
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard("kvnr")).thenThrow(failure);
 
-    assertThatCode(() -> sut.stopSessionIfRequired(context)).doesNotThrowAnyException();
+    assertThatThrownBy(() -> sut.startSession("kvnr")).isSameAs(failure);
 
-    verifyNoInteractions(connectorCommunicationServiceWrapper);
+    verify(connectorCommunicationServiceWrapper, never()).startCardSession(any());
+    verify(connectorCommunicationServiceWrapper, never()).stopCardSession(any());
   }
 
   @Test
-  void stopSessionIfRequiredStopsConnectorSession() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+  void failedSessionStartDoesNotStopSession() {
+    final var failure = new IllegalStateException("session start failed");
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard("kvnr"))
+        .thenReturn("card-handle");
+    when(connectorCommunicationServiceWrapper.startCardSession("card-handle")).thenThrow(failure);
 
-    sut.stopSessionIfRequired(context);
+    assertThatThrownBy(() -> sut.startSession("kvnr")).isSameAs(failure);
+
+    verify(connectorCommunicationServiceWrapper, never()).stopCardSession(any());
+  }
+
+  @Test
+  void closeStopsSessionOnlyOnce() {
+    final var session = startSession();
+
+    session.close();
+    session.close();
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
   }
 
   @Test
-  void stopSessionIfRequiredStopsContactlessConnectorSession() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACTLESS_CONNECTOR);
-
-    sut.stopSessionIfRequired(context);
+  void concurrentCloseStopsSessionOnlyOnce() throws Exception {
+    final var session = startSession();
+    final var start = new CountDownLatch(1);
+    try (final var executor = Executors.newFixedThreadPool(2)) {
+      final var first =
+          executor.submit(
+              () -> {
+                assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                session.close();
+                return null;
+              });
+      final var second =
+          executor.submit(
+              () -> {
+                assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                session.close();
+                return null;
+              });
+      start.countDown();
+      first.get(5, TimeUnit.SECONDS);
+      second.get(5, TimeUnit.SECONDS);
+    }
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
   }
 
   @Test
-  void stopSessionIfRequiredIgnoresCancellationException() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+  void closeIgnoresCancellationException() {
+    final var session = startSession();
     doThrow(new CancellationException("cancelled"))
         .when(connectorCommunicationServiceWrapper)
         .stopCardSession("session-id");
 
-    assertThatCode(() -> sut.stopSessionIfRequired(context)).doesNotThrowAnyException();
+    assertThatCode(session::close).doesNotThrowAnyException();
+    session.close();
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
   }
 
   @Test
-  void stopSessionIfRequiredIgnoresUnknownSessionSoapFault() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+  void closeIgnoresUnknownSessionSoapFault() {
+    final var session = startSession();
     final SoapFaultClientException exception = mock(SoapFaultClientException.class);
     when(exception.getFaultStringOrReason()).thenReturn("Unbekannte Session ID");
     doThrow(exception).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
 
-    assertThatCode(() -> sut.stopSessionIfRequired(context)).doesNotThrowAnyException();
+    assertThatCode(session::close).doesNotThrowAnyException();
+    session.close();
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
   }
 
   @Test
-  void stopSessionIfRequiredRethrowsUnexpectedSoapFault() {
-    final var context = new ClientRequestContext("session-id");
-    context.setCardConnectionType(CardConnectionType.CONTACT_CONNECTOR);
+  void closeRethrowsUnexpectedSoapFaultWithoutRetrying() {
+    final var session = startSession();
     final SoapFaultClientException exception = mock(SoapFaultClientException.class);
     when(exception.getFaultStringOrReason()).thenReturn("Some other fault");
     doThrow(exception).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
 
-    assertThatThrownBy(() -> sut.stopSessionIfRequired(context)).isSameAs(exception);
+    assertThatThrownBy(session::close).isSameAs(exception);
+    session.close();
 
     verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
+  }
+
+  @Test
+  void closeRethrowsSoapFaultWithoutReason() {
+    final var session = startSession();
+    final var exception = mock(SoapFaultClientException.class);
+    doThrow(exception).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
+
+    assertThatThrownBy(session::close).isSameAs(exception);
+  }
+
+  @Test
+  void closeLogsUnexpectedFailureWithSessionIdAndCause() {
+    final var session = startSession();
+    final var failure = new IllegalStateException("connector unavailable");
+    doThrow(failure).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
+    final var logger = (Logger) LoggerFactory.getLogger(ConnectorSessionLifecycle.class);
+    final var appender = new ListAppender<ILoggingEvent>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      assertThatThrownBy(session::close).isSameAs(failure);
+
+      assertThat(appender.list)
+          .anySatisfy(
+              event -> {
+                assertThat(event.getFormattedMessage()).contains("session-id");
+                assertThat(event.getThrowableProxy().getMessage())
+                    .isEqualTo("connector unavailable");
+              });
+    } finally {
+      logger.detachAppender(appender);
+      appender.stop();
+    }
+  }
+
+  @Test
+  void closeAllowsConnectorCallOnInterruptedThreadAndRestoresInterruptFlag() {
+    final var session = startSession();
+    doAnswer(
+            invocation -> {
+              assertThat(Thread.currentThread().isInterrupted()).isFalse();
+              return null;
+            })
+        .when(connectorCommunicationServiceWrapper)
+        .stopCardSession("session-id");
+    try {
+      Thread.currentThread().interrupt();
+
+      session.close();
+
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+      verify(connectorCommunicationServiceWrapper).stopCardSession("session-id");
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void closeRestoresInterruptFlagEvenWhenCleanupFails() {
+    final var session = startSession();
+    final var failure = new IllegalStateException("cleanup failed");
+    doThrow(failure).when(connectorCommunicationServiceWrapper).stopCardSession("session-id");
+    try {
+      Thread.currentThread().interrupt();
+
+      assertThatThrownBy(session::close).isSameAs(failure);
+
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  private ConnectorSession startSession() {
+    when(connectorCommunicationServiceWrapper.getConnectedEgkCard("kvnr"))
+        .thenReturn("card-handle");
+    when(connectorCommunicationServiceWrapper.startCardSession("card-handle"))
+        .thenReturn("session-id");
+    return sut.startSession("kvnr");
   }
 }

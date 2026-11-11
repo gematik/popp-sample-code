@@ -35,7 +35,7 @@ card-reader:
   name: "REINER SCT"
 
 virtual-card:
-  image-file: "IMG_eGK_G21_TU_root6 1.xml"
+  image-file: "EGK_80276883110000179858_gema5_popp.xml"
 
 popp-client:
   static-qr:

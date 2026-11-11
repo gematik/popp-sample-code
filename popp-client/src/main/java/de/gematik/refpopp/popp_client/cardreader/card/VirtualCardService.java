@@ -29,7 +29,6 @@ import de.gematik.openhealth.crypto.Openhealth_cryptoKt;
 import de.gematik.openhealth.healthcard.HealthCardCommand;
 import de.gematik.poppcommons.api.messages.ScenarioStep;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import javax.smartcardio.CommandAPDU;
@@ -72,10 +71,6 @@ public class VirtualCardService {
       HexFormat.of()
           .parseHex(
               "048F3EED7A9475CCC776CDC2D748D4B1A217FED1335132572202FBFA5D1F12351B443B32408B22461F369620102BE4F922D1AC6B4D174AC12B0FB30276CBF0E24E");
-  private static final BigInteger BRAINPOOL_P256R1_ORDER =
-      new BigInteger("A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7", 16);
-  private static final int BRAINPOOL_P256R1_COORDINATE_LENGTH = 32;
-  private static final int MAX_ECDSA_SIGNING_ATTEMPTS = 64;
 
   public static final String APDU_RESPONSE_OK = "9000";
 
@@ -138,25 +133,48 @@ public class VirtualCardService {
   private final VirtualCardImageData cardData;
   private final byte[] poppServiceEndEntityPublicKey;
   private final ApduMatcher apduMatcher;
+  private final CvcSigner cvcSigner;
+  private final long responseDelayMs;
 
   @Autowired
   public VirtualCardService(
       @Value("${virtual-card.image-file:}") String imageFile,
       final VirtualCardImageLoader imageLoader,
-      final ApduMatcher apduMatcher) {
+      final ApduMatcher apduMatcher,
+      final CvcSigner cvcSigner,
+      @Value("${virtual-card.response-delay-ms:0}") final long responseDelayMs) {
+    if (responseDelayMs < 0) {
+      throw new IllegalArgumentException("virtual-card.response-delay-ms must not be negative");
+    }
+    this.responseDelayMs = responseDelayMs;
     this.cardData = loadCardData(imageFile, imageLoader);
     this.poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey(this.cardData);
     this.apduMatcher = apduMatcher;
+    this.cvcSigner = cvcSigner;
   }
 
   VirtualCardService(final String imageFile) {
-    this(imageFile, new VirtualCardImageLoader(), new ApduMatcher());
+    this(
+        imageFile,
+        new VirtualCardImageLoader(),
+        new ApduMatcher(),
+        new BrainpoolP256r1CvcSigner(),
+        0);
   }
 
   VirtualCardService(final VirtualCardImageData cardData, final ApduMatcher apduMatcher) {
+    this(cardData, apduMatcher, new BrainpoolP256r1CvcSigner());
+  }
+
+  VirtualCardService(
+      final VirtualCardImageData cardData,
+      final ApduMatcher apduMatcher,
+      final CvcSigner cvcSigner) {
     this.cardData = cardData == null ? EMPTY_CARD_DATA : cardData;
     this.poppServiceEndEntityPublicKey = loadPoppServiceEndEntityPublicKey(this.cardData);
     this.apduMatcher = apduMatcher;
+    this.cvcSigner = cvcSigner;
+    this.responseDelayMs = 0;
   }
 
   private static VirtualCardImageData loadCardData(
@@ -200,8 +218,21 @@ public class VirtualCardService {
     final var responses = new ArrayList<String>();
     for (final var step : scenarioStep) {
       responses.add(process(step, sessionState));
+      delayResponse();
     }
     return responses;
+  }
+
+  private void delayResponse() {
+    if (responseDelayMs == 0) {
+      return;
+    }
+    try {
+      Thread.sleep(responseDelayMs);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Virtual card response delay interrupted", e);
+    }
   }
 
   private String process(
@@ -292,80 +323,7 @@ public class VirtualCardService {
     }
     final var commandApdu = new CommandAPDU(HexFormat.of().parseHex(normalizedCommandApdu));
     final byte[] tau = VirtualCardPureHelper.concatenate(commandApdu.getData(), new byte[1]);
-    return VirtualCardPureHelper.toHex(signBrainpoolP256r1EcdsaValue(tau));
-  }
-
-  private byte[] signBrainpoolP256r1EcdsaValue(final byte[] value) {
-    final byte[] egkAuthCvcPrivateKey = cardData.egkAuthCvcPrivateKey();
-    final BigInteger privateKey = toPositiveInteger(egkAuthCvcPrivateKey);
-    if (privateKey.signum() == 0 || privateKey.compareTo(BRAINPOOL_P256R1_ORDER) >= 0) {
-      throw new IllegalStateException("Invalid CVC private key configured for virtual card.");
-    }
-
-    final BigInteger z = truncateDigest(value);
-    for (int attempt = 0; attempt < MAX_ECDSA_SIGNING_ATTEMPTS; attempt++) {
-      try (final var keyPair = Openhealth_cryptoKt.generateBrainpoolP256r1KeyPair()) {
-        final var signature =
-            tryCreateSignature(privateKey, z, keyPair.privateKey(), keyPair.publicKey());
-        if (signature.isPresent()) {
-          return signature.get();
-        }
-      } catch (final CryptoException e) {
-        throw new IllegalStateException("Failed to sign CVC authentication challenge", e);
-      }
-    }
-    throw new IllegalStateException("Failed to create a valid CVC ECDSA signature.");
-  }
-
-  private Optional<byte[]> tryCreateSignature(
-      final BigInteger privateKey,
-      final BigInteger z,
-      final byte[] ephemeralPrivateKey,
-      final byte[] ephemeralPublicKey) {
-    final BigInteger k = toPositiveInteger(ephemeralPrivateKey);
-    if (!isValidScalar(k)) {
-      return Optional.empty();
-    }
-
-    final BigInteger r = extractSignatureR(ephemeralPublicKey);
-    if (r.signum() == 0) {
-      return Optional.empty();
-    }
-
-    final BigInteger s =
-        k.modInverse(BRAINPOOL_P256R1_ORDER)
-            .multiply(z.add(r.multiply(privateKey)))
-            .mod(BRAINPOOL_P256R1_ORDER);
-    if (s.signum() == 0) {
-      return Optional.empty();
-    }
-    return Optional.of(
-        VirtualCardPureHelper.concatenate(
-            VirtualCardPureHelper.toFixedLength(r, BRAINPOOL_P256R1_COORDINATE_LENGTH),
-            VirtualCardPureHelper.toFixedLength(s, BRAINPOOL_P256R1_COORDINATE_LENGTH)));
-  }
-
-  private static boolean isValidScalar(final BigInteger value) {
-    return value.signum() != 0 && value.compareTo(BRAINPOOL_P256R1_ORDER) < 0;
-  }
-
-  private static BigInteger extractSignatureR(final byte[] publicKey) {
-    return toPositiveInteger(
-            Arrays.copyOfRange(publicKey, 1, 1 + BRAINPOOL_P256R1_COORDINATE_LENGTH))
-        .mod(BRAINPOOL_P256R1_ORDER);
-  }
-
-  private static BigInteger truncateDigest(final byte[] value) {
-    var digest = toPositiveInteger(value);
-    final int excessBits = digest.bitLength() - BRAINPOOL_P256R1_ORDER.bitLength();
-    if (excessBits > 0) {
-      digest = digest.shiftRight(excessBits);
-    }
-    return digest;
-  }
-
-  private static BigInteger toPositiveInteger(final byte[] value) {
-    return new BigInteger(1, value);
+    return VirtualCardPureHelper.toHex(cvcSigner.sign(egkAuthCvcPrivateKey, tau));
   }
 
   private void initializeSecureMessagingSession(

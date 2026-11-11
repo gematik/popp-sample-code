@@ -1,9 +1,41 @@
 # PoPP Sample Implementation
+## Implementation Scope
+
+This repository contains one single example implementation with two development stages.
+
+### Stage 1 - Released Specification (v1.1.0)
+
+Stage 1 implements the released PoPP Service specification and provides a stable, specification-conformant feature set.
+
+Implemented functionality:
+
+- Import of certificate hash data into the eGK hash database (`I_PoPP_EHC_CertHash_Import`)
+- PoPP token generation using an eGK for physical presence at or outside a LEI (`UC_PoPP_1a`, `UC_PoPP_2a`, `I_PoPP_Token_Generation`)
+
+Future changes are limited to bug fixes and minor improvements.
+
+Specification:
+- https://gemspec.gematik.de/docs/gemSpec/gemSpec_PoPP_Service/gemSpec_PoPP_Service_V1.1.0/
+
+### Stage 2 - Draft Specification
+
+Stage 2 extends the same codebase with functionality based on draft specifications:
+
+- Mobile Check-In from a patient's mobile device (`I_PoPP_Service_mobileCheckIn`)
+- PoPP token generation following a Mobile Check-In (`I_PoPP_Service_mobile_Token_Generation`)
+
+This stage is developed in parallel with specification development to validate, improve, and harden upcoming specification content while providing an early implementation example.
+
+Stage 2 functionality is subject to change until the corresponding specification is officially released. Its development does not affect the specification-conformant behavior of Stage 1.
+
+Draft specification:
+- https://gemspec.gematik.de/prereleases/Draft_PoPP2_26_2/
 
 ## Overview
 
 This project provides a sample implementation of the PoPP-Service and
 PoPP-Client according to [gemSpec_PoPP_Service](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2).
+
 The [eGK-Hash-Datenbank](https://gemspec.gematik.de/prereleases/Draft_PoPP_25_1/gemSpec_PoPP_Service_V1.0.0_CC2/#6.2.1.9) is implemented as PostgresSQL database.
 
 - Supported startup modes:
@@ -255,6 +287,11 @@ connector:
     ct-slot: "2"
 ```
 
+The environment variable `CONNECTOR_LOG_WS` overrides `connector.log-ws`. When set to `true`, it enables
+`TRACE` logging of sent and received SOAP messages for communication with the Konnektor. The default is
+`false` if the property is not configured; the `dev` and `dev-local` profiles explicitly set it to `true`.
+Set `CONNECTOR_LOG_WS=false` to override these profiles and disable this logging behavior.
+
 **Supported Konnektor functions**
 
 - `StartCardSession` - see [StardCardSession in gemSpec_Kon](https://gemspec.gematik.de/docs/gemSpec/gemSpec_Kon/latest/#4.1.5.5.7)
@@ -287,6 +324,34 @@ curl -H 'Content-Type: application/json' \
 
 If you don't specify a new card image in the request, it will automatically use the one in the application*.yaml.
 If you specify a new card image, it will overwrite the one in the application*.yaml.
+
+**Simulating slow card communication**
+
+To add an artificial response delay to the virtual card, configure the optional
+`virtual-card.response-delay-ms` property in the client's `application*.yaml`:
+
+```yaml
+virtual-card:
+  response-delay-ms: ${VIRTUAL_CARD_RESPONSE_DELAY_MS:0}
+```
+
+The value is a non-negative integer in milliseconds. Omitting the property or setting it to `0`
+disables the artificial delay; negative or invalid values cause application startup to fail.
+The base `application.yaml` supplies this default for all profiles. Override it in a profile
+configuration or set `VIRTUAL_CARD_RESPONSE_DELAY_MS`, for example to `1000` for one second.
+
+The delay is applied after **each command APDU**, not once per scenario or token request.
+For example, four APDUs with a delay of `1000` add four seconds to the scenario's processing time.
+The client sends the collected responses only after all APDUs and their delays have completed.
+The setting applies to both contact and contactless virtual cards, including images selected
+in a token request. Physical cards and connector communication are unaffected.
+An interrupted delay aborts processing instead of continuing with the remaining APDUs.
+
+For reproducing a premature server timeout around three seconds despite a scenario's
+`timeSpan` of `10000` ms, choose the delay according to the number of APDUs so that the total
+scenario response time, including normal processing, is above three but below ten seconds.
+The separate client timeout `popp-client.token-wait-timeout-seconds` defaults to `30` seconds
+and is not changed automatically. This setting does not delay the initial `StartMessage`.
 
 #### d) VZD search
 
@@ -619,6 +684,163 @@ curl -X POST http://localhost:8081/token \
 To view the generated PoPP-Token, check the console output of the client. 
 
 For PoPP-Token claims see [api-popp](https://github.com/gematik/api-popp/blob/main/src/openapi/I_PoPP_Token_Generation.yaml).
+
+## Create an online check-in
+
+The PoPP-Server accepts mobile check-ins through ZETA:
+
+```text
+POST http://localhost:8443/popp/patient/api/v1/mobile/checkin
+```
+
+Send a JSON body with the healthcare institution's `telematikId` and, optionally, a
+`workplaceId` (1 to 64 characters, excluding `/`, `:`, `*`, `?`, `"`, `<`, `>` and `|`):
+
+```json
+{
+  "telematikId": "1-SMC-B-Testkarte--883110000168757",
+  "workplaceId": "Arbeitsplatz 1"
+}
+```
+
+The client supplies `x-useragent` in the format `<client ID>/<version>`. After user
+authorization, the trusted ZETA Guard injects the required `x-kvnr` and `x-iknr` headers;
+the mobile client must not set them. The PoPP-Server stores these values with the check-in
+record without querying the FHIR VZD or generating a PoPP token.
+
+A newly created record returns `201 Created`; if a `pending` record already exists for
+the same KVNR and Telematik-ID, it is reused and returns `200 OK`. Both responses contain
+the current status and the message record's UUID:
+
+```json
+{
+  "state": "pending",
+  "poppStatusRecordId": "237cc7b7-f85e-42c3-981c-ad7f9d97ddca"
+}
+```
+
+Missing or invalid request data returns `400` with `errorCode: "malformedRequest"`;
+server failures return `500` with `errorCode: "internalError"`. The created record can
+subsequently be used by the [token-delivery endpoint](#retrieve-popp-tokens-after-an-online-check-in).
+
+## Retrieve PoPP-Tokens after an online check-in
+
+The PoPP-Server provides a REST endpoint for healthcare practitioner software to retrieve signed
+PoPP-Tokens from previously stored online check-in records. Unlike the PoPP-Client's `/token`
+endpoint above, this endpoint does not initiate communication with an eGK.
+
+```text
+POST http://localhost:8443/popp/practitioner/api/v1/token-deliveries
+```
+
+Send a JSON request body with `Content-Type: application/json` and the required `x-useragent`
+header. The header identifies the client software in the format `<client ID>/<version>`.
+The client ID must contain 1 to 20 letters, digits or hyphens; the version must contain 1 to 15
+letters, digits, hyphens or dots.
+
+| Request field | Required | Description |
+|---|---|---|
+| `telematikId` | Yes | Non-blank Telematik-ID of the healthcare institution. |
+| `workplaceIds` | No | Array of workplace identifiers used to filter the records. Omit the field or use `[]` to include all workplaces. Each identifier must contain 1 to 64 characters and must not contain `/`, `:`, `*`, `?`, `"`, `<`, `>` or `\|`. |
+| `limit` | Yes | Maximum number of tokens to retrieve, as an integer from 1 to 100. |
+
+### Example request and response
+
+```bash
+curl -X POST http://localhost:8443/popp/practitioner/api/v1/token-deliveries \
+  -H "Content-Type: application/json" \
+  -H "x-useragent: CLIENT-1/2.1" \
+  -d '{
+    "telematikId": "1-SMC-B-Testkarte--88311000016875",
+    "workplaceIds": ["Arbeitsplatz 1"],
+    "limit": 1
+  }'
+```
+
+The endpoint selects matching, non-expired records with status `pending`, generates their signed
+JWTs and marks the records as delivered in a database transaction. The response is a JSON object:
+
+```json
+{
+  "popptokens": [
+    {
+      "token": "<signed JWT in compact serialization>",
+      "workplaceId": "Arbeitsplatz 1",
+      "poppStatusRecordId": "237cc7b7-f85e-42c3-981c-ad7f9d97ddca"
+    }
+  ],
+  "hasmore": false
+}
+```
+
+The `token` value above is a placeholder. Each entry contains the signed JWT and the UUID of the
+associated check-in status record. `workplaceId` is omitted if no workplace ID is stored.
+`hasmore` indicates whether additional eligible records remain under the same Telematik-ID and
+workplace filters; further batches can be retrieved with another request.
+
+If matching records exist but none are eligible for delivery, the endpoint returns
+`200 OK` with `{"popptokens":[],"hasmore":false}`. If no matching records exist, it returns `404`.
+Successfully delivered records are no longer selected by subsequent requests. A committed delivery
+is not automatically repeated if the client fails to receive the HTTP response.
+
+| HTTP status | `errorCode` | Meaning |
+|---|---|---|
+| `400 Bad Request` | `malformedRequest` | Missing or invalid header, request body or field value. |
+| `404 Not Found` | `noResource` | No records match the requested Telematik-ID and optional workplace filter. |
+| `500 Internal Server Error` | `internalError` | Token generation or delivery processing failed. |
+
+Error responses are JSON objects with `errorCode` and an optional `errorDetail` string.
+The endpoint is also documented in the PoPP-Server's
+[Swagger UI](http://localhost:8443/swagger-ui.html).
+
+## Read mobile check-in status
+
+The PoPP-Server provides a read-only endpoint for the current status of an existing check-in:
+
+```text
+GET http://localhost:8443/popp/patient/api/v1/mobile/checkin/poppStatusRecordId?statusrequest=<UUID>
+```
+
+The path segment `poppStatusRecordId` is literal. Pass the message record UUID in the required
+`statusrequest` query parameter, not as a path parameter. This operation does not require a request
+body or additional headers.
+
+### Example request and response
+
+Replace the example UUID with the ID of an existing check-in message record:
+
+```bash
+curl --get "http://localhost:8443/popp/patient/api/v1/mobile/checkin/poppStatusRecordId" \
+  --data-urlencode "statusrequest=237cc7b7-f85e-42c3-981c-ad7f9d97ddca"
+```
+
+Example `200 OK` response:
+
+```json
+{
+  "state": "pending",
+  "poppStatusRecordId": "237cc7b7-f85e-42c3-981c-ad7f9d97ddca"
+}
+```
+
+| State | Meaning |
+|---|---|
+| `pending` | The PoPP data record has been created, but the token has not yet been delivered to the healthcare institution. |
+| `success` | The PoPP token has been generated and delivered to the healthcare institution. |
+| `canceled` | The process was aborted, for example because of an error, an expired transmission deadline or rejection by the healthcare institution. |
+
+The query reads the stored status; it does not generate or deliver a token or change the record.
+Status information remains accessible after the associated PoPP data record is removed, as long as
+the message record exists.
+
+| HTTP status | `errorCode` | Meaning |
+|---|---|---|
+| `400 Bad Request` | `malformedRequest` | `statusrequest` is missing or is not a valid UUID. |
+| `404 Not Found` | `noResource` | No message record exists for the requested UUID. |
+| `500 Internal Server Error` | `internalError` | Reading the check-in status failed. |
+
+Error responses contain `errorCode` and may include `errorDetail`. The operation is also documented
+in the PoPP-Server's [Swagger UI](http://localhost:8443/swagger-ui.html).
 
 ## Sequence diagrams
 ### PoPP-Token with Standard-Kartenleser

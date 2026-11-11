@@ -349,6 +349,76 @@ class VzdSearchServiceTest {
   }
 
   @Test
+  void searchByPageUrlForwardsAllowedTelematikIdFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+    when(responseSpecMock.body(FhirBundle.class)).thenReturn(getFhirBundle("T-FILTER"));
+
+    service.searchByPageUrl(
+        "https://evil.example.com/x?organization.identifier="
+            + "https%3A%2F%2Fgematik.de%2Ffhir%2Fsid%2Ftelematik-id%7C1-2arvtst-ap000000&_count=1");
+
+    verify(requestHeadersUriSpecMock)
+        .uri(
+            org.mockito.ArgumentMatchers.<URI>argThat(
+                uri ->
+                    uri != null
+                        && uri.toString().contains("organization.identifier=")
+                        && uri.toString().contains("1-2arvtst-ap000000")
+                        && !uri.toString().contains("evil.example.com")));
+  }
+
+  @Test
+  void searchByPageUrlDropsUnknownParameters() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+    when(responseSpecMock.body(FhirBundle.class)).thenReturn(getFhirBundle("T-DROP"));
+
+    service.searchByPageUrl("https://example.org/x?_count=1&foo=bar&text=Handverkauf");
+
+    verify(requestHeadersUriSpecMock)
+        .uri(
+            org.mockito.ArgumentMatchers.<URI>argThat(
+                uri ->
+                    uri != null
+                        && !uri.toString().contains("foo=bar")
+                        && !uri.toString().contains("text=Handverkauf")));
+  }
+
+  @Test
+  void searchByPageUrlRejectsInvalidIdentifierFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.searchByPageUrl("https://example.org/x?organization.identifier=foo%7Cbar"));
+  }
+
+  @Test
+  void searchByPageUrlForwardsLocationNearFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+    when(responseSpecMock.body(FhirBundle.class)).thenReturn(getFhirBundle("T-LOC"));
+
+    service.searchByPageUrl("https://evil.example.com/x?location.near=52.5%7C13.4%7C10%7Ckm");
+
+    verify(requestHeadersUriSpecMock)
+        .uri(
+            org.mockito.ArgumentMatchers.<URI>argThat(
+                uri ->
+                    uri != null
+                        && uri.toString().contains("location.near=52.5%7C13.4%7C10%7Ckm")
+                        && uri.toString().contains("_sort=location.near")
+                        && !uri.toString().contains("evil.example.com")));
+  }
+
+  @Test
+  void searchByPageUrlRejectsInvalidLocationNearFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.searchByPageUrl("https://example.org/x?location.near=abc"));
+  }
+
+  @Test
   void searchByPageUrlKeepsExistingNextLinkAndDoesNotSynthesizeAnotherOne() {
     // given
     when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
@@ -484,6 +554,71 @@ class VzdSearchServiceTest {
     // then
     assertThat(result.entries()).hasSize(1);
     assertThat(result.nextPageUrl()).isNull();
+  }
+
+  @Test
+  void searchByPageUrlForwardsNearPharmacyStyleFilters() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+    when(responseSpecMock.body(FhirBundle.class)).thenReturn(getFhirBundle("T-NEAR"));
+
+    service.searchByPageUrl(
+        "https://evil.example.com/x?"
+            + "organization.type=offentliche+Apotheke"
+            + "&specialty=courier"
+            + "&specialty=pickup"
+            + "&_sortby=near"
+            + "&endpoint.status=active"
+            + "&_query=nearPharmacy"
+            + "&longitude=7.0"
+            + "&latitude=51.0"
+            + "&distance=10"
+            + "&_text=Handverkauf");
+
+    verify(requestHeadersUriSpecMock)
+        .uri(
+            org.mockito.ArgumentMatchers.<URI>argThat(
+                uri -> {
+                  var s = uri.toString();
+                  return uri != null
+                      && s.contains("organization.type=offentliche")
+                      && s.contains("specialty=courier")
+                      && s.contains("specialty=pickup")
+                      && s.contains("_sortby=near")
+                      && s.contains("endpoint.status=active")
+                      && s.contains("_query=nearPharmacy")
+                      && s.contains("longitude=7.0")
+                      && s.contains("latitude=51.0")
+                      && s.contains("distance=10")
+                      && s.contains("_text=Handverkauf")
+                      && !s.contains("evil.example.com");
+                }));
+  }
+
+  @Test
+  void searchByPageUrlRejectsInvalidQueryTypeFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.searchByPageUrl("https://example.org/x?_query=somethingElse"));
+  }
+
+  @Test
+  void searchByPageUrlRejectsInvalidDistanceFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.searchByPageUrl("https://example.org/x?distance=abc"));
+  }
+
+  @Test
+  void searchByPageUrlRejectsInvalidLongitudeFilter() {
+    when(vzdTokenServiceMock.getAccessToken()).thenReturn("atk");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.searchByPageUrl("https://example.org/x?longitude=abc"));
   }
 
   @Test

@@ -31,11 +31,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Retrieves and parses the connector's service directory.
+ * Liest das Dienstverzeichnis des Konnektors und hält es lokal vor.
  *
- * <p>The factory downloads {@code connector.sds} from the configured connector endpoint and
- * unmarshals it into {@link ConnectorServices}, exposing the service metadata needed for connector
- * SOAP communication.
+ * <p>Umsetzung von TIP1-A_4967 „Cachen von Service-Endpunkten“ (gemILF_PS V2.29.0): „Das
+ * Primärsystem MUSS die Endpunkte der Services, die der Konnektor anbietet, aus dem
+ * Dienstverzeichnisdienst initial unter einem FQDN ermitteln, der im Primärsystem konfiguriert ist,
+ * und die Endpunktinformationen der Dienste lokal cachen. Wenn ein Verbindungsproblem auftritt
+ * (Dienst nicht erreichbar), muss das Primärsystem einen Refresh auf alle Endpunktinformationen des
+ * Dienstverzeichnisdienstes durchführen.“
+ *
+ * <p>{@link #createConnectorServices()} lädt {@code connector.sds} beim ersten Aufruf und liefert
+ * danach den gecachten Stand. {@link #refresh()} lädt das Dienstverzeichnis neu; ein
+ * fehlgeschlagener Refresh leert den Cache, damit der nächste Aufruf es erneut lädt.
  */
 @Component
 @Slf4j
@@ -47,12 +54,32 @@ public class ConnectorServicesFactory {
   @Value("${connector.end-point-url}")
   private String connectorAddress;
 
+  private ConnectorServices cachedConnectorServices;
+
   public ConnectorServicesFactory(final RestTemplate restTemplate, final JAXBContext jaxbContext) {
     this.restTemplate = restTemplate;
     this.jaxbContext = jaxbContext;
   }
 
-  public ConnectorServices createConnectorServices() {
+  /** Liefert das gecachte Dienstverzeichnis und lädt es nur, wenn noch keines vorliegt. */
+  public synchronized ConnectorServices createConnectorServices() {
+    if (cachedConnectorServices == null) {
+      cachedConnectorServices = download();
+    }
+    return cachedConnectorServices;
+  }
+
+  /**
+   * Refresh auf alle Endpunktinformationen nach einem Verbindungsproblem (TIP1-A_4967). Schlägt das
+   * Laden fehl, bleibt der Cache leer und der nächste Aufruf von {@link #createConnectorServices()}
+   * lädt erneut.
+   */
+  public synchronized void refresh() {
+    cachedConnectorServices = null;
+    cachedConnectorServices = download();
+  }
+
+  private ConnectorServices download() {
     final var connectorSdsUrl = connectorAddress + "/connector.sds";
     log.info("Downloading connector.sds from '{}'", connectorSdsUrl);
 

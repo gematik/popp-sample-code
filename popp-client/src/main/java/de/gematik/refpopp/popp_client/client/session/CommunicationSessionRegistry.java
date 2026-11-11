@@ -24,114 +24,120 @@ import de.gematik.poppcommons.api.enums.CardConnectionType;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardService;
 import de.gematik.refpopp.popp_client.cardreader.card.VirtualCardSessionState;
 import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.springframework.stereotype.Component;
 
 /**
  * Maintains session-scoped state for PoPP token requests.
  *
- * <p>The registry correlates token waiters, request contexts, and virtual-card resources by {@code
- * clientSessionId}. It completes or fails the respective token waiter when processing finishes and
- * removes the associated session state afterwards.
+ * <p>Each active {@code clientSessionId} owns one session containing its token waiter, connection,
+ * request context, and optional virtual-card resources. Registry operations synchronize on the
+ * session map. Completion atomically removes the whole session before notifying the waiter, so
+ * callbacks run outside the registry lock and cannot clean up a subsequent request.
+ *
+ * <p>This does not change the sequential processing of requests over the shared WebSocket
+ * connection.
  */
 @Component
 public class CommunicationSessionRegistry {
 
-  private final ConcurrentMap<String, CompletableFuture<String>> tokenQueue =
-      new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, SecureWebSocketClient> tokenConnections =
-      new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, VirtualCardService> virtualCardServicesBySession =
-      new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, VirtualCardSessionState> virtualCardSessionStatesBySession =
-      new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, ClientRequestContext> requestContextsBySession =
-      new ConcurrentHashMap<>();
+  private final Map<String, RequestSession> sessions = new HashMap<>();
 
+  /**
+   * Starts a request. An active session ID cannot be registered again: the existing request remains
+   * unchanged and an {@link IllegalStateException} is thrown. Completed IDs may be reused.
+   */
   public CompletableFuture<String> registerTokenWaiter(final String sessionId) {
-    final var tokenFuture = new CompletableFuture<String>();
-    tokenQueue.put(sessionId, tokenFuture);
-    return tokenFuture;
+    Objects.requireNonNull(sessionId, "sessionId");
+    synchronized (sessions) {
+      if (sessions.containsKey(sessionId)) {
+        throw new IllegalStateException(
+            "Token request already registered for session " + sessionId);
+      }
+      final var session = new RequestSession(sessionId);
+      sessions.put(sessionId, session);
+      return session.tokenFuture;
+    }
   }
 
   /**
-   * Registers (or replaces) the request-scoped context for the given {@code clientSessionId}. The
-   * context isolates the state of a single token request.
+   * Initializes the existing request context without replacing it. The token waiter must be
+   * registered first; updates after completion are rejected rather than recreating session state.
    */
   public ClientRequestContext registerRequestContext(
       final String sessionId, final CardConnectionType cardConnectionType) {
-    final var context = new ClientRequestContext(sessionId);
-    if (cardConnectionType != null && cardConnectionType != CardConnectionType.UNKNOWN) {
-      context.setCardConnectionType(cardConnectionType);
+    synchronized (sessions) {
+      final var context = requireSession(sessionId).context;
+      if (cardConnectionType != null && cardConnectionType != CardConnectionType.UNKNOWN) {
+        context.setCardConnectionType(cardConnectionType);
+      }
+      return context;
     }
-    requestContextsBySession.put(sessionId, context);
-    return context;
   }
 
   public ClientRequestContext getRequestContext(final String sessionId) {
-    if (sessionId == null) {
-      return null;
+    synchronized (sessions) {
+      final var session = sessions.get(sessionId);
+      return session == null ? null : session.context;
     }
-    return requestContextsBySession.get(sessionId);
   }
 
   public void registerVirtualCard(
       final String sessionId, final VirtualCardService virtualCardService) {
-    virtualCardServicesBySession.put(sessionId, virtualCardService);
-    virtualCardSessionStatesBySession.put(sessionId, new VirtualCardSessionState());
+    Objects.requireNonNull(virtualCardService, "virtualCardService");
+    synchronized (sessions) {
+      final var session = requireSession(sessionId);
+      session.virtualCardService = virtualCardService;
+      session.virtualCardSessionState = new VirtualCardSessionState();
+    }
   }
 
   public VirtualCardService getVirtualCardServiceOrDefault(
       final String sessionId, final VirtualCardService defaultVirtualCardService) {
-    return virtualCardServicesBySession.getOrDefault(sessionId, defaultVirtualCardService);
+    synchronized (sessions) {
+      final var session = sessions.get(sessionId);
+      return session == null || session.virtualCardService == null
+          ? defaultVirtualCardService
+          : session.virtualCardService;
+    }
   }
 
   public VirtualCardSessionState getOrCreateVirtualCardSessionState(final String sessionId) {
-    return virtualCardSessionStatesBySession.computeIfAbsent(
-        sessionId, ignored -> new VirtualCardSessionState());
+    synchronized (sessions) {
+      final var session = requireSession(sessionId);
+      if (session.virtualCardSessionState == null) {
+        session.virtualCardSessionState = new VirtualCardSessionState();
+      }
+      return session.virtualCardSessionState;
+    }
   }
 
   public boolean completeToken(final String sessionId, final String token) {
-    if (sessionId == null) {
-      return false;
-    }
-    final var tokenFuture = tokenQueue.remove(sessionId);
-    tokenConnections.remove(sessionId);
-    cleanup(sessionId);
-    if (tokenFuture == null) {
-      return false;
-    }
-    tokenFuture.complete(token);
-    return true;
+    return finishToken(sessionId, session -> true, future -> future.complete(token));
   }
 
   public boolean failToken(final String sessionId, final Throwable throwable) {
-    if (sessionId == null) {
-      return false;
-    }
-    final var tokenFuture = tokenQueue.remove(sessionId);
-    tokenConnections.remove(sessionId);
-    cleanup(sessionId);
-    if (tokenFuture == null) {
-      return false;
-    }
-    tokenFuture.completeExceptionally(throwable);
-    return true;
+    Objects.requireNonNull(throwable, "throwable");
+    return finishToken(
+        sessionId, session -> true, future -> future.completeExceptionally(throwable));
   }
 
   public int failAllPendingTokens(final Throwable throwable) {
+    Objects.requireNonNull(throwable, "throwable");
     int failedTokens = 0;
-    for (final var entry : tokenQueue.entrySet()) {
-      final var sessionId = entry.getKey();
-      final var tokenFuture = entry.getValue();
-      if (tokenQueue.remove(sessionId, tokenFuture)) {
-        tokenConnections.remove(sessionId);
-        cleanup(sessionId);
-        tokenFuture.completeExceptionally(throwable);
+    for (final var session : pendingSessions()) {
+      if (finishToken(
+          session.context.getClientSessionId(),
+          current -> current == session,
+          future -> future.completeExceptionally(throwable))) {
         failedTokens++;
       }
     }
@@ -140,8 +146,10 @@ public class CommunicationSessionRegistry {
 
   public void associatePendingTokenWithConnection(
       final String sessionId, final SecureWebSocketClient client) {
-    if (client != null && tokenQueue.containsKey(sessionId)) {
-      tokenConnections.put(sessionId, client);
+    if (client != null) {
+      synchronized (sessions) {
+        requireSession(sessionId).connection = client;
+      }
     }
   }
 
@@ -149,49 +157,88 @@ public class CommunicationSessionRegistry {
     if (client == null) {
       return Optional.empty();
     }
-    final var pending =
-        tokenConnections.entrySet().stream()
-            .filter(entry -> entry.getValue() == client && tokenQueue.containsKey(entry.getKey()))
-            .map(Map.Entry::getKey)
-            .toList();
-    if (pending.size() > 1) {
-      throw new IllegalStateException(
-          "Multiple token requests pending on one WebSocket connection");
+    synchronized (sessions) {
+      final var pending =
+          sessions.values().stream()
+              .filter(session -> session.connection == client)
+              .map(session -> session.context.getClientSessionId())
+              .toList();
+      if (pending.size() > 1) {
+        throw new IllegalStateException(
+            "Multiple token requests pending on one WebSocket connection");
+      }
+      return pending.stream().findFirst();
     }
-    return pending.stream().findFirst();
   }
 
   public int failPendingTokensForConnection(
       final SecureWebSocketClient client, final Throwable throwable) {
+    Objects.requireNonNull(throwable, "throwable");
     if (client == null) {
       return 0;
     }
     int failedTokens = 0;
-    for (final var entry : tokenConnections.entrySet()) {
-      final var sessionId = entry.getKey();
-      if (entry.getValue() == client) {
-        final var tokenFuture = tokenQueue.remove(sessionId);
-        tokenConnections.remove(sessionId, client);
-        if (tokenFuture != null) {
-          cleanup(sessionId);
-          tokenFuture.completeExceptionally(throwable);
-          failedTokens++;
-        }
+    for (final var session : pendingSessions()) {
+      if (finishToken(
+          session.context.getClientSessionId(),
+          current -> current == session && current.connection == client,
+          future -> future.completeExceptionally(throwable))) {
+        failedTokens++;
       }
     }
     return failedTokens;
   }
 
+  /** Cancels an active request and removes all its state without abandoning its waiter. */
   public void cleanup(final String sessionId) {
-    virtualCardServicesBySession.remove(sessionId);
-    virtualCardSessionStatesBySession.remove(sessionId);
-    requestContextsBySession.remove(sessionId);
+    failToken(sessionId, new CancellationException("Token request cleaned up"));
   }
 
   public boolean hasPendingToken(final String sessionId) {
-    if (sessionId == null) {
-      return false;
+    synchronized (sessions) {
+      return sessions.containsKey(sessionId);
     }
-    return tokenQueue.containsKey(sessionId);
+  }
+
+  private RequestSession requireSession(final String sessionId) {
+    final var session = sessions.get(sessionId);
+    if (session == null) {
+      throw new IllegalStateException("No pending token request for session " + sessionId);
+    }
+    return session;
+  }
+
+  private List<RequestSession> pendingSessions() {
+    synchronized (sessions) {
+      return List.copyOf(sessions.values());
+    }
+  }
+
+  private boolean finishToken(
+      final String sessionId,
+      final Predicate<RequestSession> matches,
+      final Consumer<CompletableFuture<String>> completion) {
+    final RequestSession session;
+    synchronized (sessions) {
+      session = sessions.get(sessionId);
+      if (session == null || !matches.test(session)) {
+        return false;
+      }
+      sessions.remove(sessionId);
+    }
+    completion.accept(session.tokenFuture);
+    return true;
+  }
+
+  private static final class RequestSession {
+    private final CompletableFuture<String> tokenFuture = new CompletableFuture<>();
+    private final ClientRequestContext context;
+    private SecureWebSocketClient connection;
+    private VirtualCardService virtualCardService;
+    private VirtualCardSessionState virtualCardSessionState;
+
+    private RequestSession(final String sessionId) {
+      context = new ClientRequestContext(sessionId);
+    }
   }
 }
