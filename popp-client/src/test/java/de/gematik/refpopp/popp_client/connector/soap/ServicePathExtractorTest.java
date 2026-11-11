@@ -32,6 +32,10 @@ import de.gematik.ws.conn.servicedirectory.ServiceType;
 import de.gematik.ws.conn.servicedirectory.VersionType;
 import de.gematik.ws.conn.servicedirectory.VersionsType;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -299,6 +303,56 @@ class ServicePathExtractorTest {
     // then
     assertThat(result).isNotNull();
     assertThat(result.getPath()).isEqualTo("location");
+    assertThat(result.getVersion()).isEqualTo("1.2");
+    assertThat(versionsType.getVersion()).containsExactly(versionType1, versionType2);
+  }
+
+  @Test
+  void parallelCardServicePathLookupsShouldNotModifyCachedVersions() throws Exception {
+    final var connectorServicesMock = mock(ConnectorServices.class, RETURNS_DEEP_STUBS);
+    when(connectorServicesFactoryMock.createConnectorServices()).thenReturn(connectorServicesMock);
+    final var serviceType = new ServiceType();
+    serviceType.setName("CardService");
+    final var versionsType = new VersionsType();
+    serviceType.setVersions(versionsType);
+    for (final var version : List.of("1.3", "1.1", "1.2")) {
+      final var versionType = new VersionType();
+      versionType.setVersion(version);
+      final var endpointType = new EndpointType();
+      endpointType.setLocation("http://localhost:8080/card/" + version);
+      versionType.setEndpoint(endpointType);
+      versionsType.getVersion().add(versionType);
+    }
+    when(connectorServicesMock.getServiceInformation().getService())
+        .thenReturn(List.of(serviceType));
+    final var originalVersions = List.copyOf(versionsType.getVersion());
+    final var start = new CountDownLatch(1);
+
+    try (final var executor = Executors.newFixedThreadPool(8)) {
+      final var futures =
+          IntStream.range(0, 8)
+              .mapToObj(
+                  ignored ->
+                      executor.submit(
+                          () -> {
+                            if (!start.await(10, TimeUnit.SECONDS)) {
+                              throw new IllegalStateException("Parallel lookups did not start");
+                            }
+                            for (int i = 0; i < 100; i++) {
+                              final var result = sut.getCardServicePath();
+                              assertThat(result.getVersion()).isEqualTo("1.3");
+                              assertThat(result.getPath()).isEqualTo("/card/1.3");
+                            }
+                            return null;
+                          }))
+              .toList();
+      start.countDown();
+      for (final var future : futures) {
+        future.get(10, TimeUnit.SECONDS);
+      }
+    }
+
+    assertThat(versionsType.getVersion()).containsExactlyElementsOf(originalVersions);
   }
 
   @Test

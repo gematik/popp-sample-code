@@ -64,6 +64,8 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>Physical card flows are serialized because they share access to the card reader. All token
  * requests share one WebSocket connection and run sequentially until their token or error arrives.
+ * Connector sessions are owned by the requesting thread and closed before the next request starts,
+ * regardless of how initialization or token retrieval finishes.
  */
 @Component
 @Lazy
@@ -99,9 +101,13 @@ public class CommunicationService {
   }
 
   public String startWithConnector(CardConnectionType connectorType, String patientId) {
-    return startAndAwaitToken(
-        () -> connectorSessionLifecycle.startSession(patientId),
-        sessionId -> executeStart(connectorType, sessionId));
+    return executeTokenFlow(
+        () -> {
+          try (final var session = connectorSessionLifecycle.startSession(patientId)) {
+            return awaitToken(
+                session.getSessionId(), sessionId -> executeStart(connectorType, sessionId));
+          }
+        });
   }
 
   public String startConnectorMock(final String clientSessionId) {
@@ -267,19 +273,26 @@ public class CommunicationService {
 
   private String startAndAwaitToken(
       final Supplier<String> sessionIdSupplier, final Consumer<String> startOperation) {
+    return executeTokenFlow(() -> awaitToken(sessionIdSupplier.get(), startOperation));
+  }
+
+  private String executeTokenFlow(final Supplier<String> tokenFlow) {
     tokenFlowLock.lock();
     try {
-      final var clientSessionId = sessionIdSupplier.get();
-      final var tokenFuture = sessionRegistry.registerTokenWaiter(clientSessionId);
-      try {
-        startOperation.accept(clientSessionId);
-        return waitAndGetToken(tokenFuture);
-      } catch (RuntimeException e) {
-        sessionRegistry.failToken(clientSessionId, e);
-        throw e;
-      }
+      return tokenFlow.get();
     } finally {
       tokenFlowLock.unlock();
+    }
+  }
+
+  private String awaitToken(final String clientSessionId, final Consumer<String> startOperation) {
+    final var tokenFuture = sessionRegistry.registerTokenWaiter(clientSessionId);
+    try {
+      startOperation.accept(clientSessionId);
+      return waitAndGetToken(tokenFuture);
+    } catch (RuntimeException e) {
+      sessionRegistry.failToken(clientSessionId, e);
+      throw e;
     }
   }
 

@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,6 +36,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PoppTokenGenerationRecordRepository
     extends JpaRepository<PoppTokenGenerationRecord, UUID> {
+
+  boolean existsByActorId(String actorId);
+
+  boolean existsByActorIdAndWorkplaceIdIn(String actorId, List<String> workplaceIds);
 
   @Query(
       """
@@ -49,6 +54,76 @@ public interface PoppTokenGenerationRecordRepository
       @Param("patientId") String patientId,
       @Param("actorId") String actorId,
       @Param("status") PoppTokenGenerationStatus status);
+
+  @Query(
+      """
+      SELECT message.id
+      FROM PoppTokenGenerationRecord poppRecord, PoppMessageRecord message
+      WHERE poppRecord.messageId = message.id
+        AND poppRecord.actorId = :actorId
+        AND message.status = :status
+        AND message.expiresAt > :now
+      """)
+  List<UUID> findPendingMessageIdsForActor(
+      @Param("actorId") String actorId,
+      @Param("status") PoppTokenGenerationStatus status,
+      @Param("now") Instant now,
+      Pageable pageable);
+
+  @Query(
+      """
+      SELECT message.id
+      FROM PoppTokenGenerationRecord poppRecord, PoppMessageRecord message
+      WHERE poppRecord.messageId = message.id
+        AND poppRecord.actorId = :actorId
+        AND poppRecord.workplaceId IN :workplaceIds
+        AND message.status = :status
+        AND message.expiresAt > :now
+      """)
+  List<UUID> findPendingMessageIdsForActorAndWorkplaces(
+      @Param("actorId") String actorId,
+      @Param("workplaceIds") List<String> workplaceIds,
+      @Param("status") PoppTokenGenerationStatus status,
+      @Param("now") Instant now,
+      Pageable pageable);
+
+  @Query(
+      value =
+          """
+          SELECT record.*
+          FROM popp_token_generation_records record
+          JOIN popp_message_records message ON message.id = record.message_id
+          WHERE record.actor_id = :actorId
+            AND message.status = 'pending'
+            AND message.expires_at > :now
+          ORDER BY message.created_at, message.id
+          LIMIT :limit
+          FOR UPDATE OF message SKIP LOCKED
+          """,
+      nativeQuery = true)
+  List<PoppTokenGenerationRecord> lockPendingForDelivery(
+      @Param("actorId") String actorId, @Param("now") Instant now, @Param("limit") int limit);
+
+  @Query(
+      value =
+          """
+          SELECT record.*
+          FROM popp_token_generation_records record
+          JOIN popp_message_records message ON message.id = record.message_id
+          WHERE record.actor_id = :actorId
+            AND record.workplace_id IN (:workplaceIds)
+            AND message.status = 'pending'
+            AND message.expires_at > :now
+          ORDER BY message.created_at, message.id
+          LIMIT :limit
+          FOR UPDATE OF message SKIP LOCKED
+          """,
+      nativeQuery = true)
+  List<PoppTokenGenerationRecord> lockPendingForDeliveryAtWorkplaces(
+      @Param("actorId") String actorId,
+      @Param("workplaceIds") List<String> workplaceIds,
+      @Param("now") Instant now,
+      @Param("limit") int limit);
 
   @Query(
       """

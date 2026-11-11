@@ -26,27 +26,127 @@ import de.gematik.refpopp.popp_server.model.PoppMessageRecord;
 import de.gematik.refpopp.popp_server.model.PoppTokenGenerationRecord;
 import de.gematik.refpopp.popp_server.model.PoppTokenGenerationStatus;
 import de.gematik.refpopp.popp_server.scenario.BaseIntegrationTest;
+import de.gematik.refpopp.popp_server.tokengeneration.PendingTokenDeliveryLookupService;
+import de.gematik.refpopp.popp_server.tokengeneration.PoppRecordCreationResult;
 import de.gematik.refpopp.popp_server.tokengeneration.PoppTokenGenerationRecordService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 class PoppRecordRepositoryIT extends BaseIntegrationTest {
 
   @Autowired private PoppMessageRecordRepository messageRepository;
   @Autowired private PoppTokenGenerationRecordRepository poppRecordRepository;
   @Autowired private PoppTokenGenerationRecordService service;
+  @Autowired private PendingTokenDeliveryLookupService lookupService;
+
+  private final Set<UUID> createdIds = ConcurrentHashMap.newKeySet();
+
+  @AfterEach
+  void removeTestRecords() {
+    poppRecordRepository.deleteAllById(createdIds);
+    messageRepository.deleteAllById(createdIds);
+  }
+
+  @Test
+  void detectsOnlyPendingUnexpiredRecordsForActor() {
+    final var createdAt = Instant.now().minus(Duration.ofHours(1));
+    final var first = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    final var second = UUID.fromString("00000000-0000-0000-0000-000000000002");
+    persistRecord(
+        first, "actor-lookup", "workplace-a", createdAt, PoppTokenGenerationStatus.PENDING);
+    persistRecord(
+        second, "actor-lookup", "workplace-b", createdAt, PoppTokenGenerationStatus.PENDING);
+    persistRecord(
+        UUID.randomUUID(),
+        "actor-lookup",
+        "workplace-a",
+        createdAt.minus(Duration.ofHours(73)),
+        PoppTokenGenerationStatus.PENDING);
+    persistRecord(
+        UUID.randomUUID(),
+        "actor-lookup",
+        "workplace-a",
+        createdAt,
+        PoppTokenGenerationStatus.SUCCESS);
+    persistRecord(
+        UUID.randomUUID(),
+        "another-actor",
+        "workplace-a",
+        createdAt,
+        PoppTokenGenerationStatus.PENDING);
+
+    assertThat(lookupService.hasPending("actor-lookup", null)).isTrue();
+    assertThat(lookupService.hasPending("actor-lookup", List.of())).isTrue();
+    service.markTokenDelivered(first);
+    assertThat(lookupService.hasPending("actor-lookup", null)).isTrue();
+    service.markTokenDelivered(second);
+    assertThat(lookupService.hasPending("actor-lookup", null)).isFalse();
+  }
+
+  @Test
+  void filtersByWorkplaceAndReturnsNoResultsForUnknownWorkplaces() {
+    final var createdAt = Instant.now().minus(Duration.ofMinutes(5));
+    persistRecord(
+        UUID.randomUUID(),
+        "actor-workplace-filter",
+        "workplace-b",
+        createdAt,
+        PoppTokenGenerationStatus.PENDING);
+    persistRecord(
+        UUID.randomUUID(),
+        "actor-workplace-filter",
+        "workplace-a",
+        createdAt,
+        PoppTokenGenerationStatus.PENDING);
+    persistRecord(
+        UUID.randomUUID(),
+        "actor-workplace-filter",
+        null,
+        createdAt,
+        PoppTokenGenerationStatus.PENDING);
+
+    assertThat(
+            lookupService.hasPending(
+                "actor-workplace-filter", List.of("workplace-b", "workplace-c")))
+        .isTrue();
+    assertThat(lookupService.hasPending("actor-workplace-filter", List.of("unknown"))).isFalse();
+    assertThat(lookupService.hasPending("actor-workplace-filter-unknown", null)).isFalse();
+  }
+
+  private UUID persistRecord(
+      UUID id,
+      String actorId,
+      String workplaceId,
+      Instant createdAt,
+      PoppTokenGenerationStatus status) {
+    createdIds.add(id);
+    final var message = new PoppMessageRecord(id, "client-id", createdAt);
+    message.setStatus(status);
+    messageRepository.saveAndFlush(message);
+    poppRecordRepository.saveAndFlush(
+        new PoppTokenGenerationRecord(
+            id, "A123456780", "123456789", actorId, workplaceId, createdAt));
+    return id;
+  }
 
   @Test
   void persistsRecordsLinkedBySharedMessageId() {
     final var messageId = UUID.randomUUID();
+    createdIds.add(messageId);
     final var timestamp = Instant.parse("2026-09-22T10:00:00Z");
     final var message = new PoppMessageRecord(messageId, "client-id", timestamp);
     final var persistedMessage = messageRepository.saveAndFlush(message);
@@ -69,8 +169,10 @@ class PoppRecordRepositoryIT extends BaseIntegrationTest {
 
   @Test
   void completionKeepsMessageAndDeletesOnlyPoppRecord() {
-    final var message =
-        service.create("A123456781", "123456789", "actor-completion", "workplace-id", "client-id");
+    final var result = createRecord("A123456781", "actor-completion", "workplace-id", "client-id");
+    final var message = result.message();
+
+    assertThat(result.created()).isTrue();
 
     service.markTokenDelivered(message.getId());
     service.markPushSent(message.getId());
@@ -88,14 +190,15 @@ class PoppRecordRepositoryIT extends BaseIntegrationTest {
 
   @Test
   void createReturnsExistingPendingMessageForPatientAndActor() {
-    final var first = service.create("A123456782", "123456789", "actor-pending", null, "client-id");
+    final var first = createRecord("A123456782", "actor-pending", null, "client-id");
 
     final var second =
-        service.create(
-            "A123456782", "123456789", "actor-pending", "other-workplace", "other-client");
+        createRecord("A123456782", "actor-pending", "other-workplace", "other-client");
 
-    assertThat(second.getId()).isEqualTo(first.getId());
-    assertThat(poppRecordRepository.findById(first.getId()))
+    assertThat(first.created()).isTrue();
+    assertThat(second.created()).isFalse();
+    assertThat(second.message().getId()).isEqualTo(first.message().getId());
+    assertThat(poppRecordRepository.findById(first.message().getId()))
         .get()
         .extracting(PoppTokenGenerationRecord::getWorkplaceId)
         .isNull();
@@ -108,37 +211,47 @@ class PoppRecordRepositoryIT extends BaseIntegrationTest {
     final var start = new CountDownLatch(1);
     final var executor = Executors.newFixedThreadPool(requestCount);
     try {
-      final var futures = new ArrayList<Future<PoppMessageRecord>>();
+      final var futures = new ArrayList<Future<PoppRecordCreationResult>>();
       for (var request = 0; request < requestCount; request++) {
         futures.add(
             executor.submit(
                 () -> {
                   ready.countDown();
                   start.await();
-                  return service.create(
-                      "A123456784", "123456789", "actor-concurrent", "workplace-id", "client-id");
+                  return createRecord(
+                      "A123456784", "actor-concurrent", "workplace-id", "client-id");
                 }));
       }
       ready.await();
       start.countDown();
 
       final var messageIds = new HashSet<UUID>();
+      var createdCount = 0;
       for (final var future : futures) {
-        messageIds.add(future.get().getId());
+        final var result = future.get();
+        messageIds.add(result.message().getId());
+        if (result.created()) {
+          createdCount++;
+        }
       }
 
       assertThat(messageIds).hasSize(1);
+      assertThat(createdCount).isEqualTo(1);
     } finally {
       executor.shutdownNow();
+      assertThat(executor.awaitTermination(15, TimeUnit.SECONDS)).isTrue();
     }
   }
 
   @Test
+  @Transactional
   void expirationKeepsCanceledMessageAndDeletesOnlyPoppRecord() {
     final var messageId = UUID.randomUUID();
     final var timestamp = Instant.now().minus(Duration.ofHours(73));
     final var completedMessage =
         new PoppMessageRecord(UUID.randomUUID(), "completed-client", timestamp);
+    createdIds.add(messageId);
+    createdIds.add(completedMessage.getId());
     completedMessage.setStatus(PoppTokenGenerationStatus.SUCCESS);
     messageRepository.saveAndFlush(completedMessage);
     messageRepository.saveAndFlush(new PoppMessageRecord(messageId, "client-id", timestamp));
@@ -158,5 +271,14 @@ class PoppRecordRepositoryIT extends BaseIntegrationTest {
         .get()
         .extracting(PoppMessageRecord::getStatus)
         .isEqualTo(PoppTokenGenerationStatus.SUCCESS);
+  }
+
+  private PoppRecordCreationResult createRecord(
+      String patientId, String actorId, String workplaceId, String clientId) {
+    final var result = service.create(patientId, "123456789", actorId, workplaceId, clientId);
+    if (result.created()) {
+      createdIds.add(result.message().getId());
+    }
+    return result;
   }
 }

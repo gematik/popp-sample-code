@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +33,7 @@ import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import java.io.StringReader;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -98,5 +100,58 @@ class ConnectorServicesFactoryTest {
         IllegalStateException.class,
         () -> sut.createConnectorServices(),
         "Failed to load connector.sds from " + url);
+  }
+
+  @Test
+  @DisplayName("TIP1-A_4967: connector.sds wird einmal geladen, danach gilt der lokale Cache")
+  void createConnectorServicesShouldUseCacheAfterFirstDownload() throws JAXBException {
+    final var url = givenConnectorSds();
+
+    final var first = sut.createConnectorServices();
+    final var second = sut.createConnectorServices();
+
+    assertThat(second).isSameAs(first);
+    verify(restTemplateMock, times(1)).getForEntity(url, String.class);
+  }
+
+  @Test
+  @DisplayName("TIP1-A_4967: Refresh lädt alle Endpunktinformationen neu")
+  void refreshShouldDownloadConnectorSdsAgain() throws JAXBException {
+    final var url = givenConnectorSds();
+    final var first = sut.createConnectorServices();
+
+    sut.refresh();
+    final var afterRefresh = sut.createConnectorServices();
+
+    assertThat(afterRefresh).isNotSameAs(first);
+    verify(restTemplateMock, times(2)).getForEntity(url, String.class);
+  }
+
+  @Test
+  @DisplayName("TIP1-A_4967: Schlägt der Refresh fehl, lädt der nächste Aufruf erneut")
+  void failedRefreshShouldClearCache() throws JAXBException {
+    final var url = givenConnectorSds();
+    sut.createConnectorServices();
+    when(restTemplateMock.getForEntity(url, String.class))
+        .thenReturn(ResponseEntity.ok().body(null))
+        .thenReturn(ResponseEntity.ok("<ConnectorServices></ConnectorServices>"));
+
+    assertThrows(IllegalStateException.class, () -> sut.refresh());
+    final var afterFailedRefresh = sut.createConnectorServices();
+
+    assertThat(afterFailedRefresh).isNotNull();
+    verify(restTemplateMock, times(3)).getForEntity(url, String.class);
+  }
+
+  private String givenConnectorSds() throws JAXBException {
+    ReflectionTestUtils.setField(sut, "connectorAddress", "http://localhost:8080");
+    final var url = "http://localhost:8080/connector.sds";
+    when(restTemplateMock.getForEntity(url, String.class))
+        .thenReturn(ResponseEntity.ok("<ConnectorServices></ConnectorServices>"));
+    final var unmarshallerMock = mock(jakarta.xml.bind.Unmarshaller.class);
+    when(jaxbContextMock.createUnmarshaller()).thenReturn(unmarshallerMock);
+    when(unmarshallerMock.unmarshal(any(StringReader.class)))
+        .thenAnswer(invocation -> mock(ConnectorServices.class));
+    return url;
   }
 }

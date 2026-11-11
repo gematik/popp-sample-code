@@ -33,3 +33,4 @@ card-reader:
 
 virtual-card:
   image-file:
+  response-delay-ms: ${VIRTUAL_CARD_RESPONSE_DELAY_MS:0}

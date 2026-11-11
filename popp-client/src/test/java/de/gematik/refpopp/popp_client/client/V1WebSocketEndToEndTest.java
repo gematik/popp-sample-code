@@ -99,6 +99,10 @@ import tools.jackson.databind.ObjectMapper;
  * simulated, so no network, card reader, or external service is required. The scenarios protect
  * request correlation without outer session IDs, sequential connection reuse, error recovery, and
  * concurrency across separate connections.
+ *
+ * <p>Service orchestration is isolated in {@link CommunicationServiceTest}; focused client-side
+ * protocol and request-context interactions are covered by {@link
+ * CommunicationServiceIntegrationTest}.
  */
 class V1WebSocketEndToEndTest {
 
@@ -407,9 +411,7 @@ class V1WebSocketEndToEndTest {
     final var connectorLifecycle = new ConnectorSessionLifecycle(connector);
     final var standard = new StandardScenarioProcessor(card, virtualCard, registry);
     final var connectorProcessor = new ConnectorScenarioProcessor(mapper, connector, standard);
-    final var handler =
-        new PoPPMessageHandler(
-            transport, registry, standard, connectorProcessor, connectorLifecycle);
+    final var handler = new PoPPMessageHandler(transport, registry, standard, connectorProcessor);
     final var service =
         new CommunicationService(
             mapper,

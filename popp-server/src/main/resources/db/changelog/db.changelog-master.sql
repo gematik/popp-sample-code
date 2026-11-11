@@ -97,3 +97,22 @@ CREATE TABLE popp_token_generation_records (
 
 -- changeSet poppserver:10
 CREATE INDEX idx_popp_message_records_expires_at ON popp_message_records (expires_at);
+
+-- changeSet poppserver:11
+INSERT INTO popp_message_records (id, client_id, created_at, expires_at)
+SELECT id, 'CLIENT-1', created_at, created_at + INTERVAL '72 hours'
+FROM (VALUES
+          ('ad969c8e-c84f-4e3f-bcc9-41766bc1b174'::uuid, CURRENT_TIMESTAMP - INTERVAL '10 minutes'),
+          ('bd969c8e-c84f-4e3f-bcc9-41766bc1b174'::uuid, CURRENT_TIMESTAMP - INTERVAL '5 minutes'),
+          ('cd969c8e-c84f-4e3f-bcc9-41766bc1b174'::uuid, CURRENT_TIMESTAMP - INTERVAL '1 minute')
+     ) AS sample(id, created_at);
+
+INSERT INTO popp_token_generation_records
+    (message_id, patient_id, insurer_id, actor_id, workplace_id, timestamp)
+VALUES
+    ('ad969c8e-c84f-4e3f-bcc9-41766bc1b174', 'A123456789', '123456789',
+     '1-SMC-B-Testkarte--88311000016875', 'Arbeitsplatz 1', CURRENT_TIMESTAMP - INTERVAL '10 minutes'),
+    ('bd969c8e-c84f-4e3f-bcc9-41766bc1b174', 'A987654321', '987654321',
+     '1-SMC-B-Testkarte--88311000016875', 'Arbeitsplatz 1', CURRENT_TIMESTAMP - INTERVAL '5 minutes'),
+    ('cd969c8e-c84f-4e3f-bcc9-41766bc1b174', 'B123456789', '123456789',
+     '1-SMC-B-Testkarte--88311000016875', 'Arbeitsplatz 2', CURRENT_TIMESTAMP - INTERVAL '1 minute');

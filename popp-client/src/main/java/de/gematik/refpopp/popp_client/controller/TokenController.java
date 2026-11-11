@@ -101,7 +101,7 @@ public class TokenController {
                                 """
                                 {
                                   "communicationType": "contact-virtual",
-                                  "virtualCard": "IMG_eGK_G21_TU_root6 1.xml"
+                                  "virtualCard": "EGK_80276883110000179858_gema5_popp.xml"
                                 }
                                 """),
                         @ExampleObject(
@@ -110,7 +110,7 @@ public class TokenController {
                                 """
                                 {
                                   "communicationType": "contactless-virtual",
-                                  "virtualCard": "IMG_eGK_G21_TU_root6 1.xml"
+                                  "virtualCard": "EGK_80276883110000179858_gema5_popp.xml"
                                 }
                                 """),
                         @ExampleObject(

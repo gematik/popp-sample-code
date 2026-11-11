@@ -7,7 +7,7 @@
   <parent>
     <groupId>de.gematik.refpopp</groupId>
     <artifactId>popp-example-impl-global</artifactId>
-    <version>2.9.0</version>
+    <version>2.10.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -40,7 +40,7 @@
     <dependency>
       <groupId>com.squareup.okio</groupId>
       <artifactId>okio-jvm</artifactId>
-      <version>3.18.1</version>
+      <version>3.18.2</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -77,7 +77,7 @@
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>3.1.0</version>
+      <version>3.2.0</version>
     </dependency>
     <dependency>
       <groupId>org.java-websocket</groupId>
@@ -103,6 +103,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>de.gematik.refpopp</groupId>
@@ -133,17 +134,17 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
-      <version>1.85.2</version>
+      <version>1.86</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
-      <version>1.85</version>
+      <version>1.86</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bctls-jdk18on</artifactId>
-      <version>1.85</version>
+      <version>1.86.2</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -152,7 +153,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents.client5</groupId>
       <artifactId>httpclient5</artifactId>
-      <version>5.6.4</version>
+      <version>5.6.5</version>
     </dependency>
     <dependency>
       <groupId>com.google.zxing</groupId>
@@ -167,7 +168,7 @@
     <dependency>
       <groupId>com.nimbusds</groupId>
       <artifactId>nimbus-jose-jwt</artifactId>
-      <version>10.9.1</version>
+      <version>10.10</version>
     </dependency>
   </dependencies>
 
@@ -415,7 +416,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.6.2</version>
         <executions>
           <execution>
             <id>add-source</id>
@@ -515,7 +516,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>4.1.0</version>
+        <version>4.2.0</version>
         <executions>
           <execution>
             <id>xjc</id>

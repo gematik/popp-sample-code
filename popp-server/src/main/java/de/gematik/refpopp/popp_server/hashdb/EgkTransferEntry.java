@@ -23,11 +23,10 @@ package de.gematik.refpopp.popp_server.hashdb;
 import de.gematik.refpopp.popp_server.model.EgkEntryState;
 import de.gematik.refpopp.popp_server.scenario.common.provider.CommunicationMode;
 import java.time.LocalDateTime;
-import lombok.Builder;
 import lombok.Value;
 
 @Value
-@Builder(builderClassName = "Builder")
+@lombok.Builder(builderClassName = "Builder")
 public class EgkTransferEntry {
 
   byte[] cvcHash;

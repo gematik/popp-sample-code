@@ -32,19 +32,23 @@ import de.gematik.refpopp.popp_server.vzd.fhir.FhirReference;
 import de.gematik.refpopp.popp_server.vzd.fhir.FhirResource;
 import de.gematik.refpopp.popp_server.vzd.fhir.FhirTelecom;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 /** Searches the VZD directory and maps FHIR search bundles to public search result DTOs. */
 @Service
@@ -65,6 +69,42 @@ public class VzdSearchService {
   private static final String BEARER = "Bearer ";
   private static final String OFFSET = "_offset";
   private static final int MAX_MOBILE_SEARCH_RESULTS = 100;
+  private static final String ORGANIZATION_NAME = "organization.name";
+  private static final String NAME = "name";
+  private static final String TEXT = "_text";
+  private static final String LOCATION_NEAR = "location.near";
+  private static final String SORT = "_sort";
+  private static final String ORGANIZATION_TYPE = "organization.type";
+  private static final String SPECIALTY = "specialty";
+  private static final String SORT_BY = "_sortby";
+  private static final String ENDPOINT_STATUS = "endpoint.status";
+  private static final String QUERY_TYPE = "_query";
+  private static final String LONGITUDE = "longitude";
+  private static final String LATITUDE = "latitude";
+  private static final String DISTANCE = "distance";
+  private static final String NEAR_PHARMACY_QUERY = "nearPharmacy";
+  private static final List<String> ALLOWED_FILTERS =
+      List.of(
+          ORGANIZATION_IDENTIFIER,
+          ORGANIZATION_NAME,
+          NAME,
+          TEXT,
+          LOCATION_NEAR,
+          ORGANIZATION_TYPE,
+          SPECIALTY,
+          SORT_BY,
+          ENDPOINT_STATUS,
+          QUERY_TYPE,
+          LONGITUDE,
+          LATITUDE,
+          DISTANCE);
+  private static final Pattern LOCATION_NEAR_PATTERN =
+      Pattern.compile("-?\\d{1,3}(\\.\\d{1,15})?\\|-?\\d{1,3}(\\.\\d{1,15})?\\|\\d{1,4}\\|km");
+  private static final Pattern TELEMATIK_ID_FILTER_PATTERN =
+      Pattern.compile(Pattern.quote(TELEMATIK_ID_SYSTEM) + "\\|[A-Za-z0-9.\\-]{1,128}");
+  private static final Pattern COORDINATE_PATTERN = Pattern.compile("-?\\d{1,3}(\\.\\d{1,15})?");
+  private static final Pattern DISTANCE_PATTERN = Pattern.compile("\\d{1,4}");
+  private static final int MAX_FILTER_VALUE_LENGTH = 100;
   private final VzdTokenService vzdTokenService;
   private final RestClient restClient;
   private final VzdTokenProperties properties;
@@ -239,6 +279,7 @@ public class VzdSearchService {
       if (offset != null) {
         builder.queryParam(OFFSET, offset);
       }
+      applyAllowedFilters(userParams, builder);
       builder.queryParam(FORMAT, "json");
 
       var safeUri = builder.build().toUri();
@@ -254,6 +295,51 @@ public class VzdSearchService {
     } catch (RestClientException e) {
       throw new VzdSearchException("VZD search by page URL failed for " + url, e);
     }
+  }
+
+  /**
+   * Copies only allow-listed, validated filter parameters from the caller's query to the trusted
+   * builder. The host, path and all other parameters are never taken from the caller.
+   */
+  private void applyAllowedFilters(
+      MultiValueMap<String, String> userParams, UriComponentsBuilder builder) {
+    for (var name : ALLOWED_FILTERS) {
+      var rawValues = userParams.get(name);
+      if (rawValues == null || rawValues.isEmpty()) {
+        continue;
+      }
+      for (var raw : rawValues) {
+        var value = UriUtils.decode(raw, StandardCharsets.UTF_8);
+        if (!isValidFilterValue(name, value)) {
+          throw new IllegalArgumentException("Invalid value for search parameter " + name);
+        }
+        builder.queryParam(name, value);
+      }
+      if (LOCATION_NEAR.equals(name)) {
+        builder.queryParam(SORT, LOCATION_NEAR);
+      }
+    }
+  }
+
+  private static boolean isValidFilterValue(String name, String value) {
+    if (ORGANIZATION_IDENTIFIER.equals(name)) {
+      return TELEMATIK_ID_FILTER_PATTERN.matcher(value).matches();
+    }
+    if (LOCATION_NEAR.equals(name)) {
+      return LOCATION_NEAR_PATTERN.matcher(value).matches();
+    }
+    if (LONGITUDE.equals(name) || LATITUDE.equals(name)) {
+      return COORDINATE_PATTERN.matcher(value).matches();
+    }
+    if (DISTANCE.equals(name)) {
+      return DISTANCE_PATTERN.matcher(value).matches();
+    }
+    if (QUERY_TYPE.equals(name)) {
+      return NEAR_PHARMACY_QUERY.equals(value);
+    }
+    return StringUtils.hasText(value)
+        && value.length() <= MAX_FILTER_VALUE_LENGTH
+        && value.chars().noneMatch(c -> Character.isISOControl(c) || c == '&' || c == '#');
   }
 
   private UriComponentsBuilder createSearchUriBuilder() {

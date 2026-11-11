@@ -21,8 +21,10 @@
 package de.gematik.refpopp.popp_server.scenario.common.token;
 
 import de.gematik.refpopp.popp_server.certificates.CertificateProviderService;
+import de.gematik.refpopp.popp_server.model.PoppTokenGenerationRecord;
 import de.gematik.refpopp.popp_server.scenario.common.x509.X509Data;
 import java.security.interfaces.ECPublicKey;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -55,13 +57,22 @@ public class PoppTokenCreator {
    * @return the signed PoPP token
    */
   public String createPoppToken(final X509Data x509Data, final String sessionId) {
+    return signPoppToken(tokenClaims.createPoppClaims(x509Data, sessionId), sessionId);
+  }
+
+  /** Creates a signed PoPP token from a persisted online check-in record. */
+  public String createPoppToken(final PoppTokenGenerationRecord tokenRecord) {
+    return signPoppToken(
+        tokenClaims.createPoppClaims(tokenRecord), tokenRecord.getMessageId().toString());
+  }
+
+  private String signPoppToken(final Map<String, Object> claims, final String contextId) {
     final var keyStoreData = certificateProviderService.getKeyStoreDataPoppToken();
     final var privateKey = keyStoreData.privateKey();
     final var signerCertificate = keyStoreData.certificate();
     final var publicKey = (ECPublicKey) signerCertificate.getPublicKey();
 
-    final var headers = tokenHeader.createPoppHeader(publicKey, sessionId);
-    final var claims = tokenClaims.createPoppClaims(x509Data, sessionId);
+    final var headers = tokenHeader.createPoppHeader(publicKey, contextId);
 
     return jwtTokenBuilder.buildJwtToken(headers, claims, privateKey);
   }

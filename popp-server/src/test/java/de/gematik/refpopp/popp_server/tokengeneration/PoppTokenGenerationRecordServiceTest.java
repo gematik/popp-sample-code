@@ -27,6 +27,8 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import de.gematik.refpopp.popp_server.model.PoppMessageRecord;
@@ -41,6 +43,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 
 class PoppTokenGenerationRecordServiceTest {
@@ -82,7 +86,8 @@ class PoppTokenGenerationRecordServiceTest {
     verify(creationLockMock).acquire("A123456789", "actor-id");
     final var message = messageCaptor.getValue();
     final var poppRecord = poppRecordCaptor.getValue();
-    assertThat(result).isSameAs(message);
+    assertThat(result.message()).isSameAs(message);
+    assertThat(result.created()).isTrue();
     assertThat(poppRecord.getMessageId()).isEqualTo(message.getId());
     assertThat(message.getClientId()).isEqualTo("client-id");
     assertThat(message.getStatus()).isEqualTo(PoppTokenGenerationStatus.PENDING);
@@ -102,10 +107,43 @@ class PoppTokenGenerationRecordServiceTest {
 
     final var result = sut.create("A123456789", "123456789", "actor-id", null, "client-id");
 
-    assertThat(result).isSameAs(existingMessage);
+    assertThat(result.message()).isSameAs(existingMessage);
+    assertThat(result.created()).isFalse();
     verify(creationLockMock).acquire("A123456789", "actor-id");
     verify(messageRepositoryMock, never()).save(any());
     verify(poppRecordRepositoryMock, never()).save(any());
+  }
+
+  @ParameterizedTest
+  @EnumSource(PoppTokenGenerationStatus.class)
+  void readStatusReturnsStoredMessageWithoutChangingItOrAccessingPoppData(
+      PoppTokenGenerationStatus status) {
+    final var message = createMessage();
+    message.setStatus(status);
+    final var expectedMessage =
+        new PoppMessageRecord(message.getId(), message.getClientId(), message.getCreatedAt());
+    expectedMessage.setStatus(status);
+    when(messageRepositoryMock.findById(message.getId())).thenReturn(Optional.of(message));
+
+    final var result = sut.readStatus(message.getId());
+
+    assertThat(result).isSameAs(message).isEqualTo(expectedMessage);
+    verify(messageRepositoryMock).findById(message.getId());
+    verifyNoMoreInteractions(messageRepositoryMock);
+    verifyNoInteractions(poppRecordRepositoryMock, creationLockMock);
+  }
+
+  @Test
+  void readStatusRejectsUnknownMessageId() {
+    final var messageId = UUID.randomUUID();
+    when(messageRepositoryMock.findById(messageId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> sut.readStatus(messageId))
+        .isInstanceOf(PoppTokenGenerationRecordNotFoundException.class)
+        .hasMessage("PoPP token generation record not found for messageId: " + messageId);
+    verify(messageRepositoryMock).findById(messageId);
+    verifyNoMoreInteractions(messageRepositoryMock);
+    verifyNoInteractions(poppRecordRepositoryMock, creationLockMock);
   }
 
   @Test

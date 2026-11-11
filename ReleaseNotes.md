@@ -5,12 +5,30 @@
 ### Known Issues
 - Standard-Kartenleser with Docker is not supported
 
+## Release 2.10.0
+
+### added
+- Added REST endpoint `POST /popp/patient/api/v1/mobile/checkin` for creating a pending online check-in record
+  from the insured person's identity and the selected Telematik-ID, or reusing an existing pending record.
+  The response contains the check-in status and record ID; no PoPP token is generated at this stage.
+- Added REST endpoint `POST /popp/practitioner/api/v1/token-deliveries` for retrieving signed PoPP tokens from pending online check-ins,
+  with optional workplace filtering and a configurable per-request limit.
+- Added REST endpoint `GET /popp/patient/api/v1/mobile/checkin/poppStatusRecordId?statusrequest=<UUID>`
+  for retrieving the current status of an existing mobile check-in.
+
+### changed
+- Updated ZETA PEP (`ngx_pep`) from 1.3.0 to 1.3.4.
+- Updated ZETA PDP (`keycloak-zeta`) from 1.3.1 to 1.3.3.
+- Updated ZETA JVM SDK from 1.3.0 to 1.3.2.
+- Upgraded the ZETA database from PostgreSQL 16.14 to 17.11-trixie.
+
 ## Release 2.9.0
 
 ### changed
 - Corrected token request handling to conform to the PoPP v1 WebSocket API specification. Token requests are now 
 serialized per WebSocket connection, allowing only one active token request at a time. Concurrent processing remains 
 supported across separate WebSocket connections.
+
 
 ## Release 2.8.0
 

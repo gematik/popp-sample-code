@@ -56,7 +56,7 @@ public record PoppClientRequest(
                 Optional virtual card image.
                 Used for communicationType 'contact-virtual' and 'contactless-virtual' if you want to change the virtual card during runtime.
                 """,
-            example = "IMG_eGK_G21_TU_root6 1.xml",
+            example = "EGK_80276883110000179858_gema5_popp.xml",
             nullable = true)
         String virtualCard,
     @Schema(

@@ -29,7 +29,6 @@ import de.gematik.poppcommons.api.messages.TokenMessage;
 import de.gematik.refpopp.popp_client.client.session.CommunicationSessionRegistry;
 import de.gematik.refpopp.popp_client.client.transport.ClientServerCommunicationService;
 import de.gematik.refpopp.popp_client.client.transport.SecureWebSocketClient;
-import de.gematik.refpopp.popp_client.connector.session.ConnectorSessionLifecycle;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +39,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>Scenario messages are processed through the matching card-flow processor and answered with a
  * {@link ScenarioResponseMessage}. Token and error messages complete or fail the correlated token
- * request in the session registry. Connector sessions are closed when their token flow completes.
+ * request in the session registry. Connector resources are owned and closed by the requesting flow,
+ * not by incoming protocol messages.
  */
 @Component
 @Slf4j
@@ -51,7 +51,6 @@ public class PoPPMessageHandler {
   private final CommunicationSessionRegistry sessionRegistry;
   private final StandardScenarioProcessor standardScenarioProcessor;
   private final ConnectorScenarioProcessor connectorScenarioProcessor;
-  private final ConnectorSessionLifecycle connectorSessionLifecycle;
 
   public void handle(final PoPPMessage poPPMessage) {
     handle(poPPMessage, null);
@@ -137,16 +136,6 @@ public class PoPPMessageHandler {
   private void handleTokenMessage(
       final TokenMessage tokenMessage, final SecureWebSocketClient client) {
     final var clientSessionId = resolveSessionId(null, client);
-
-    final var context = sessionRegistry.getRequestContext(clientSessionId);
-    if (context != null) {
-      try {
-        connectorSessionLifecycle.stopSessionIfRequired(context);
-      } catch (RuntimeException e) {
-        sessionRegistry.failToken(clientSessionId, e);
-        throw e;
-      }
-    }
 
     if (!sessionRegistry.completeToken(clientSessionId, tokenMessage.getToken())) {
       throw new IllegalStateException(

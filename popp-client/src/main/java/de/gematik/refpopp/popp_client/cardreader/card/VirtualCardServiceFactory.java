@@ -20,20 +20,28 @@
 
 package de.gematik.refpopp.popp_client.cardreader.card;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class VirtualCardServiceFactory {
   private final VirtualCardImageLoader imageLoader;
   private final ApduMatcher apduMatcher;
+  private final CvcSigner cvcSigner;
+  private final long responseDelayMs;
 
   public VirtualCardServiceFactory(
-      final VirtualCardImageLoader imageLoader, final ApduMatcher apduMatcher) {
+      final VirtualCardImageLoader imageLoader,
+      final ApduMatcher apduMatcher,
+      final CvcSigner cvcSigner,
+      @Value("${virtual-card.response-delay-ms:0}") final long responseDelayMs) {
     this.imageLoader = imageLoader;
     this.apduMatcher = apduMatcher;
+    this.cvcSigner = cvcSigner;
+    this.responseDelayMs = responseDelayMs;
   }
 
   public VirtualCardService create(final String imageFile) {
-    return new VirtualCardService(imageFile, imageLoader, apduMatcher);
+    return new VirtualCardService(imageFile, imageLoader, apduMatcher, cvcSigner, responseDelayMs);
   }
 }

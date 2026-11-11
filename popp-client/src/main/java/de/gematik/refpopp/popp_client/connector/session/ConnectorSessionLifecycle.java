@@ -20,10 +20,10 @@
 
 package de.gematik.refpopp.popp_client.connector.session;
 
-import de.gematik.poppcommons.api.enums.CardConnectionType;
-import de.gematik.refpopp.popp_client.client.session.ClientRequestContext;
 import de.gematik.refpopp.popp_client.connector.ConnectorCommunicationServiceWrapper;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -32,9 +32,10 @@ import org.springframework.ws.soap.client.SoapFaultClientException;
 /**
  * Manages the lifecycle of connector card sessions for PoPP requests.
  *
- * <p>The component starts a session for the patient's connected eGK and closes it after a
- * connector-based request completes. Already closed or cancelled sessions are handled as normal
- * shutdown conditions.
+ * <p>The caller owns the returned session and closes it with try-with-resources after the complete
+ * token request, including failed initialization, timeout, and interruption. The handle retains the
+ * connector session ID independently of the protocol request context and closes it at most once.
+ * Already closed or cancelled sessions are handled as normal shutdown conditions.
  */
 @Component
 @Slf4j
@@ -43,18 +44,14 @@ public class ConnectorSessionLifecycle {
 
   private final ConnectorCommunicationServiceWrapper connectorCommunicationServiceWrapper;
 
-  public String startSession(final String patientId) {
-    return connectorCommunicationServiceWrapper.startCardSession(
-        connectorCommunicationServiceWrapper.getConnectedEgkCard(patientId));
+  public ConnectorSession startSession(final String patientId) {
+    final var sessionId =
+        connectorCommunicationServiceWrapper.startCardSession(
+            connectorCommunicationServiceWrapper.getConnectedEgkCard(patientId));
+    return new ConnectorSession(sessionId);
   }
 
-  public void stopSessionIfRequired(final ClientRequestContext context) {
-    final var cardConnectionType = context.getCardConnectionType();
-    if (!usesConnectorSession(cardConnectionType)) {
-      return;
-    }
-
-    final var clientSessionId = context.getClientSessionId();
+  private void stopSession(final String clientSessionId) {
     try {
       connectorCommunicationServiceWrapper.stopCardSession(clientSessionId);
     } catch (CancellationException e) {
@@ -73,8 +70,32 @@ public class ConnectorSessionLifecycle {
     }
   }
 
-  private boolean usesConnectorSession(final CardConnectionType cardConnectionType) {
-    return CardConnectionType.CONTACT_CONNECTOR.equals(cardConnectionType)
-        || CardConnectionType.CONTACTLESS_CONNECTOR.equals(cardConnectionType);
+  public final class ConnectorSession implements AutoCloseable {
+
+    @Getter private final String sessionId;
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    private ConnectorSession(final String sessionId) {
+      this.sessionId = sessionId;
+    }
+
+    @Override
+    public void close() {
+      if (!closed.compareAndSet(false, true)) {
+        return;
+      }
+      // Allow the connector call to run even when token waiting was interrupted.
+      final boolean interrupted = Thread.interrupted();
+      try {
+        stopSession(sessionId);
+      } catch (RuntimeException e) {
+        log.error("| Failed to close connector session {}", sessionId, e);
+        throw e;
+      } finally {
+        if (interrupted) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
   }
 }

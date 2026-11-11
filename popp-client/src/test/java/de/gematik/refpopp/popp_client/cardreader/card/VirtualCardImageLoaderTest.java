@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class VirtualCardImageLoaderTest {
 
-  private static final String CARD_IMAGE = "IMG_eGK_G21_TU_root6 1.xml";
+  private static final String CARD_IMAGE = "EGK_80276883110000179858_gema5_popp.xml";
 
   @Test
   void loadFromClasspathParsesExpectedFields() throws Exception {
@@ -49,7 +49,7 @@ class VirtualCardImageLoaderTest {
     assertThat(data.subCaCvCertificate()).isNotBlank().startsWith("7F21");
     assertThat(data.version2()).isNotBlank().startsWith("ef2b");
     assertThat(data.egkAuthCvcPrivateKey()).hasSize(32);
-    assertThat(data.rcaCsKeyIdentifier()).isEqualTo("4445475858870222");
+    assertThat(data.rcaCsKeyIdentifier()).isEqualTo("4445475858890225");
     assertThat(data.rcaAdminCmsCsKeyIdentifier()).isEqualTo("0000000000000013");
   }
 

@@ -135,7 +135,8 @@ public class ServicePathExtractor {
   }
 
   private VersionType getLatestVersion(final List<VersionType> serviceVersions) {
-    serviceVersions.sort(
+    final List<VersionType> sortedVersions = new ArrayList<>(serviceVersions);
+    sortedVersions.sort(
         (l, r) -> {
           final String[] left = l.getVersion().split("\\.");
           final String[] right = r.getVersion().split("\\.");
@@ -148,6 +149,6 @@ public class ServicePathExtractor {
           return 0;
         });
 
-    return serviceVersions.getLast();
+    return sortedVersions.getLast();
   }
 }
